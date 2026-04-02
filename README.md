@@ -8,6 +8,18 @@ It combines:
 - a TypeScript backend for sessions, underwriting, protocol sync, and operator actions
 - Move smart contracts for requests, approvals, repayments, collateral, rewards, staking, governance, campaigns, and merchant rails
 
+## Architecture At A Glance
+
+1. The frontend connects the wallet and submits Move transactions.
+2. The backend authenticates the borrower, computes score output, mirrors product state, and performs operator actions.
+3. The MiniMove rollup executes the protocol logic onchain.
+
+Docs by layer:
+
+- frontend technical docs: [frontend/README.md](./frontend/README.md)
+- backend technical docs: [backend/README.md](./backend/README.md)
+- smart contract technical docs: [smarcontract/README.md](./smarcontract/README.md)
+
 ## What Problem It Solves
 
 Most onchain users can trade and swap, but they still cannot access simple credit for real purchases. Wallet activity and identity signals rarely become usable financing, and merchants do not have a clean pay-later rail on appchains.
@@ -61,12 +73,6 @@ make logs
 4. Analyze borrower profile
 5. Choose a merchant partner and request checkout credit
 6. Approve and repay through the live local rollup flow
-
-## Project Docs
-
-- frontend technical docs: [frontend/README.md](./frontend/README.md)
-- backend technical docs: [backend/README.md](./backend/README.md)
-- smart contract technical docs: [smarcontract/README.md](./smarcontract/README.md)
 
 ## Deployment Evidence
 

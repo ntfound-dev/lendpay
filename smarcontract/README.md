@@ -34,6 +34,50 @@ Core modules:
 - [`staking.move`](./sources/tokenomics/staking.move): staking and staking reward state
 - [`governance.move`](./sources/tokenomics/governance.move): proposal, voting, and finalize flow
 
+## Module Responsibility Map
+
+Key entry and view functions by module:
+
+- `bootstrap::initialize_protocol`
+  Creates the protocol package state and wires config, treasury, rewards, tokenomics, and supporting registries.
+- `config`
+  Admin policy module for pause state, treasury admin, fee policy, reward policy, tier policy, point spending policy, and governance policy.
+- `loan_book`
+  Core borrower lifecycle:
+  `request_loan`, `request_profiled_loan`, `request_collateralized_loan`, `approve_request`, `reject_request`, `cancel_request`, `repay_installment`, `mark_default`.
+- `treasury`
+  Native asset custody and accounting views:
+  `deposit_liquidity`, balances, disbursement totals, repayment totals, collateral totals, and vault addresses.
+- `profiles`
+  Product qualification and collateral quoting:
+  `quote_profile`, `qualifies_for_profile`, `max_principal_for`, `required_collateral_for`.
+- `merchant_registry`
+  Merchant rail management:
+  `register_merchant`, `set_active`, `get_merchant`, `quote_partner_fee`.
+- `reputation`
+  Identity and borrower reputation:
+  `attest_username`, `get_entry`, `has_verified_username`, `platform_actions_of`.
+- `rewards`
+  Borrower incentives and perks:
+  `claim_lend`, `redeem_points_to_claimable_lend`, `spend_points_for_limit_boost`, `spend_points_for_interest_discount`, `unlock_premium_credit_check`, `redeem_exclusive_badge`.
+- `campaigns`
+  Campaign creation and distribution:
+  `create_campaign`, `allocate_claim`, `close_campaign`, `claim_campaign`, `claimable_amount`, `can_claim`.
+- `lend_token`
+  Native LEND controls:
+  `initialize`, `mint_to_protocol_reserve`, `deposit_to_protocol_reserve`, `transfer`, plus balance and supply views.
+- `fee_engine`
+  Fee settlement:
+  `pay_outstanding_fees_in_lend`, `quote_origination_fee`, `quote_late_fee`, `get_fee_state`.
+- `staking`
+  Staking lifecycle:
+  `stake`, `unstake`, `claim_rewards`, `quote_claimable`, `total_staked`.
+- `governance`
+  Onchain governance:
+  `propose`, `vote`, `finalize`, `get_proposal`, `has_user_voted`.
+- `tokenomics`
+  Pure quote helpers for tier, discounts, fee split, burn, allocation, and point conversion.
+
 ## Onchain Flow
 
 The credit lifecycle is:
@@ -53,6 +97,18 @@ The contract also supports:
 - staking and staking rewards
 - governance
 - campaign allocations and claims
+
+## Testing Scope
+
+The local test suite exercises:
+
+- borrower request and approval paths
+- repayment and reward updates
+- fee quoting and fee payment in LEND
+- governance proposal and voting
+- campaign allocation and claim behavior
+- merchant-linked request behavior
+- collateralized request behavior
 
 ## Current Local Rollup
 

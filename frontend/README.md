@@ -14,11 +14,26 @@ Its job is to:
 Main entry points:
 
 - [`src/App.tsx`](./src/App.tsx): page orchestration, borrower state sync, and action handlers
+- [`src/main.tsx`](./src/main.tsx): app bootstrap
 - [`src/lib/api.ts`](./src/lib/api.ts): backend API client
 - [`src/lib/move.ts`](./src/lib/move.ts): Move message builders for onchain transactions
+- [`src/lib/auth.ts`](./src/lib/auth.ts): wallet challenge signing helpers
+- [`src/lib/tx.ts`](./src/lib/tx.ts): tx hash extraction helpers
 - [`src/config/env.ts`](./src/config/env.ts): runtime config mapping from Vite env vars
+- [`src/config/chain.ts`](./src/config/chain.ts): chain definition wiring
 - [`src/components`](./src/components): UI building blocks and page sections
 - [`src/styles`](./src/styles): tokens and layout styling
+
+Folder map:
+
+- `components/layout`: shell, topbar, sidebar, mobile nav
+- `components/ui`: reusable cards, badges, buttons
+- `components/score`: score ring visualization
+- `components/loans`: installment schedule display
+- `components/shared`: identity and activity surfaces
+- `lib`: API, Move tx, auth, formatting, tx helpers
+- `config`: chain and environment config
+- `types`: frontend domain contracts
 
 ## Runtime Flow
 
@@ -29,6 +44,19 @@ Main entry points:
 5. The frontend loads score, requests, loans, rewards, campaigns, governance, and merchant data from the backend.
 6. For onchain actions, the frontend builds `MsgExecute` payloads and submits them through the wallet.
 7. After a transaction, the frontend asks the backend to resync borrower state from the rollup.
+
+## Transaction Surface
+
+The frontend submits wallet-signed Move transactions for:
+
+- checkout credit requests
+- collateralized requests
+- installment repayment
+- claimable LEND
+- point spending
+- staking actions
+- campaign claims
+- governance actions
 
 ## Main Product Surfaces
 
@@ -56,6 +84,15 @@ The repayment surface then explains where funds go:
 - wallet funding state
 - next due amount and due date
 - collateral lock state when applicable
+
+## Data Sources
+
+The UI combines:
+
+- backend session and product state
+- wallet connection state from InterwovenKit
+- onchain transaction submission through wallet signing
+- backend-synced rollup views for loans, rewards, campaigns, merchants, and governance
 
 ## Environment
 
