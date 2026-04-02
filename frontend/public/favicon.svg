@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="lendpay-favicon-gradient" x1="8" x2="56" y1="8" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#58A6FF"/>
+      <stop offset="1" stop-color="#2DD4BF"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="#08111C"/>
+  <path d="M18 16h10v22h18v10H18V16Z" fill="url(#lendpay-favicon-gradient)"/>
+  <path d="M34 16h12L28 34H16L34 16Z" fill="#F5F8FF" opacity=".92"/>
+</svg>

@@ -1,0 +1,13 @@
+[package]
+name = "lendpay"
+version = "0.0.1"
+
+[dependencies]
+InitiaStdlib = { git = "https://github.com/initia-labs/movevm.git", subdir = "precompile/modules/initia_stdlib", rev = "main" }
+
+[addresses]
+std = "0x1"
+lendpay = "_"
+
+[dev-addresses]
+lendpay = "0x42"

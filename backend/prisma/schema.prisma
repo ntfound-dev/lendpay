@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String          @id
+  initiaAddress String          @unique
+  username      String?
+  nativeBalance Int             @default(0)
+  lockedCollateralLend Int      @default(0)
+  points        Int
+  tier          String
+  heldLend      Int
+  liquidLend    Int             @default(0)
+  stakedLend    Int             @default(0)
+  claimableLend Int             @default(0)
+  claimableStakingRewards Int   @default(0)
+  streak        Int
+  creditLimitBoostBps Int       @default(0)
+  interestDiscountBps Int       @default(0)
+  premiumChecksAvailable Int    @default(0)
+  badgeCount    Int             @default(0)
+  createdAt     DateTime
+  updatedAt     DateTime        @updatedAt
+  sessions      Session[]
+  scores        CreditScore[]
+  requests      LoanRequest[]
+  loans         Loan[]
+  activities    Activity[]
+}
+
+model Challenge {
+  id            String   @id
+  initiaAddress String
+  message       String
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+}
+
+model Session {
+  token         String   @id
+  initiaAddress String
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [initiaAddress], references: [initiaAddress], onDelete: Cascade)
+
+  @@index([initiaAddress])
+}
+
+model OracleSnapshot {
+  id            String   @id
+  baseCurrency  String
+  quoteCurrency String
+  price         Float
+  sourcePath    String
+  fetchedAt     DateTime
+  scores        CreditScore[]
+}
+
+model CreditScore {
+  id               String         @id
+  initiaAddress    String
+  score            Int
+  limitUsd         Int
+  risk             String
+  apr              Float
+  provider         String?
+  model            String?
+  summary          String?
+  signalsJson      String?
+  scannedAt        DateTime
+  breakdownJson    String
+  oracleSnapshotId String?
+  user             User           @relation(fields: [initiaAddress], references: [initiaAddress], onDelete: Cascade)
+  oracleSnapshot   OracleSnapshot? @relation(fields: [oracleSnapshotId], references: [id], onDelete: SetNull)
+
+  @@index([initiaAddress, scannedAt])
+}
+
+model LoanRequest {
+  id            String   @id
+  initiaAddress String
+  amount        Float
+  collateralAmount Float @default(0)
+  merchantId    String?
+  merchantCategory String?
+  merchantAddress String?
+  assetSymbol   String
+  tenorMonths   Int
+  submittedAt   DateTime
+  status        String
+  txHash        String?
+  user          User     @relation(fields: [initiaAddress], references: [initiaAddress], onDelete: Cascade)
+  loan          Loan?
+
+  @@index([initiaAddress, submittedAt])
+}
+
+model Loan {
+  id               String   @id
+  initiaAddress    String
+  requestId        String   @unique
+  principal        Float
+  collateralAmount Float    @default(0)
+  merchantId       String?
+  merchantCategory String?
+  merchantAddress  String?
+  collateralStatus String   @default("none")
+  apr              Float
+  tenorMonths      Int
+  installmentsPaid Int
+  status           String
+  scheduleJson     String
+  txHashApprove    String?
+  user             User     @relation(fields: [initiaAddress], references: [initiaAddress], onDelete: Cascade)
+  request          LoanRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([initiaAddress])
+}
+
+model Activity {
+  id            String   @id
+  initiaAddress String
+  kind          String
+  label         String
+  detail        String
+  timestamp     DateTime
+  user          User     @relation(fields: [initiaAddress], references: [initiaAddress], onDelete: Cascade)
+
+  @@index([initiaAddress, timestamp])
+}
+
+model OperatorAction {
+  id           String   @id
+  actorAddress String
+  actionType   String
+  targetType   String
+  targetId     String
+  reason       String
+  txHash       String?
+  status       String
+  createdAt    DateTime
+}

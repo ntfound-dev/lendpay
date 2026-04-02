@@ -1,0 +1,12 @@
+{
+  "data": {
+    "loan_id": "1",
+    "borrower": "0xc477815d2f70cfcde0fa01ca90c22fcc30078e34",
+    "origination_fee_due": "0",
+    "late_fee_due": "0",
+    "total_fees_paid": "4",
+    "total_fees_paid_in_lend": "4"
+  },
+  "events": [],
+  "gas_used": "1838"
+}

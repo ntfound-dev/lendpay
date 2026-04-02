@@ -1,0 +1,29 @@
+{
+  "project_name": "LendPay",
+  "slug": "lendpay",
+  "track": "DeFi",
+  "vm": "MoveVM",
+  "summary": "LendPay is a Move-native credit and installment app on an Initia MiniMove rollup. Users connect with InterwovenKit, resolve their .init identity, request a loan onchain, receive operator approval and disbursement, and repay installments onchain.",
+  "repository_url": "TODO",
+  "demo_video_url": "TODO",
+  "deployment": {
+    "rollup_chain_id": "TODO",
+    "deployment_tx_url": "TODO",
+    "deployment_url": "TODO"
+  },
+  "initia_integration": {
+    "interwovenkit_used": true,
+    "native_features": [
+      "Initia Usernames"
+    ]
+  },
+  "submission_artifacts": {
+    "readme_path": "README.md",
+    "submission_json_path": ".initia/submission.json"
+  },
+  "notes": [
+    "Replace all TODO values before submission.",
+    "At minimum, keep one valid deploy evidence field populated: rollup_chain_id, deployment_tx_url, or deployment_url.",
+    "Initia Usernames is the primary native feature for this submission."
+  ]
+}

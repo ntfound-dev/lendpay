@@ -1,0 +1,34 @@
+{
+  "chain_id": "lendpay-local-1",
+  "rpc_url": "tcp://127.0.0.1:26657",
+  "module_address": "0x52683DF957C5538C0FA362B068804A120E408D2B",
+  "operator": {
+    "address": "init12f5rm72hc4fccrarv2cx3qz2zg8yprftj20fu2",
+    "hex": "0x52683DF957C5538C0FA362B068804A120E408D2B"
+  },
+  "borrower": {
+    "key_name": "Validator",
+    "address": "init1c3mczhf0wr8umc86q89fps30escq0r35a30pvm",
+    "hex": "0xC477815D2F70CFCDE0FA01CA90C22FCC30078E34",
+    "username": "borrower.init"
+  },
+  "loan": {
+    "profile_id": 1,
+    "request_id": 2,
+    "loan_id": 1,
+    "request_amount": 300,
+    "tenor_months": 3,
+    "installment_amount": 100,
+    "installments_total": 3,
+    "apr_bps": 1200,
+    "loan_denom": "umin"
+  },
+  "final_state": {
+    "points": 650,
+    "lend_balance": 1,
+    "staked_lend_balance": 1,
+    "treasury_reward_reserve": 999995,
+    "treasury_liquidity_balance": 500000000,
+    "treasury_total_repaid": 300
+  }
+}

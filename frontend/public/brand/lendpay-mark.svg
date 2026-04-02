@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="lendpay-mark-gradient" x1="96" y1="72" x2="420" y2="440" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9FD2FF" />
+      <stop offset="0.55" stop-color="#58A6FF" />
+      <stop offset="1" stop-color="#2DD4BF" />
+    </linearGradient>
+    <radialGradient id="lendpay-mark-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(392 122) rotate(121.429) scale(286.236)">
+      <stop stop-color="#58A6FF" stop-opacity="0.22" />
+      <stop offset="1" stop-color="#58A6FF" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="144" fill="#08111C" />
+  <rect width="512" height="512" rx="144" fill="url(#lendpay-mark-glow)" />
+  <rect x="92" y="92" width="328" height="328" rx="112" stroke="url(#lendpay-mark-gradient)" stroke-width="18" />
+  <path d="M188 176V336H274" stroke="url(#lendpay-mark-gradient)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M252 176H334C365.481 176 391 201.519 391 233C391 264.481 365.481 290 334 290H252" stroke="url(#lendpay-mark-gradient)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="367" cy="152" r="30" fill="#F5A524" />
+</svg>

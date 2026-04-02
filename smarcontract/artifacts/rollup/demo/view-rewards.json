@@ -1,0 +1,18 @@
+{
+  "data": {
+    "user": "0xc477815d2f70cfcde0fa01ca90c22fcc30078e34",
+    "points": "650",
+    "points_spent": "0",
+    "lifetime_points": "650",
+    "claimable_lend": "0",
+    "claimed_lend": "5",
+    "current_streak": "3",
+    "credit_limit_boost_bps": "0",
+    "interest_discount_bps": "0",
+    "premium_checks_available": "0",
+    "badge_count": "0",
+    "last_rewarded_at": "1774964418"
+  },
+  "events": [],
+  "gas_used": "1744"
+}

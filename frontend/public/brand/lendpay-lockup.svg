@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" fill="none">
+  <defs>
+    <linearGradient id="lendpay-lockup-gradient" x1="56" y1="40" x2="294" y2="308" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9FD2FF" />
+      <stop offset="0.55" stop-color="#58A6FF" />
+      <stop offset="1" stop-color="#2DD4BF" />
+    </linearGradient>
+    <radialGradient id="lendpay-lockup-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(960 60) rotate(157.896) scale(846.894 336.08)">
+      <stop stop-color="#58A6FF" stop-opacity="0.18" />
+      <stop offset="1" stop-color="#58A6FF" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="360" rx="48" fill="#08111C" />
+  <rect width="1280" height="360" rx="48" fill="url(#lendpay-lockup-glow)" />
+  <g>
+    <rect x="52" y="52" width="256" height="256" rx="72" fill="#0B1421" />
+    <rect x="68" y="68" width="224" height="224" rx="72" stroke="url(#lendpay-lockup-gradient)" stroke-width="12" />
+    <path d="M122 112V244H184" stroke="url(#lendpay-lockup-gradient)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M164 112H220C241.539 112 259 129.461 259 151C259 172.539 241.539 190 220 190H164" stroke="url(#lendpay-lockup-gradient)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
+    <circle cx="245" cy="97" r="19" fill="#F5A524" />
+  </g>
+  <g>
+    <text x="360" y="156" fill="#F5F8FF" font-family="Space Grotesk, Inter, Arial, sans-serif" font-size="108" font-weight="700" letter-spacing="-0.04em">LendPay</text>
+    <text x="360" y="222" fill="#9FB1C8" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="500">AI credit app on Initia</text>
+    <text x="360" y="280" fill="#6D819D" font-family="IBM Plex Mono, Menlo, monospace" font-size="26" letter-spacing="0.16em">MERCHANT CHECKOUT  ·  WALLET UNDERWRITING  ·  MOVE CREDIT</text>
+  </g>
+</svg>
