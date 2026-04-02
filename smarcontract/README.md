@@ -1,11 +1,58 @@
 # LendPay Move Package
 
-This package now uses real Initia fungible assets for:
+This package implements the onchain credit protocol for LendPay.
+
+It uses real Initia fungible assets for:
 
 - loan liquidity custody via a protocol vault store
 - native `LEND` issuance via Initia coin metadata
 - protocol `LEND` reserve custody
 - staking custody for staked `LEND`
+
+## Technical Architecture
+
+Main module groups:
+
+- [`sources/bootstrap`](./sources/bootstrap): one-time protocol initialization
+- [`sources/credit`](./sources/credit): config, treasury, loan book, profiles, merchants, reputation
+- [`sources/rewards`](./sources/rewards): rewards accounting and campaign logic
+- [`sources/tokenomics`](./sources/tokenomics): LEND asset, fees, staking, governance
+- [`sources/shared`](./sources/shared): common errors and asset helpers
+
+Core modules:
+
+- [`bootstrap.move`](./sources/bootstrap/bootstrap.move): initializes protocol state and native assets
+- [`loan_book.move`](./sources/credit/loan_book.move): request, approve, repay, default, and collateral handling
+- [`treasury.move`](./sources/credit/treasury.move): custody and disbursement of native assets
+- [`profiles.move`](./sources/credit/profiles.move): product profiles and collateral requirements
+- [`merchant_registry.move`](./sources/credit/merchant_registry.move): merchant partner rail
+- [`reputation.move`](./sources/credit/reputation.move): borrower identity and repayment reputation
+- [`rewards.move`](./sources/rewards/rewards.move): points, LEND claims, point spending, and borrower perks
+- [`campaigns.move`](./sources/rewards/campaigns.move): campaign allocations and claims
+- [`lend_token.move`](./sources/tokenomics/lend_token.move): native LEND ledger and supply control
+- [`fee_engine.move`](./sources/tokenomics/fee_engine.move): origination and late fee accounting
+- [`staking.move`](./sources/tokenomics/staking.move): staking and staking reward state
+- [`governance.move`](./sources/tokenomics/governance.move): proposal, voting, and finalize flow
+
+## Onchain Flow
+
+The credit lifecycle is:
+
+1. borrower requests a profiled checkout loan
+2. operator approves the request
+3. treasury disburses the loan asset
+4. borrower repays installments
+5. rewards and reputation are updated
+6. collateral unlocks on full repayment or is seized on default
+
+The contract also supports:
+
+- merchant-aware requests
+- point spending for perks
+- claimable LEND
+- staking and staking rewards
+- governance
+- campaign allocations and claims
 
 ## Current Local Rollup
 
@@ -20,7 +67,7 @@ The package is already deployed on the local MiniMove rollup:
 - fund liquidity tx: `186826C23EB72A5C3FD97214263FE59AA5DAC4DCEE564F73A19F3EA2524ED367`
 - mint reserve tx: `4368AAB6902C76D4E43F7E045A5FEA0CCE9505845281786D57A553824D9C7ADC`
 
-## Local Validation
+## Build and Test
 
 Run local tests in dev mode:
 
@@ -39,6 +86,20 @@ To build against a real deployed package address:
 ```bash
 LENDPAY_PACKAGE_ADDRESS=0x... ./scripts/rollup/build.sh
 ```
+
+## Local Validation
+
+Tests currently cover:
+
+- request and approval flow
+- repayment updates
+- rewards claims
+- fee handling
+- staking
+- governance
+- campaign claims
+- merchant-linked credit paths
+- collateralized request paths
 
 ## Rollup Deployment Flow
 
@@ -108,6 +169,8 @@ The demo uses the existing local `Validator` key as borrower by default, then ex
 8. stake the remaining `LEND`
 9. claim staking rewards
 
+The demo artifacts are useful as deploy evidence and local validation records.
+
 Artifacts land under:
 
 ```bash
@@ -131,3 +194,4 @@ artifacts/rollup/demo/summary.json
 - `LEND` is initialized by the package itself during `bootstrap::initialize_protocol`.
 - Loan disbursement and repayment now move real assets instead of updating accounting only.
 - Rewards, fee collection, burns, and staking now move real `LEND`.
+- Merchant checkout semantics are enforced at the application layer by pairing request metadata with merchant registry state and borrower UX, while loan execution remains protocol-native onchain.
