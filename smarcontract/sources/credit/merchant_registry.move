@@ -87,6 +87,16 @@ module lendpay::merchant_registry {
         (order_amount * merchant.partner_fee_bps) / 10_000
     }
 
+    #[view]
+    public fun merchant_address(merchant_id: u64): address acquires MerchantRegistry {
+        get_merchant(merchant_id).merchant_address
+    }
+
+    #[view]
+    public fun is_active(merchant_id: u64): bool acquires MerchantRegistry {
+        get_merchant(merchant_id).active
+    }
+
     fun find_merchant_index(registry: &MerchantRegistry, merchant_id: u64): u64 {
         let len = vector::length(&registry.merchants);
         let i = 0;

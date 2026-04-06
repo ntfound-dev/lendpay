@@ -6,6 +6,7 @@ import type { RollupClient } from '../../integrations/rollup/client.js'
 import type { ScoreService } from '../scores/service.js'
 import type { UserService } from '../users/service.js'
 import type { OnchainLoanSnapshot } from '../../types/domain.js'
+import type { LoanService } from '../loans/service.js'
 
 const LOAN_ACTIVE = 10
 const LOAN_REPAID = 11
@@ -46,24 +47,26 @@ export class RepaymentService {
     private userService: UserService,
     private activityService: ActivityService,
     private scoreService: ScoreService,
+    private loanService: LoanService,
   ) {}
 
   async repay(initiaAddress: string, loanId: string, txHash?: string) {
-    await this.userService.ensureUser(initiaAddress)
+    const borrowerLoans = await this.loanService.listLoans(initiaAddress)
+    const loan = borrowerLoans.find((entry) => entry.id === loanId)
 
-    const loan = await prisma.loan.findUnique({
-      where: { id: loanId },
-    })
-
-    if (!loan || loan.initiaAddress !== initiaAddress) {
-      throw new AppError(404, 'LOAN_NOT_FOUND', 'Loan was not found.')
+    if (!loan) {
+      throw new AppError(
+        404,
+        'LOAN_NOT_FOUND',
+        'This loan was not found on the active LendPay chain. Refresh your account and try again.',
+      )
     }
 
     if (loan.status !== 'active') {
       throw new AppError(400, 'LOAN_NOT_ACTIVE', 'Only active loans can be repaid.')
     }
 
-    const schedule = mapLoan(loan).schedule
+    const schedule = loan.schedule
     const nextInstallment = schedule.find((entry) => entry.status !== 'paid')
 
     if (!nextInstallment) {
@@ -100,8 +103,9 @@ export class RepaymentService {
       await this.activityService.push(initiaAddress, {
         kind: 'repayment',
         label: 'Installment paid',
-        detail: `Installment ${nextInstallment.installmentNumber} settled successfully.`,
+        detail: `Payment ${nextInstallment.installmentNumber} was received on time and your account was updated.`,
       })
+      await this.userService.rewardReferrerForRepayment(initiaAddress)
 
       return {
         loan: mapLoan(updatedLoan),
@@ -148,8 +152,9 @@ export class RepaymentService {
     await this.activityService.push(initiaAddress, {
       kind: 'repayment',
       label: 'Installment paid',
-      detail: `Installment ${nextInstallment.installmentNumber} settled successfully.`,
+      detail: `Payment ${nextInstallment.installmentNumber} was received and your account was updated.`,
     })
+    await this.userService.rewardReferrerForRepayment(initiaAddress)
 
     return {
       loan: mapLoan(updatedLoan),

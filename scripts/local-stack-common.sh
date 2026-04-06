@@ -82,8 +82,9 @@ resolve_minitiad_bin() {
 resolve_rollup_home() {
   local candidate=""
   for candidate in \
-    "$HOME/.minitia" \
     "${ROLLUP_HOME:-}" \
+    "$HOME/.minitia-testnet3" \
+    "$HOME/.minitia" \
     "/tmp/lendpay-minitia-home"; do
     if [[ -d "$candidate" ]]; then
       echo "$candidate"

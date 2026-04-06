@@ -6,6 +6,7 @@ export type ActivityKind = 'score' | 'loan' | 'repayment' | 'identity'
 export type RewardTier = 'Bronze' | 'Silver' | 'Gold' | 'Diamond'
 export type ScoreProvider = 'heuristic' | 'ollama'
 export type CollateralStatus = 'none' | 'locked' | 'returned' | 'liquidated'
+export type UsernameSource = 'preview' | 'initia_l1' | 'rollup'
 
 export interface ScoreBreakdownItem {
   label: string
@@ -108,6 +109,11 @@ export interface UserProfile {
   id: string
   initiaAddress: string
   username?: string
+  usernameSource?: UsernameSource
+  usernameVerified: boolean
+  referralCode?: string
+  referredBy?: string
+  referralPointsEarned?: number
   wallet: {
     nativeBalance: number
     lockedCollateralLend: number
@@ -115,6 +121,17 @@ export interface UserProfile {
   rewards: RewardsState
   createdAt: string
   updatedAt: string
+}
+
+export interface FaucetState {
+  enabled: boolean
+  claimAmount: number
+  nativeSymbol: string
+  cooldownHours: number
+  canClaim: boolean
+  lastClaimAt?: string
+  nextClaimAt?: string
+  txHash?: string
 }
 
 export interface ChallengeRecord {
@@ -209,6 +226,7 @@ export interface OnchainRewardsSnapshot {
   badgeCount: number
   tier: RewardTier
   username?: string
+  usernameVerified: boolean
 }
 
 export interface WalletSnapshot {
@@ -275,12 +293,119 @@ export interface GovernanceProposalState {
   hasVoted: boolean
 }
 
+export interface MerchantProofState {
+  chainId: string
+  packageAddress: string
+  merchantId: string
+  registrationTxHash?: string
+  interactionTxHash?: string
+  interactionLabel?: string
+  resultLabel?: string
+  payoutBalance?: number
+  receiptAddress?: string
+}
+
+export interface TxExplorerState {
+  txHash: string
+  height: number
+  status: 'success' | 'failed'
+  code: number
+  timestamp?: string
+  sender?: string
+  moduleAddress?: string
+  moduleName?: string
+  functionName?: string
+  memo?: string
+  gasUsed: number
+  gasWanted: number
+  fee?: string
+}
+
 export interface MerchantState {
   id: string
   merchantAddress: string
   category: string
+  name?: string
+  description?: string
+  contract?: string
+  actions?: string[]
+  source?: 'onchain' | 'mock'
   listingFeeBps: number
   partnerFeeBps: number
   active: boolean
   partnerFeeQuote: number
+  proof?: MerchantProofState
+}
+
+export interface ReferralEntry {
+  address: string
+  username?: string
+  joinedAt: string
+  status: 'pending' | 'active' | 'defaulted'
+  pointsGenerated: number
+}
+
+export interface ReferralState {
+  referralCode: string
+  referredBy?: string
+  totalReferrals: number
+  activeReferrals: number
+  pointsEarned: number
+  referralList: ReferralEntry[]
+}
+
+export interface LeaderboardEntry {
+  rank: number
+  address: string
+  username?: string
+  value: string
+  metric: string
+  badge?: string
+  tier: RewardTier
+}
+
+export interface LeaderboardState {
+  topBorrowers: LeaderboardEntry[]
+  topRepayers: LeaderboardEntry[]
+  topReferrers: LeaderboardEntry[]
+  risingStars: LeaderboardEntry[]
+  myRank?: {
+    borrowers?: number
+    repayers?: number
+    referrers?: number
+    risingStars?: number
+  }
+}
+
+export interface ViralDropItemState {
+  id: string
+  appLabel: string
+  merchantId?: string
+  merchantAddress?: string
+  name: string
+  uri: string
+  price: number
+  instantCollateralRequired: number
+  active: boolean
+}
+
+export type ViralDropDeliveryMode = 'claim_on_repay' | 'secured_instant'
+
+export interface ViralDropPurchaseState {
+  id: string
+  itemId: string
+  itemName: string
+  appLabel: string
+  merchantId: string
+  merchantAddress?: string
+  buyer: string
+  amountPaid: number
+  purchasedAt: string
+  receiptAddress: string
+  loanId?: string
+  deliveryMode: ViralDropDeliveryMode
+  collectibleClaimed: boolean
+  collectibleClaimable: boolean
+  collectibleAddress?: string
+  claimedAt?: string
 }

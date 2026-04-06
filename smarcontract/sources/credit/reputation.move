@@ -135,6 +135,16 @@ module lendpay::reputation {
             entry.late_payments
     }
 
+    #[view]
+    public fun loans_requested_of(user: address): u64 acquires ReputationRegistry {
+        get_entry(user).loans_requested
+    }
+
+    #[view]
+    public fun loans_approved_of(user: address): u64 acquires ReputationRegistry {
+        get_entry(user).loans_approved
+    }
+
     fun borrow_or_create_entry_in_registry(
         registry: &mut ReputationRegistry,
         user: address,

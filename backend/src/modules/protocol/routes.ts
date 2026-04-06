@@ -56,6 +56,22 @@ export const registerProtocolRoutes = async (app: FastifyInstance, deps: AppDeps
     return deps.protocolService.listMerchants(session.initiaAddress)
   })
 
+  app.get('/api/v1/protocol/tx/:hash', async (request) => {
+    const session = await deps.authService.requireSession(request.headers.authorization)
+    const txHash = String((request.params as { hash: string }).hash || '').trim()
+    return deps.protocolService.getTxDetails(session.initiaAddress, txHash)
+  })
+
+  app.get('/api/v1/protocol/viral-drop/items', async (request) => {
+    const session = await deps.authService.requireSession(request.headers.authorization)
+    return deps.protocolService.listViralDropItems(session.initiaAddress)
+  })
+
+  app.get('/api/v1/protocol/viral-drop/purchases', async (request) => {
+    const session = await deps.authService.requireSession(request.headers.authorization)
+    return deps.protocolService.listViralDropPurchases(session.initiaAddress)
+  })
+
   app.post('/api/v1/protocol/campaigns', async (request) => {
     deps.authService.requireOperator(request.headers['x-operator-token'])
     const payload = campaignSchema.parse(request.body)

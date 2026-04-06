@@ -1,0 +1,26 @@
+{
+  "chainId": "lendpay-3",
+  "packageAddress": "0x5972A1C7118A8977852DC3307621535D5C1CDA63",
+  "proofs": {
+    "cabal": {
+      "txHash": "2EFE58E5B58555BD414D4044AB1922A970A1A0FE93ECECCB30FD658421B24F66",
+      "positionId": 1,
+      "payoutBalance": "200"
+    },
+    "yominet": {
+      "txHash": "EF8CA933896B9607A626DD097378AFDBEA7B24D359F9656EB9E5FAFC37C34702",
+      "purchaseId": 1,
+      "payoutBalance": "220"
+    },
+    "intergaze": {
+      "txHash": "CEFB44C5B7DA306A9B790519163E136DB18EAD2E76003D6A8F1B355C0758CF7E",
+      "purchaseId": 1,
+      "payoutBalance": "180"
+    },
+    "viralDrops": {
+      "txHash": "21A04FDE550691DC86B61080151A0CCA6A42901A1F51E0F517BBC82B943A0490",
+      "purchaseId": 2,
+      "payoutBalance": "400"
+    }
+  }
+}

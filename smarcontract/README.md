@@ -14,7 +14,7 @@ It uses real Initia fungible assets for:
 Main module groups:
 
 - [`sources/bootstrap`](./sources/bootstrap): one-time protocol initialization
-- [`sources/credit`](./sources/credit): config, treasury, loan book, profiles, merchants, reputation
+- [`sources/credit`](./sources/credit): config, treasury, loan book, profiles, merchants, reputation, viral drop destination
 - [`sources/rewards`](./sources/rewards): rewards accounting and campaign logic
 - [`sources/tokenomics`](./sources/tokenomics): LEND asset, fees, staking, governance
 - [`sources/shared`](./sources/shared): common errors and asset helpers
@@ -25,8 +25,9 @@ Core modules:
 - [`loan_book.move`](./sources/credit/loan_book.move): request, approve, repay, default, and collateral handling
 - [`treasury.move`](./sources/credit/treasury.move): custody and disbursement of native assets
 - [`profiles.move`](./sources/credit/profiles.move): product profiles and collateral requirements
-- [`merchant_registry.move`](./sources/credit/merchant_registry.move): merchant partner rail
+- [`merchant_registry.move`](./sources/credit/merchant_registry.move): ecosystem app registry rail
 - [`reputation.move`](./sources/credit/reputation.move): borrower identity and repayment reputation
+- [`viral_drop.move`](./sources/credit/viral_drop.move): internal live app destination that receives funded balance and mints receipts
 - [`rewards.move`](./sources/rewards/rewards.move): points, LEND claims, point spending, and borrower perks
 - [`campaigns.move`](./sources/rewards/campaigns.move): campaign allocations and claims
 - [`lend_token.move`](./sources/tokenomics/lend_token.move): native LEND ledger and supply control
@@ -57,6 +58,9 @@ Key entry and view functions by module:
 - `reputation`
   Identity and borrower reputation:
   `attest_username`, `get_entry`, `has_verified_username`, `platform_actions_of`.
+- `viral_drop`
+  Internal funded-use path:
+  `buy_item`, `get_item`, `get_purchase`, `payout_vault_address`, `payout_balance`.
 - `rewards`
   Borrower incentives and perks:
   `claim_lend`, `redeem_points_to_claimable_lend`, `spend_points_for_limit_boost`, `spend_points_for_interest_discount`, `unlock_premium_credit_check`, `redeem_exclusive_badge`.
@@ -82,7 +86,7 @@ Key entry and view functions by module:
 
 The credit lifecycle is:
 
-1. borrower requests a profiled checkout loan
+1. borrower requests a profiled loan for an Initia app purchase
 2. operator approves the request
 3. treasury disburses the loan asset
 4. borrower repays installments
@@ -91,7 +95,9 @@ The credit lifecycle is:
 
 The contract also supports:
 
-- merchant-aware requests
+- ecosystem-aware requests
+- unsecured profiles for small and standard app credit
+- a separate collateralized profile for advanced secured credit
 - point spending for perks
 - claimable LEND
 - staking and staking rewards
@@ -107,21 +113,74 @@ The local test suite exercises:
 - fee quoting and fee payment in LEND
 - governance proposal and voting
 - campaign allocation and claim behavior
-- merchant-linked request behavior
+- app-linked request behavior
+- funded viral drop purchase behavior
 - collateralized request behavior
 
-## Current Local Rollup
+## Current Testnet Rollup
 
-The package is already deployed on the local MiniMove rollup:
+The active local testnet runtime after the native-asset migration is:
 
-- chain id: `lendpay-local-1`
-- RPC: `http://localhost:26657`
-- module address: `0x52683DF957C5538C0FA362B068804A120E408D2B`
-- loan asset metadata: `0x25c4855dbee8a475c72526cc888c20562befd9cac8ceb78367ed490e1b0dab3`
-- deploy tx: `47C0DF5AE56C885F5565BB07FE00332FD227BCAC5678C9A049B1C8E510F16276`
-- bootstrap tx: `75FAC78441FF0CDEBE657FE72A2DA8E7B6519809DB279FDC8FC734AF71DBD823`
-- fund liquidity tx: `186826C23EB72A5C3FD97214263FE59AA5DAC4DCEE564F73A19F3EA2524ED367`
-- mint reserve tx: `4368AAB6902C76D4E43F7E045A5FEA0CCE9505845281786D57A553824D9C7ADC`
+- chain id: `lendpay-4`
+- RPC: `http://127.0.0.1:26657`
+- REST: `http://127.0.0.1:1317`
+- package address: `0x5972A1C7118A8977852DC3307621535D5C1CDA63`
+- native `LEND` asset metadata: `0xad42527a722cbb97f7689ea4207f130859f0f93f1dce39b3675fa97ccd1ed551`
+- internal base denom on the rollup: `ulend`
+
+Latest successful transactions:
+
+- deploy: `F93B0FA4D598833E7664DE8F0A88B5DCC7F921D2CB0EFB3F0C3D95C2D1D66D78`
+- bootstrap: `FEC142843CECAE4011E4ECAEB32A5019A9E66E099EAC875BD82DBF953D3AFF1D`
+- fund liquidity: `66B5BD6A6C084973DBEDAD5B0D72478777E312639066D187C8CEC2E1637F1F41`
+- mint protocol LEND reserve: `136738739C255EA38072520101DC9E3BB14696A0F451271B8AD54B918FECD7AE`
+- register `viral_drop` route (`merchant_id = 1`): `D8B83D0730FBB8DE518AC5E93EA72FEBD540560680F181582086E29717E5B1ED`
+- register `mock_cabal` route (`merchant_id = 2`): `D33F15997D8E1D604C059E9445800DFD66AFE4331CD605A734A2557AF9900D0D`
+- register `mock_yominet` route (`merchant_id = 3`): `23E92FB5ACEA3353D7CB211496C02E5C1C03B8772021635A3A9C1CA3419329F9`
+- register `mock_intergaze` route (`merchant_id = 4`): `9EB9F34C2C81E10C81E7AA5C5AAFFD1D33CF3B01EBE8CBB15C09E351DE652B6C`
+
+## Testnet App Route Proofs
+
+The Ecosystem cards shown in the app are backed by real modules and registry routes on
+`lendpay-4`, not frontend-only placeholders.
+
+Registered live routes:
+
+- `merchant_id = 1` → `viral_drop` payout vault `0xc07d30ee174fbcb89a762825c28096658cff605fb91f192be7419b3d531fb01f`
+- `merchant_id = 2` → `mock_cabal` payout vault `0x6ed66c3a1abca0af34c9b2cee26bf3727041a6adf3ec58981df92c2b70650744`
+- `merchant_id = 3` → `mock_yominet` payout vault `0x2756948e243875c21d6581d56b9de61f2944af7f92b9e020b5a8f537204cc661`
+- `merchant_id = 4` → `mock_intergaze` payout vault `0xdb94cf24410d6156d9f7658f6bf02a6510a5ab051d2428e13b22639100ea5cf2`
+- `merchant_id = 5` → additional `viral_drop` route created by the end-to-end flow verification
+
+Verified testnet transactions:
+
+- `mock_cabal::deposit` to merchant route `2`: `F42757619297C6BE5CC925A036CD35795FF773835CCD0455A50D32692A8ECFDA`
+  Result: position `#1` opened for `200 LEND`, payout vault balance `200`.
+- `mock_yominet::buy_item` on merchant route `3`: `5ACD1D0C7B2521B68ADDA2993FBE250CD92D115728D59102A69C7DCB3A65B722`
+  Result: purchase `#1`, amount paid `220 LEND`, receipt NFT stored in [`app-route-proof/mock-yominet-purchase.json`](./artifacts/testnet/lendpay-4/app-route-proof/mock-yominet-purchase.json).
+- `mock_intergaze::buy_item` on merchant route `4`: `4C8DA789BAB6E6B2AED92DAE4A3BDADA79990D3521BEC2E1E018EAAECE016D3E`
+  Result: purchase `#1`, amount paid `180 LEND`, receipt NFT stored in [`app-route-proof/mock-intergaze-purchase.json`](./artifacts/testnet/lendpay-4/app-route-proof/mock-intergaze-purchase.json).
+- `viral_drop::buy_item` on merchant route `1`: `578AB95B519EE25A7E60D52E0A876C5DB81D4B658871BD066938F4E4863A4286`
+  Result: purchase `#1`, amount paid `300 LEND`, receipt NFT stored in [`app-route-proof/viral-drop-purchase.json`](./artifacts/testnet/lendpay-4/app-route-proof/viral-drop-purchase.json).
+
+Supporting artifacts are stored under:
+
+```bash
+artifacts/testnet/lendpay-4/
+```
+
+The most relevant files are:
+
+- [`artifacts/testnet/lendpay-4/deploy.json`](./artifacts/testnet/lendpay-4/deploy.json)
+- [`artifacts/testnet/lendpay-4/bootstrap.json`](./artifacts/testnet/lendpay-4/bootstrap.json)
+- [`artifacts/testnet/lendpay-4/fund-liquidity.json`](./artifacts/testnet/lendpay-4/fund-liquidity.json)
+- [`artifacts/testnet/lendpay-4/mint-lend-reserve.json`](./artifacts/testnet/lendpay-4/mint-lend-reserve.json)
+- [`artifacts/testnet/lendpay-4/register-viral-drops.json`](./artifacts/testnet/lendpay-4/register-viral-drops.json)
+- [`artifacts/testnet/lendpay-4/register-mock-cabal.json`](./artifacts/testnet/lendpay-4/register-mock-cabal.json)
+- [`artifacts/testnet/lendpay-4/register-mock-yominet.json`](./artifacts/testnet/lendpay-4/register-mock-yominet.json)
+- [`artifacts/testnet/lendpay-4/register-mock-intergaze.json`](./artifacts/testnet/lendpay-4/register-mock-intergaze.json)
+- [`artifacts/testnet/lendpay-4/app-route-proof/summary.json`](./artifacts/testnet/lendpay-4/app-route-proof/summary.json)
+- [`artifacts/testnet/lendpay-4/core-flow-verification/summary.json`](./artifacts/testnet/lendpay-4/core-flow-verification/summary.json)
 
 ## Build and Test
 
@@ -154,7 +213,8 @@ Tests currently cover:
 - staking
 - governance
 - campaign claims
-- merchant-linked credit paths
+- app-linked credit paths
+- viral drop usage paths
 - collateralized request paths
 
 ## Rollup Deployment Flow
@@ -210,12 +270,13 @@ source ./scripts/rollup/.env.example
 Then run the full borrower lifecycle:
 
 ```bash
-./scripts/rollup/demo-flow.sh
+./scripts/rollup/viral-drop-flow.sh
 ```
 
 The demo uses the existing local `Validator` key as borrower by default, then executes:
 
-1. fund borrower with `umin`
+1. fund borrower with native `LEND`
+1. fund borrower with native `LEND`
 2. attest `.init`-style username bytes onchain
 3. request a profiled micro-loan
 4. approve the loan as operator
@@ -225,7 +286,7 @@ The demo uses the existing local `Validator` key as borrower by default, then ex
 8. stake the remaining `LEND`
 9. claim staking rewards
 
-The demo artifacts are useful as deploy evidence and local validation records.
+The flow artifacts are useful as deploy evidence and local validation records.
 
 Artifacts land under:
 
@@ -250,4 +311,4 @@ artifacts/rollup/demo/summary.json
 - `LEND` is initialized by the package itself during `bootstrap::initialize_protocol`.
 - Loan disbursement and repayment now move real assets instead of updating accounting only.
 - Rewards, fee collection, burns, and staking now move real `LEND`.
-- Merchant checkout semantics are enforced at the application layer by pairing request metadata with merchant registry state and borrower UX, while loan execution remains protocol-native onchain.
+- App semantics are enforced at the application layer by pairing request metadata with registry state and borrower UX, while loan execution remains protocol-native onchain.

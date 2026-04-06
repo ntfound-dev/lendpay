@@ -8,6 +8,7 @@ module lendpay::loan_book {
     use lendpay::fee_engine;
     use lendpay::lend_token;
     use lendpay::profiles;
+    use lendpay::referral;
     use lendpay::reputation;
     use lendpay::rewards;
     use lendpay::tokenomics;
@@ -293,6 +294,7 @@ module lendpay::loan_book {
 
         reputation::record_approval(borrower);
         rewards::reward_approval(borrower);
+        referral::reward_referrer_for_first_loan(borrower);
         fee_engine::assess_origination_fee(loan_id, borrower, amount);
 
         event::emit(LoanApprovedEvent {
@@ -410,6 +412,7 @@ module lendpay::loan_book {
         if (was_on_time) {
             reputation::record_on_time_payment(borrower_addr);
             rewards::reward_on_time_payment(borrower_addr);
+            referral::reward_referrer_for_installment(borrower_addr);
         } else {
             reputation::record_late_payment(borrower_addr);
             rewards::reward_late_payment(borrower_addr);
@@ -471,6 +474,7 @@ module lendpay::loan_book {
 
         reputation::record_default(borrower);
         rewards::penalize_default(borrower);
+        referral::mark_referral_default(borrower);
         if (collateral_to_liquidate > 0) {
             treasury::liquidate_lend_collateral(collateral_to_liquidate);
             event::emit(CollateralReleasedEvent {
@@ -522,6 +526,21 @@ module lendpay::loan_book {
     }
 
     #[view]
+    public fun request_status(request_id: u64): u8 acquires LoanBook {
+        get_request(request_id).status
+    }
+
+    #[view]
+    public fun loan_borrower(loan_id: u64): address acquires LoanBook {
+        get_loan(loan_id).borrower
+    }
+
+    #[view]
+    public fun loan_status(loan_id: u64): u8 acquires LoanBook {
+        get_loan(loan_id).status
+    }
+
+    #[view]
     public fun loan_profile_id(loan_id: u64): u8 acquires LoanBook {
         get_loan(loan_id).profile_id
     }
@@ -539,6 +558,35 @@ module lendpay::loan_book {
     #[view]
     public fun loan_apr_bps(loan_id: u64): u64 acquires LoanBook {
         get_loan(loan_id).apr_bps
+    }
+
+    #[view]
+    public fun loan_is_active(loan_id: u64): bool acquires LoanBook {
+        loan_status(loan_id) == LOAN_ACTIVE
+    }
+
+    #[view]
+    public fun loan_is_repaid(loan_id: u64): bool acquires LoanBook {
+        loan_status(loan_id) == LOAN_REPAID
+    }
+
+    #[view]
+    public fun active_loan_id_of(user: address): u64 acquires LoanBook {
+        let book = borrow_global<LoanBook>(@lendpay);
+        let loan_len = vector::length(&book.loans);
+        let loan_index = 0;
+        let latest_loan_id = 0;
+
+        while (loan_index < loan_len) {
+            let loan = vector::borrow(&book.loans, loan_index);
+            if (loan.borrower == user && loan.status == LOAN_ACTIVE) {
+                latest_loan_id = loan.id;
+            };
+            loan_index = loan_index + 1;
+        };
+
+        assert!(latest_loan_id > 0, errors::loan_not_found());
+        latest_loan_id
     }
 
     #[view]

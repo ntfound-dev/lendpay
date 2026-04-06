@@ -1,0 +1,10 @@
+[package]
+name = "/tmp/hello_testnet_pkg"
+version = "0.0.0"
+
+[dependencies]
+InitiaStdlib = { git = "https://github.com/initia-labs/move-natives.git", subdir = "minitia_stdlib", rev = "v1.1.2"}
+
+[addresses]
+std = "0x1"
+

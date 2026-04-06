@@ -1,0 +1,42 @@
+{
+  "chain_id": "lendpay-4",
+  "rpc_url": "http://localhost:26657",
+  "module_address": "0x5972A1C7118A8977852DC3307621535D5C1CDA63",
+  "operator": {
+    "address": "init1t9e2r3c332yh0pfdcvc8vg2nt4wpeknrxh9uc3",
+    "hex": "0x5972A1C7118A8977852DC3307621535D5C1CDA63"
+  },
+  "borrower": {
+    "key_name": "Validator",
+    "address": "init1c3mczhf0wr8umc86q89fps30escq0r35a30pvm",
+    "hex": "0xC477815D2F70CFCDE0FA01CA90C22FCC30078E34",
+    "username": "borrower.init"
+  },
+  "loan": {
+    "profile_id": 1,
+    "request_id": 10,
+    "loan_id": 2,
+    "request_amount": 300,
+    "tenor_months": 3,
+    "installment_amount": 100,
+    "installments_total": 3,
+    "apr_bps": 1200,
+    "loan_denom": "ulend"
+  },
+  "purchase": {
+    "partner_app_id": 6,
+    "purchase_id": 3,
+    "item_id": 2,
+    "receipt_object": "0x39d2a61e9f85623c0ec1827e7e19323c0fa1b91707dca57bcb20297e008ce665",
+    "collectible_object": "0x4442f2601d347d4345b614fe06289e5e88ca8eea1c8bab1fb01c4d3ff355310f"
+  },
+  "final_state": {
+    "points": 1100,
+    "lend_balance": 0,
+    "staked_lend_balance": 0,
+    "treasury_reward_reserve": 999994,
+    "treasury_liquidity_balance": 500000000,
+    "treasury_total_repaid": 600,
+    "viral_drop_payout_balance": 900
+  }
+}

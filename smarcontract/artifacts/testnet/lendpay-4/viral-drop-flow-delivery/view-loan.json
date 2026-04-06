@@ -1,0 +1,23 @@
+{
+  "data": {
+    "id": "2",
+    "request_id": "10",
+    "profile_id": 1,
+    "borrower": "0xc477815d2f70cfcde0fa01ca90c22fcc30078e34",
+    "amount": "300",
+    "collateral_amount": "0",
+    "collateral_state": 0,
+    "apr_bps": "1200",
+    "tenor_months": 3,
+    "installment_amount": "100",
+    "installments_total": "3",
+    "installments_paid": "3",
+    "issued_at": "1775407083",
+    "next_due_at": "0",
+    "grace_period_seconds": "604800",
+    "total_repaid": "300",
+    "status": 11
+  },
+  "events": [],
+  "gas_used": "4577"
+}

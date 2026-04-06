@@ -1,12 +1,12 @@
 # LendPay
 
-LendPay is an Initia MiniMove appchain for merchant checkout credit.
+LendPay is an Initia MiniMove appchain for agent-guided credit across Initia apps.
 
 It combines:
 
-- a React frontend for borrower checkout, repayment, rewards, and operations
+- a React frontend for app credit requests, live viral drop usage, repayment, rewards, and ecosystem activity
 - a TypeScript backend for sessions, underwriting, protocol sync, and operator actions
-- Move smart contracts for requests, approvals, repayments, collateral, rewards, staking, governance, campaigns, and merchant rails
+- Move smart contracts for requests, approvals, repayments, collateral, rewards, staking, governance, campaigns, and app rails
 
 ## Architecture At A Glance
 
@@ -22,9 +22,27 @@ Docs by layer:
 
 ## What Problem It Solves
 
-Most onchain users can trade and swap, but they still cannot access simple credit for real purchases. Wallet activity and identity signals rarely become usable financing, and merchants do not have a clean pay-later rail on appchains.
+Most onchain users can trade and swap, but they still cannot access simple credit for real app experiences. Wallet activity and identity signals rarely become usable financing, and Initia apps still lack a clean pay-later rail for drops, passes, collectibles, and other consumer actions.
 
-LendPay turns wallet activity, `.init` identity, and repayment history into merchant-aware installment credit.
+LendPay turns wallet activity, `.init` identity, and repayment history into ecosystem-aware installment credit.
+Small app requests are reputation-based and unsecured. A separate advanced profile supports locked `LEND` collateral for larger secured requests.
+
+## Core Flow
+
+LendPay is currently tightened around one truthful internal borrower flow:
+
+1. connect wallet and refresh borrower analysis
+2. request credit for a live Initia app
+3. operator approval funds the borrower wallet
+4. the borrower uses that funded balance in `viral_drop`
+5. an onchain receipt is minted to the borrower wallet
+6. the borrower repays installments and improves reputation
+
+## Initia Native Features Used
+
+- InterwovenKit wallet/session UX
+- Initia Usernames (`.init`)
+- MiniMove rollup execution for credit, receipts, and repayment
 
 ## Quick Start
 
@@ -71,11 +89,36 @@ make logs
 2. Open `http://127.0.0.1:5173`
 3. Connect wallet with InterwovenKit
 4. Analyze borrower profile
-5. Choose a merchant partner and request checkout credit
-6. Approve and repay through the live local rollup flow
+5. Choose the live app and request credit
+6. Approve the request through the operator flow
+7. Use the funded balance in the live viral drop
+8. Repay through the live rollup flow
 
 ## Deployment Evidence
 
-- rollup chain id: `lendpay-local-1`
-- package deploy artifact: [smarcontract/artifacts/rollup/deploy.json](./smarcontract/artifacts/rollup/deploy.json)
+- testnet rollup chain id: `lendpay-3`
+- package address: `0x5972A1C7118A8977852DC3307621535D5C1CDA63`
+- upgrade tx: `9BE4D230F9F06F0757A2EB075D8CC405BFF5C9262076603D89731C727F953843`
+- viral drop init tx: `FBACB5F822F6D75BA9F2AF8CD2A3C9DD50F8D74629306F96B7B244DB633DDC6D`
+- partner app register tx: `2BD5EC0362C534A0A7E5AF030897029C291C7FEF426156A7FEA5F09EED2280F2`
+- testnet artifacts: [smarcontract/artifacts/testnet/lendpay-3](./smarcontract/artifacts/testnet/lendpay-3)
 - submission metadata: [.initia/submission.json](./.initia/submission.json)
+
+## App Hosting
+
+Recommended app hosting split:
+
+- frontend on Vercel from [`frontend`](./frontend)
+- backend on Railway from [`backend`](./backend)
+
+The frontend already includes [frontend/vercel.json](./frontend/vercel.json).
+
+The backend already includes:
+
+- [backend/Dockerfile](./backend/Dockerfile)
+- [backend/railway.json](./backend/railway.json)
+
+Important note:
+
+- the app layer can be public on Vercel/Railway
+- the rollup still needs a public RPC/REST host if you want the chain itself to stop depending on `localhost`

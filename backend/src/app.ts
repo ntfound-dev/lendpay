@@ -49,6 +49,7 @@ export const buildApp = async () => {
     userService,
     activityService,
     scoreService,
+    loanService,
   )
 
   const deps: AppDeps = {

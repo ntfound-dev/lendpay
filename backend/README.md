@@ -30,7 +30,7 @@ Core modules:
 - [`src/modules/users`](./src/modules/users): borrower profile and wallet state
 - [`src/modules/scores`](./src/modules/scores): scoring agent and policy output
 - [`src/modules/loans`](./src/modules/loans): request and loan orchestration
-- [`src/modules/protocol`](./src/modules/protocol): campaigns, merchants, governance, and profile quotes
+- [`src/modules/protocol`](./src/modules/protocol): campaigns, apps, viral drop reads, governance, and profile quotes
 - [`src/modules/activity`](./src/modules/activity): activity timeline
 
 ## API Surface
@@ -62,6 +62,8 @@ Main routes:
 - `GET /api/v1/protocol/campaigns`
 - `GET /api/v1/protocol/governance`
 - `GET /api/v1/protocol/merchants`
+- `GET /api/v1/protocol/viral-drop/items`
+- `GET /api/v1/protocol/viral-drop/purchases`
 - `POST /api/v1/protocol/campaigns`
 - `POST /api/v1/protocol/campaigns/:id/allocations`
 - `POST /api/v1/protocol/campaigns/:id/close`
@@ -181,6 +183,32 @@ npm run smoke
 
 ```bash
 npm run build
+```
+
+## Deploy To Railway
+
+Recommended production split:
+
+- frontend on Vercel
+- backend on Railway
+
+This backend is already prepared for Railway with:
+
+- [Dockerfile](./Dockerfile)
+- [railway.json](./railway.json)
+
+Recommended Railway settings:
+
+- Root Directory: `backend`
+- Add a persistent volume mounted at `/data`
+- Set `DATABASE_URL=file:/data/lendpay.db`
+- Set `PORT=8080`
+- Set real rollup envs for `ROLLUP_RPC_URL`, `ROLLUP_REST_URL`, and `ENABLE_LIVE_ROLLUP_WRITES`
+
+The container start command runs:
+
+```bash
+npm run db:push && node dist/server.js
 ```
 
 ## Notes

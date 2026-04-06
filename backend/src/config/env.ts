@@ -13,18 +13,20 @@ const schema = z.object({
   AUTH_ACCEPT_ANY_SIGNATURE: z.coerce.boolean().default(false),
   PREVIEW_OPERATOR_TOKEN: z.string().min(4).default('preview-operator'),
 
-  ROLLUP_CHAIN_ID: z.string().default('lendpay-local-1'),
+  ROLLUP_CHAIN_ID: z.string().default('lendpay-4'),
   ROLLUP_RPC_URL: z.string().url().default('http://localhost:26657'),
   ROLLUP_REST_URL: z.string().url().default('http://localhost:1317'),
-  ROLLUP_GAS_PRICES: z.string().default('0umin'),
+  ROLLUP_GAS_PRICES: z.string().default('0.015ulend'),
   ROLLUP_GAS_ADJUSTMENT: z.coerce.number().default(1.4),
   MINITIAD_BIN: z.string().optional(),
   ROLLUP_HOME: z.string().optional(),
   ROLLUP_KEY_NAME: z.string().default('operator'),
   ROLLUP_KEYRING_BACKEND: z.string().default('test'),
   ROLLUP_OPERATOR_MNEMONIC: z.string().optional(),
-  ROLLUP_NATIVE_DENOM: z.string().default('umin'),
-  ROLLUP_NATIVE_SYMBOL: z.string().default('MIN'),
+  ROLLUP_NATIVE_DENOM: z.string().default('ulend'),
+  ROLLUP_NATIVE_SYMBOL: z.string().default('LEND'),
+  FAUCET_CLAIM_AMOUNT: z.coerce.number().int().positive().default(1_000_000),
+  FAUCET_COOLDOWN_HOURS: z.coerce.number().int().positive().default(24),
 
   INITIA_L1_REST_URL: z.string().url().default('https://rest.testnet.initia.xyz'),
   INITIA_L1_RPC_URL: z.string().url().default('https://rpc.testnet.initia.xyz'),
@@ -43,7 +45,7 @@ const schema = z.object({
 
   LENDPAY_PACKAGE_ADDRESS: z
     .string()
-    .default('0x52683DF957C5538C0FA362B068804A120E408D2B'),
+    .default('0x5972A1C7118A8977852DC3307621535D5C1CDA63'),
   LOAN_MODULE_NAME: z.string().default('loan_book'),
   REQUEST_FUNCTION_NAME: z.string().default('request_profiled_loan'),
   APPROVE_FUNCTION_NAME: z.string().default('approve_request'),

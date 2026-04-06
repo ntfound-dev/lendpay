@@ -8,6 +8,7 @@ module lendpay::rewards {
     use lendpay::lend_token;
 
     friend lendpay::loan_book;
+    friend lendpay::referral;
 
     const REASON_REQUEST: u8 = 1;
     const REASON_APPROVAL: u8 = 2;
@@ -15,6 +16,7 @@ module lendpay::rewards {
     const REASON_LATE_PAYMENT: u8 = 4;
     const REASON_FULL_REPAYMENT: u8 = 5;
     const REASON_DEFAULT_PENALTY: u8 = 6;
+    const REASON_REFERRAL: u8 = 7;
 
     const SPEND_REDEEM_TO_LEND: u8 = 11;
     const SPEND_LIMIT_BOOST: u8 = 12;
@@ -89,6 +91,10 @@ module lendpay::rewards {
 
     public(friend) fun reward_full_repayment(user: address) acquires RewardsRegistry {
         grant_points(user, config::full_repayment_bonus_points(), REASON_FULL_REPAYMENT, false, false);
+    }
+
+    public(friend) fun reward_referral(user: address, points: u64) acquires RewardsRegistry {
+        grant_points(user, points, REASON_REFERRAL, false, false);
     }
 
     public(friend) fun penalize_default(user: address) acquires RewardsRegistry {

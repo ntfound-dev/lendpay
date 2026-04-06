@@ -6,13 +6,19 @@ import type {
   CampaignState,
   CreditProfileQuote,
   CreditScoreState,
+  FaucetState,
   GovernanceProposalState,
   LoanFeeState,
   LoanRequestState,
   LoanState,
   MerchantState,
+  LeaderboardState,
   RewardsState,
+  ReferralState,
+  TxExplorerState,
   UserProfile,
+  ViralDropItemState,
+  ViralDropPurchaseState,
 } from '../types/domain'
 
 type JsonBody = Record<string, unknown> | undefined
@@ -103,6 +109,34 @@ export const lendpayApi = {
     return request<ActivityItem[]>('/api/v1/me/activity', { token })
   },
 
+  getFaucet(token: string) {
+    return request<FaucetState>('/api/v1/me/faucet', { token })
+  },
+
+  claimFaucet(token: string) {
+    return request<FaucetState>('/api/v1/me/faucet/claim', {
+      method: 'POST',
+      token,
+      body: {},
+    })
+  },
+
+  getReferral(token: string) {
+    return request<ReferralState>('/api/v1/me/referral', { token })
+  },
+
+  applyReferralCode(token: string, code: string) {
+    return request<ReferralState>('/api/v1/me/referral/apply', {
+      method: 'POST',
+      token,
+      body: { code },
+    })
+  },
+
+  getLeaderboard(token: string) {
+    return request<LeaderboardState>('/api/v1/leaderboard', { token })
+  },
+
   getScore(token: string) {
     return request<CreditScoreState>('/api/v1/score', { token })
   },
@@ -173,6 +207,18 @@ export const lendpayApi = {
 
   listMerchants(token: string) {
     return request<MerchantState[]>('/api/v1/protocol/merchants', { token })
+  },
+
+  getProtocolTx(token: string, txHash: string) {
+    return request<TxExplorerState | null>(`/api/v1/protocol/tx/${txHash}`, { token })
+  },
+
+  listViralDropItems(token: string) {
+    return request<ViralDropItemState[]>('/api/v1/protocol/viral-drop/items', { token })
+  },
+
+  listViralDropPurchases(token: string) {
+    return request<ViralDropPurchaseState[]>('/api/v1/protocol/viral-drop/purchases', { token })
   },
 
   createCampaign(payload: {

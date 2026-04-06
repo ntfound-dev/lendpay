@@ -1,0 +1,7 @@
+Deploying Move package from /mnt/c/Users/frend/lendpay/smarcontract
+Using named address lendpay=0x5972A1C7118A8977852DC3307621535D5C1CDA63
+{"height":"0","txhash":"942E3BB18E5DAEE199A9D018D8A9F28E58BEFEC14C76F5AB3B584F367039B7AC","codespace":"","code":0,"data":"","raw_log":"","logs":[],"info":"","gas_wanted":"0","gas_used":"0","tx":null,"timestamp":"","events":[]}
+
+Saved deploy response to /mnt/c/Users/frend/lendpay/smarcontract/artifacts/testnet/lendpay-3/deploy.json
+Module address is 0x5972A1C7118A8977852DC3307621535D5C1CDA63
+Set LENDPAY_PACKAGE_ADDRESS=0x5972A1C7118A8977852DC3307621535D5C1CDA63 before bootstrapping, or reuse the same deploy key and let the scripts derive it.

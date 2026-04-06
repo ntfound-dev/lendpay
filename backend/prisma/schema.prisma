@@ -11,6 +11,9 @@ model User {
   id            String          @id
   initiaAddress String          @unique
   username      String?
+  referralCode  String?         @unique
+  referredBy    String?
+  referralPointsEarned Int      @default(0)
   nativeBalance Int             @default(0)
   lockedCollateralLend Int      @default(0)
   points        Int
@@ -32,6 +35,8 @@ model User {
   requests      LoanRequest[]
   loans         Loan[]
   activities    Activity[]
+  referralsFrom ReferralLink[]  @relation("ReferrerLinks")
+  referralsTo   ReferralLink[]  @relation("RefereeLinks")
 }
 
 model Challenge {
@@ -145,4 +150,19 @@ model OperatorAction {
   txHash       String?
   status       String
   createdAt    DateTime
+}
+
+model ReferralLink {
+  id                 String   @id
+  referrerAddress    String
+  refereeAddress     String   @unique
+  status             String   @default("pending")
+  pointsGenerated    Int      @default(0)
+  firstLoanRewarded  Boolean  @default(false)
+  joinedAt           DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  referrer           User     @relation("ReferrerLinks", fields: [referrerAddress], references: [initiaAddress], onDelete: Cascade)
+  referee            User     @relation("RefereeLinks", fields: [refereeAddress], references: [initiaAddress], onDelete: Cascade)
+
+  @@index([referrerAddress, joinedAt])
 }

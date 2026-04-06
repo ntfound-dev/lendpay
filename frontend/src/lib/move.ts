@@ -95,6 +95,47 @@ export const createRepayInstallmentMessage = ({
     ]),
   )
 
+export const createBuyViralDropMessage = ({
+  itemId,
+  merchantId,
+  moduleAddress,
+  moduleName,
+  sender,
+  functionName,
+}: {
+  itemId: number
+  merchantId: number
+  moduleAddress: string
+  moduleName: string
+  sender: string
+  functionName: string
+}) =>
+  toEncodeObject(
+    new MsgExecute(sender, moduleAddress, moduleName, functionName, [], [
+      bcs.u64().serialize(merchantId).toBase64(),
+      bcs.u64().serialize(itemId).toBase64(),
+    ]),
+  )
+
+export const createClaimViralDropCollectibleMessage = ({
+  purchaseId,
+  moduleAddress,
+  moduleName,
+  sender,
+  functionName,
+}: {
+  purchaseId: number
+  moduleAddress: string
+  moduleName: string
+  sender: string
+  functionName: string
+}) =>
+  toEncodeObject(
+    new MsgExecute(sender, moduleAddress, moduleName, functionName, [], [
+      bcs.u64().serialize(purchaseId).toBase64(),
+    ]),
+  )
+
 export const createClaimLendMessage = ({
   moduleAddress,
   moduleName,

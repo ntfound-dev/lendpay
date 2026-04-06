@@ -1,5 +1,6 @@
 import { RESTClient } from '@initia/initia.js'
 import { env } from '../../config/env.js'
+import type { UsernameSource } from '../../types/domain.js'
 
 const previewUsernames = new Map<string, string>()
 
@@ -34,12 +35,22 @@ const extractString = (value: unknown): string | undefined => {
   return undefined
 }
 
+export type UsernameResolution = {
+  username?: string
+  source: UsernameSource
+  verified: boolean
+}
+
 export class UsernamesClient {
   private rest = new RESTClient(env.INITIA_L1_REST_URL)
 
-  async resolveName(address: string): Promise<string | undefined> {
+  async resolveNameWithSource(address: string): Promise<UsernameResolution> {
     if (!env.ENABLE_LIVE_INITIA_READS) {
-      return previewNameForAddress(address)
+      return {
+        username: previewNameForAddress(address),
+        source: 'preview',
+        verified: false,
+      }
     }
 
     try {
@@ -50,10 +61,27 @@ export class UsernamesClient {
         [],
         [address],
       )
+      const username = extractString(result)
 
-      return extractString(result) ?? previewNameForAddress(address)
+      if (username) {
+        return {
+          username,
+          source: 'initia_l1',
+          verified: true,
+        }
+      }
     } catch {
-      return previewNameForAddress(address)
+      // Fall through to preview labeling below.
     }
+
+    return {
+      username: previewNameForAddress(address),
+      source: 'preview',
+      verified: false,
+    }
+  }
+
+  async resolveName(address: string): Promise<string | undefined> {
+    return (await this.resolveNameWithSource(address)).username
   }
 }

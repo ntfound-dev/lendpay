@@ -1,0 +1,13 @@
+{
+  "data": {
+    "id": "1",
+    "item_id": "2",
+    "buyer": "0xc477815d2f70cfcde0fa01ca90c22fcc30078e34",
+    "merchant_id": "2",
+    "amount_paid": "300",
+    "purchased_at": "1775268732",
+    "receipt_object": "0x700360daca7f1c3688e0a872bc409290a0a9f409bfe541eac74579061f8e7b7f"
+  },
+  "events": [],
+  "gas_used": "2684"
+}

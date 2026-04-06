@@ -1,0 +1,12 @@
+{
+  "data": {
+    "purchase_id": "3",
+    "loan_id": "2",
+    "delivery_mode": 0,
+    "collectible_claimed": true,
+    "collectible_object": "0x4442f2601d347d4345b614fe06289e5e88ca8eea1c8bab1fb01c4d3ff355310f",
+    "claimed_at": "1775407095"
+  },
+  "events": [],
+  "gas_used": "1700"
+}

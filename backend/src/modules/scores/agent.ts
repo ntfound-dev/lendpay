@@ -45,13 +45,14 @@ const buildSignals = (
   user: UserProfile,
   oraclePrice: number,
 ): CreditScoreSignals => {
+  const verifiedUsername = user.usernameVerified ? user.username : undefined
   const addressSignal = [...initiaAddress].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 36
-  const usernameBonus = user.username ? 26 : 10
+  const usernameBonus = verifiedUsername ? 26 : 10
   const tierBonus = user.rewards.tier === 'Diamond' ? 20 : user.rewards.tier === 'Gold' ? 14 : user.rewards.tier === 'Silver' ? 8 : 3
 
   return {
     initiaAddress,
-    username: user.username,
+    username: verifiedUsername,
     oraclePrice,
     addressSignal,
     identityStrength: clamp(42 + usernameBonus + Math.floor(addressSignal / 2), 0, 100),

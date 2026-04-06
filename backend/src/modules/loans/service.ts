@@ -14,6 +14,7 @@ import type { ActivityService } from '../activity/service.js'
 import type { ScoreService } from '../scores/service.js'
 import type { UserService } from '../users/service.js'
 import { env } from '../../config/env.js'
+import { createViralDropApps, dedupeApps, enrichOnchainMerchant } from '../protocol/apps.js'
 
 const addDays = (days: number) => {
   const date = new Date()
@@ -102,14 +103,172 @@ export class LoanService {
     private scoreService: ScoreService,
   ) {}
 
-  async listRequests(initiaAddress: string) {
+  private async syncBorrowerMirrors(initiaAddress: string) {
     await this.userService.ensureUser(initiaAddress)
-    const requests = await prisma.loanRequest.findMany({
-      where: { initiaAddress },
-      orderBy: { submittedAt: 'desc' },
+
+    const [dbRequests, dbLoans] = await Promise.all([
+      prisma.loanRequest.findMany({
+        where: { initiaAddress },
+        orderBy: { submittedAt: 'desc' },
+      }),
+      prisma.loan.findMany({
+        where: { initiaAddress },
+        orderBy: { id: 'desc' },
+      }),
+    ])
+
+    if (!this.rollupClient.canRead()) {
+      return {
+        requests: dbRequests.map(mapLoanRequest),
+        loans: dbLoans.map(mapLoan),
+      }
+    }
+
+    const [onchainRequests, onchainLoans] = await Promise.all([
+      this.rollupClient.listBorrowerRequests(initiaAddress).catch(() => []),
+      this.rollupClient.listBorrowerLoans(initiaAddress).catch(() => []),
+    ])
+
+    const requestCache = new Map(dbRequests.map((request) => [request.id, request]))
+    const loanCache = new Map(dbLoans.map((loan) => [loan.id, loan]))
+    const syncedRequestIds = new Set<string>()
+
+    const requestWrites = onchainRequests.map((request) => {
+      const requestId = String(request.id)
+      const existing = requestCache.get(requestId)
+      syncedRequestIds.add(requestId)
+
+      return prisma.loanRequest.upsert({
+        where: { id: requestId },
+        create: {
+          id: requestId,
+          initiaAddress,
+          amount: request.amount,
+          collateralAmount: request.collateralAmount,
+          merchantId: existing?.merchantId,
+          merchantCategory: existing?.merchantCategory,
+          merchantAddress: existing?.merchantAddress,
+          assetSymbol: existing?.assetSymbol ?? env.ROLLUP_NATIVE_SYMBOL,
+          tenorMonths: request.tenorMonths,
+          submittedAt: new Date(request.createdAtSeconds * 1000),
+          status: REQUEST_STATUS_MAP[request.status] ?? 'pending',
+          txHash: existing?.txHash,
+        },
+        update: {
+          amount: request.amount,
+          collateralAmount: request.collateralAmount,
+          merchantId: existing?.merchantId,
+          merchantCategory: existing?.merchantCategory,
+          merchantAddress: existing?.merchantAddress,
+          assetSymbol: existing?.assetSymbol ?? env.ROLLUP_NATIVE_SYMBOL,
+          tenorMonths: request.tenorMonths,
+          submittedAt: new Date(request.createdAtSeconds * 1000),
+          status: REQUEST_STATUS_MAP[request.status] ?? 'pending',
+          txHash: existing?.txHash,
+        },
+      })
     })
 
-    return requests.map(mapLoanRequest)
+    for (const loan of onchainLoans) {
+      const requestId = String(loan.requestId)
+      if (syncedRequestIds.has(requestId)) continue
+
+      const existing = requestCache.get(requestId)
+      syncedRequestIds.add(requestId)
+
+      requestWrites.push(
+        prisma.loanRequest.upsert({
+          where: { id: requestId },
+          create: {
+            id: requestId,
+            initiaAddress,
+            amount: loan.amount,
+            collateralAmount: loan.collateralAmount,
+            merchantId: existing?.merchantId,
+            merchantCategory: existing?.merchantCategory,
+            merchantAddress: existing?.merchantAddress,
+            assetSymbol: existing?.assetSymbol ?? env.ROLLUP_NATIVE_SYMBOL,
+            tenorMonths: loan.tenorMonths,
+            submittedAt: new Date(loan.issuedAtSeconds * 1000),
+            status: 'approved',
+            txHash: existing?.txHash,
+          },
+          update: {
+            amount: loan.amount,
+            collateralAmount: loan.collateralAmount,
+            merchantId: existing?.merchantId,
+            merchantCategory: existing?.merchantCategory,
+            merchantAddress: existing?.merchantAddress,
+            assetSymbol: existing?.assetSymbol ?? env.ROLLUP_NATIVE_SYMBOL,
+            tenorMonths: loan.tenorMonths,
+            submittedAt: existing?.submittedAt ?? new Date(loan.issuedAtSeconds * 1000),
+            status: 'approved',
+            txHash: existing?.txHash,
+          },
+        }),
+      )
+    }
+
+    const loanWrites = onchainLoans.map((loan) => {
+      const loanId = String(loan.id)
+      const existing = loanCache.get(loanId)
+      const linkedRequest = requestCache.get(String(loan.requestId))
+
+      return prisma.loan.upsert({
+        where: { id: loanId },
+        create: {
+          id: loanId,
+          initiaAddress,
+          requestId: String(loan.requestId),
+          principal: loan.amount,
+          collateralAmount: loan.collateralAmount,
+          merchantId: existing?.merchantId ?? linkedRequest?.merchantId,
+          merchantCategory: existing?.merchantCategory ?? linkedRequest?.merchantCategory,
+          merchantAddress: existing?.merchantAddress ?? linkedRequest?.merchantAddress,
+          collateralStatus: COLLATERAL_STATUS_MAP[loan.collateralState] ?? 'none',
+          apr: loan.aprBps / 100,
+          tenorMonths: loan.tenorMonths,
+          installmentsPaid: loan.installmentsPaid,
+          status: LOAN_STATUS_MAP[loan.status] ?? 'active',
+          scheduleJson: serializeJson(scheduleFromOnchainLoan(loan)),
+          txHashApprove: existing?.txHashApprove,
+        },
+        update: {
+          requestId: String(loan.requestId),
+          principal: loan.amount,
+          collateralAmount: loan.collateralAmount,
+          merchantId: existing?.merchantId ?? linkedRequest?.merchantId,
+          merchantCategory: existing?.merchantCategory ?? linkedRequest?.merchantCategory,
+          merchantAddress: existing?.merchantAddress ?? linkedRequest?.merchantAddress,
+          collateralStatus: COLLATERAL_STATUS_MAP[loan.collateralState] ?? 'none',
+          apr: loan.aprBps / 100,
+          tenorMonths: loan.tenorMonths,
+          installmentsPaid: loan.installmentsPaid,
+          status: LOAN_STATUS_MAP[loan.status] ?? 'active',
+          scheduleJson: serializeJson(scheduleFromOnchainLoan(loan)),
+          txHashApprove: existing?.txHashApprove,
+        },
+      })
+    })
+
+    const [syncedRequests, syncedLoans] = await Promise.all([
+      Promise.all(requestWrites),
+      Promise.all(loanWrites),
+    ])
+
+    return {
+      requests: syncedRequests
+        .sort((left, right) => right.submittedAt.getTime() - left.submittedAt.getTime())
+        .map(mapLoanRequest),
+      loans: syncedLoans
+        .sort((left, right) => Number(right.id) - Number(left.id))
+        .map(mapLoan),
+    }
+  }
+
+  async listRequests(initiaAddress: string) {
+    const state = await this.syncBorrowerMirrors(initiaAddress)
+    return state.requests
   }
 
   async createRequest(
@@ -125,6 +284,25 @@ export class LoanService {
   ) {
     const borrower = await this.userService.ensureUser(initiaAddress)
     const score = await this.scoreService.getLatest(initiaAddress)
+    const borrowerState = await this.syncBorrowerMirrors(initiaAddress)
+    const existingActiveLoan = borrowerState.loans.find((loan) => loan.status === 'active')
+    const existingPendingRequest = borrowerState.requests.find((request) => request.status === 'pending')
+
+    if (existingActiveLoan) {
+      throw new AppError(
+        409,
+        'ACTIVE_LOAN_EXISTS',
+        'Finish the current active credit before requesting a new one.',
+      )
+    }
+
+    if (existingPendingRequest) {
+      throw new AppError(
+        409,
+        'PENDING_REQUEST_EXISTS',
+        'A credit request is already pending. Wait for a decision before sending another one.',
+      )
+    }
 
     if (input.amount <= 0) {
       throw new AppError(400, 'INVALID_AMOUNT', 'Requested amount must be positive.')
@@ -160,7 +338,23 @@ export class LoanService {
     }
 
     const collateralAmount = input.collateralAmount ?? 0
-    const merchants = await this.rollupClient.listMerchants().catch(() => [])
+    const [onchainMerchants, viralDropItems, knownAppRoutes] = await Promise.all([
+      this.rollupClient.listMerchants().catch(() => []),
+      this.rollupClient.listViralDropItems().catch(() => []),
+      this.rollupClient.listKnownAppRoutes().catch(() => []),
+    ])
+    const knownRoutesByAddress = new Map(
+      knownAppRoutes.map((route) => [route.merchantAddress.trim().toLowerCase(), route]),
+    )
+    const merchants = dedupeApps([
+      ...onchainMerchants.map((merchant) =>
+        enrichOnchainMerchant(
+          merchant,
+          knownRoutesByAddress.get(merchant.merchantAddress.trim().toLowerCase()) ?? null,
+        ),
+      ),
+      ...createViralDropApps(viralDropItems),
+    ])
     const activeMerchants = merchants.filter((merchant) => merchant.active)
     const merchant =
       input.merchantId != null
@@ -168,11 +362,11 @@ export class LoanService {
         : activeMerchants[0]
 
     if (input.merchantId && !merchant) {
-      throw new AppError(400, 'MERCHANT_NOT_FOUND', 'The selected merchant checkout partner was not found.')
+      throw new AppError(400, 'APP_NOT_FOUND', 'The selected app was not found.')
     }
 
     if (merchant && !merchant.active) {
-      throw new AppError(400, 'MERCHANT_INACTIVE', 'The selected merchant is not accepting checkout credit right now.')
+      throw new AppError(400, 'APP_INACTIVE', 'The selected app is not accepting credit right now.')
     }
 
     if (profileQuote.requiresCollateral) {
@@ -248,13 +442,13 @@ export class LoanService {
 
     await this.activityService.push(initiaAddress, {
       kind: 'loan',
-      label: merchant ? 'Checkout credit requested' : 'Loan requested',
+      label: merchant ? 'Credit requested' : 'Loan requested',
       detail: profileQuote.requiresCollateral
         ? merchant
-          ? `${input.amount.toFixed(2)} USD requested for ${merchant.category} checkout over ${input.tenorMonths} month(s) with ${collateralAmount.toFixed(2)} LEND locked.`
+          ? `${input.amount.toFixed(2)} USD requested for ${merchant.name ?? merchant.category} over ${input.tenorMonths} month(s) with ${collateralAmount.toFixed(2)} LEND locked.`
           : `${input.amount.toFixed(2)} USD requested for ${input.tenorMonths} month(s) with ${collateralAmount.toFixed(2)} LEND locked.`
         : merchant
-          ? `${input.amount.toFixed(2)} USD requested for ${merchant.category} checkout over ${input.tenorMonths} month(s).`
+          ? `${input.amount.toFixed(2)} USD requested for ${merchant.name ?? merchant.category} over ${input.tenorMonths} month(s).`
           : `${input.amount.toFixed(2)} USD requested for ${input.tenorMonths} month(s).`,
     })
 
@@ -373,9 +567,10 @@ export class LoanService {
       kind: 'loan',
       label: 'Request approved',
       detail: request.merchantCategory
-        ? `${request.amount.toFixed(2)} USD approved for ${request.merchantCategory} checkout.`
-        : `${request.amount.toFixed(2)} USD moved into active loan state.`,
+        ? `${request.amount.toFixed(2)} USD is now available to use in the selected app.`
+        : `${request.amount.toFixed(2)} USD is now available to use.`,
     })
+    await this.userService.rewardReferrerForFirstLoan(borrower.initiaAddress)
 
     return {
       loan: mapLoan(loan),
@@ -386,13 +581,8 @@ export class LoanService {
   }
 
   async listLoans(initiaAddress: string) {
-    await this.userService.ensureUser(initiaAddress)
-    const loans = await prisma.loan.findMany({
-      where: { initiaAddress },
-      orderBy: { id: 'desc' },
-    })
-
-    return loans.map(mapLoan)
+    const state = await this.syncBorrowerMirrors(initiaAddress)
+    return state.loans
   }
 
   async getLoan(initiaAddress: string, loanId: string) {
@@ -417,15 +607,13 @@ export class LoanService {
   }
 
   private async requireLoan(initiaAddress: string, loanId: string) {
-    await this.userService.ensureUser(initiaAddress)
-    const loan = await prisma.loan.findUnique({
-      where: { id: loanId },
-    })
+    const state = await this.syncBorrowerMirrors(initiaAddress)
+    const loan = state.loans.find((entry) => entry.id === loanId)
 
-    if (!loan || loan.initiaAddress !== initiaAddress) {
+    if (!loan) {
       throw new AppError(404, 'LOAN_NOT_FOUND', 'Loan was not found.')
     }
 
-    return mapLoan(loan)
+    return loan
   }
 }

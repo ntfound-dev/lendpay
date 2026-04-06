@@ -4,8 +4,14 @@ import type {
   CreditProfileQuote,
   GovernanceProposalState,
   MerchantState,
+  TxExplorerState,
+  ViralDropItemState,
+  ViralDropPurchaseState,
 } from '../../types/domain.js'
 import type { UserService } from '../users/service.js'
+import { env } from '../../config/env.js'
+import { createViralDropApps, dedupeApps, enrichOnchainMerchant } from './apps.js'
+import { loadMerchantProofMap } from './proofs.js'
 
 export class ProtocolService {
   constructor(
@@ -28,9 +34,43 @@ export class ProtocolService {
     return this.rollupClient.listGovernanceProposals(initiaAddress)
   }
 
+  async getTxDetails(initiaAddress: string, txHash: string): Promise<TxExplorerState | null> {
+    await this.userService.ensureUser(initiaAddress)
+    return this.rollupClient.getTxDetails(txHash)
+  }
+
   async listMerchants(initiaAddress: string): Promise<MerchantState[]> {
     await this.userService.ensureUser(initiaAddress)
-    return this.rollupClient.listMerchants()
+    const [onchainMerchants, viralDropItems, knownAppRoutes, proofMap] = await Promise.all([
+      this.rollupClient.listMerchants(),
+      this.rollupClient.listViralDropItems().catch(() => []),
+      this.rollupClient.listKnownAppRoutes().catch(() => []),
+      loadMerchantProofMap(env.ROLLUP_CHAIN_ID),
+    ])
+    const knownRoutesByAddress = new Map(
+      knownAppRoutes.map((route) => [route.merchantAddress.trim().toLowerCase(), route]),
+    )
+    const onchainApps = onchainMerchants.map((merchant) =>
+      enrichOnchainMerchant(
+        merchant,
+        knownRoutesByAddress.get(merchant.merchantAddress.trim().toLowerCase()) ?? null,
+      ),
+    )
+    const viralDropApps = createViralDropApps(viralDropItems)
+    return dedupeApps([...onchainApps, ...viralDropApps]).map((merchant) => ({
+      ...merchant,
+      proof: proofMap.get(merchant.id) ?? proofMap.get(merchant.contract ?? ''),
+    }))
+  }
+
+  async listViralDropItems(initiaAddress: string): Promise<ViralDropItemState[]> {
+    await this.userService.ensureUser(initiaAddress)
+    return this.rollupClient.listViralDropItems()
+  }
+
+  async listViralDropPurchases(initiaAddress: string): Promise<ViralDropPurchaseState[]> {
+    await this.userService.ensureUser(initiaAddress)
+    return this.rollupClient.listViralDropPurchases(initiaAddress)
   }
 
   async createCampaign(input: {

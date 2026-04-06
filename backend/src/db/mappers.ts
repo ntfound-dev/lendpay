@@ -18,6 +18,7 @@ import type {
   OracleSnapshot as DomainOracleSnapshot,
   RewardsState,
   SessionRecord,
+  UsernameSource,
   UserProfile,
 } from '../types/domain.js'
 
@@ -56,10 +57,22 @@ export const mapRewards = (
   badgeCount: user.badgeCount,
 })
 
-export const mapUserProfile = (user: User): UserProfile => ({
+export const mapUserProfile = (
+  user: User,
+  identity?: {
+    username?: string
+    usernameSource?: UsernameSource
+    usernameVerified?: boolean
+  },
+): UserProfile => ({
   id: user.id,
   initiaAddress: user.initiaAddress,
-  username: user.username ?? undefined,
+  username: identity?.username ?? user.username ?? undefined,
+  usernameSource: identity?.usernameSource,
+  usernameVerified: identity?.usernameVerified ?? false,
+  referralCode: user.referralCode ?? undefined,
+  referredBy: user.referredBy ?? undefined,
+  referralPointsEarned: user.referralPointsEarned,
   wallet: {
     nativeBalance: user.nativeBalance,
     lockedCollateralLend: user.lockedCollateralLend,

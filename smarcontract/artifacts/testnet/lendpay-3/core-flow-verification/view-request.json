@@ -1,0 +1,14 @@
+{
+  "data": {
+    "id": "1",
+    "profile_id": 1,
+    "borrower": "0xc477815d2f70cfcde0fa01ca90c22fcc30078e34",
+    "amount": "300",
+    "collateral_amount": "0",
+    "tenor_months": 3,
+    "created_at": "1775268726",
+    "status": 1
+  },
+  "events": [],
+  "gas_used": "2186"
+}

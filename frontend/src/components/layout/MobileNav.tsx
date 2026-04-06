@@ -6,11 +6,12 @@ interface MobileNavProps {
 }
 
 const navItems: Array<{ key: NavKey; label: string; tag: string }> = [
-  { key: 'overview', label: 'Home', tag: '01' },
-  { key: 'analyze', label: 'Score', tag: '02' },
+  { key: 'overview', label: 'Overview', tag: '01' },
+  { key: 'analyze', label: 'Profile', tag: '02' },
   { key: 'request', label: 'Request', tag: '03' },
   { key: 'loan', label: 'Repay', tag: '04' },
-  { key: 'rewards', label: 'Points', tag: '05' },
+  { key: 'rewards', label: 'Loyalty', tag: '05' },
+  { key: 'admin', label: 'Ecosystem', tag: '06' },
 ]
 
 export function MobileNav({ active, onChange }: MobileNavProps) {

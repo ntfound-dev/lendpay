@@ -1,0 +1,16 @@
+{
+  "data": {
+    "user": "0xc477815d2f70cfcde0fa01ca90c22fcc30078e34",
+    "loans_requested": "1",
+    "loans_approved": "1",
+    "loans_repaid": "1",
+    "loans_defaulted": "0",
+    "on_time_payments": "3",
+    "late_payments": "0",
+    "username_hash": "626f72726f7765722e696e6974",
+    "username_verified": true,
+    "last_updated": "1775387666"
+  },
+  "events": [],
+  "gas_used": "1683"
+}

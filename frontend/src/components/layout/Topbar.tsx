@@ -1,70 +1,67 @@
 import { Button } from '../ui/Button'
 
 interface TopbarProps {
-  aiSummary: string
+  agentDetail?: string
+  agentLabel?: string
   connected: boolean
-  identityLabel: string
-  modeLabel: string
-  nextStep: string
   onConnect: () => void
-  onOpenWallet: () => void
+  onPrimaryAction?: () => void
+  onSecondaryAction?: () => void
+  pageSubtitle: string
+  pageTitle: string
+  primaryLabel?: string
+  secondaryLabel?: string
+  statusLabel?: string
+  titleBadgeLabel?: string
 }
 
 export function Topbar({
-  aiSummary,
+  agentDetail,
+  agentLabel,
   connected,
-  identityLabel,
-  modeLabel,
-  nextStep,
   onConnect,
-  onOpenWallet,
+  onPrimaryAction,
+  onSecondaryAction,
+  pageSubtitle,
+  pageTitle,
+  primaryLabel,
+  secondaryLabel,
+  statusLabel,
+  titleBadgeLabel,
 }: TopbarProps) {
   return (
     <header className="topbar">
       <div className="topbar__left">
-        <div className="topbar__heading">
-          <h1 className="topbar__title">LendPay AI Credit Desk</h1>
-          <p className="topbar__subtitle">
-            The agent reads identity, wallet balance, and repayment history before every loan.
-          </p>
+        <div className="topbar__title-row">
+          <h1 className="topbar__title">{pageTitle}</h1>
+          {titleBadgeLabel ? <span className="topbar__title-badge">{titleBadgeLabel}</span> : null}
         </div>
-        <div className="topbar__rail">
-          <span className="meta-pill">AI underwriting</span>
-          <span className="meta-pill">On-chain wallet</span>
-          <span className="meta-pill">.init identity</span>
-        </div>
-      </div>
-
-      <div className="topbar__intel">
-        <div className="topbar__intel-head">
-          <span className="topbar__intel-label">AI analyst</span>
-          <span className="topbar__intel-badge">{connected ? 'Live signals' : 'Waiting for wallet'}</span>
-        </div>
-        <strong className="topbar__intel-value">{aiSummary}</strong>
-        <div className="topbar__intel-grid">
-          <div className="topbar__intel-item">
-            <span>Next step</span>
-            <strong>{nextStep}</strong>
+        <p className="topbar__subtitle">{pageSubtitle}</p>
+        {agentLabel ? (
+          <div className="topbar__agent">
+            <span className="topbar__agent-dot" aria-hidden="true" />
+            <span className="topbar__agent-label">{agentLabel}</span>
+            {agentDetail ? <span className="topbar__agent-detail">{agentDetail}</span> : null}
           </div>
-          <div className="topbar__intel-item">
-            <span>Mode</span>
-            <strong>{modeLabel}</strong>
-          </div>
-        </div>
+        ) : null}
       </div>
 
       <div className="topbar__actions">
-        <div className={`topbar__status ${connected ? 'topbar__status--live' : ''}`}>
-          <span className="topbar__status-dot" />
-          {connected ? 'Wallet connected' : 'Wallet disconnected'}
-        </div>
+        {statusLabel ? (
+          <span className={`topbar__status ${connected ? 'topbar__status--live' : ''}`}>{statusLabel}</span>
+        ) : null}
 
         {connected ? (
-          <Button variant="secondary" onClick={onOpenWallet}>
-            {identityLabel}
-          </Button>
+          <>
+            {secondaryLabel && onSecondaryAction ? (
+              <Button variant="secondary" onClick={onSecondaryAction}>
+                {secondaryLabel}
+              </Button>
+            ) : null}
+            {primaryLabel && onPrimaryAction ? <Button onClick={onPrimaryAction}>{primaryLabel}</Button> : null}
+          </>
         ) : (
-          <Button onClick={onConnect}>Connect Wallet</Button>
+          <Button onClick={onConnect}>Connect wallet</Button>
         )}
       </div>
     </header>

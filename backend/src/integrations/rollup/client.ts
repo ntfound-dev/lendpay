@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process'
 import { dirname } from 'node:path'
 import { promisify } from 'node:util'
 import { env } from '../../config/env.js'
+import { buildKnownAppRoutes } from '../../modules/protocol/apps.js'
 import type {
   CampaignState,
   CreditProfileQuote,
@@ -14,10 +15,14 @@ import type {
   OnchainRewardsSnapshot,
   RewardTier,
   TreasuryState,
+  TxExplorerState,
+  ViralDropItemState,
+  ViralDropPurchaseState,
 } from '../../types/domain.js'
 
 const REQUEST_SEARCH_DEPTH = 20
 const LOAN_SEARCH_DEPTH = 20
+const BORROWER_ENTITY_SEARCH_DEPTH = 200
 const execFileAsync = promisify(execFile)
 
 type RewardAccountView = {
@@ -136,6 +141,60 @@ type MerchantView = {
   active: boolean
 }
 
+type ViralDropItemView = {
+  id: string
+  name: string | number[]
+  uri: string | number[]
+  price: string
+  active: boolean
+}
+
+type ViralDropPurchaseView = {
+  id: string
+  item_id: string
+  buyer: string
+  merchant_id: string
+  amount_paid: string
+  purchased_at: string
+  receipt_object: string
+}
+
+type ViralDropDeliveryView = {
+  purchase_id: string
+  loan_id: string
+  delivery_mode: number
+  collectible_claimed: boolean
+  collectible_object: string
+  claimed_at: string
+}
+
+type RestTxResponse = {
+  tx?: {
+    body?: {
+      memo?: string
+      messages?: Array<{
+        sender?: string
+        module_address?: string
+        module_name?: string
+        function_name?: string
+      }>
+    }
+    auth_info?: {
+      fee?: {
+        amount?: Array<{ denom?: string; amount?: string }>
+      }
+    }
+  }
+  tx_response?: {
+    txhash?: string
+    height?: string
+    code?: number
+    gas_used?: string
+    gas_wanted?: string
+    timestamp?: string
+  }
+}
+
 const toNumber = (value: string | number) => Number(value)
 const CAMPAIGN_OPEN = 0
 const PROPOSAL_OPEN = 0
@@ -156,8 +215,14 @@ const decodeBytesToUtf8 = (value: string | number[] | undefined | null): string 
       return Buffer.from(value).toString('utf8')
     }
 
-    const normalized = value.startsWith('0x') ? value.slice(2) : value
-    return Buffer.from(normalized, 'hex').toString('utf8')
+    if (!value.startsWith('0x')) {
+      if (/^[0-9a-fA-F]+$/.test(value) && value.length % 2 === 0) {
+        return Buffer.from(value, 'hex').toString('utf8')
+      }
+      return value
+    }
+
+    return Buffer.from(value.slice(2), 'hex').toString('utf8')
   } catch {
     return undefined
   }
@@ -211,6 +276,17 @@ export class RollupClient {
 
   addressToHex(address: string) {
     return AccAddress.toHex(address)
+  }
+
+  private normalizeAddress(value: string) {
+    if (!value) return ''
+    if (value.startsWith('0x')) return value.toLowerCase()
+    return this.addressToHex(value).toLowerCase()
+  }
+
+  private isZeroAddress(value: string | undefined | null) {
+    if (!value) return true
+    return /^0x0+$/i.test(this.normalizeAddress(value))
   }
 
   private encodeBytes(value: string) {
@@ -273,6 +349,7 @@ export class RollupClient {
       premiumChecksAvailable: toNumber(rewardAccount.premium_checks_available),
       badgeCount: toNumber(rewardAccount.badge_count),
       tier: tierFromCode(tierCode || derivedTierCode),
+      usernameVerified: Boolean(reputationEntry?.username_verified),
       username:
         reputationEntry?.username_verified && reputationEntry.username_hash
           ? decodeBytesToUtf8(reputationEntry.username_hash)
@@ -454,6 +531,125 @@ export class RollupClient {
     return merchants.sort((left, right) => Number(right.id) - Number(left.id))
   }
 
+  async listKnownAppRoutes(): Promise<MerchantState[]> {
+    if (!this.canRead()) return []
+
+    const [viralDropAddress, mockCabalAddress, mockYominetAddress, mockIntergazeAddress] =
+      await Promise.all([
+        this.viewJson<string>('viral_drop', 'payout_vault_address').catch(() => ''),
+        this.viewJson<string>('mock_cabal', 'payout_vault_address').catch(() => ''),
+        this.viewJson<string>('mock_yominet', 'payout_vault_address').catch(() => ''),
+        this.viewJson<string>('mock_intergaze', 'payout_vault_address').catch(() => ''),
+      ])
+
+    return buildKnownAppRoutes({
+      viralDropAddress: String(viralDropAddress || ''),
+      mockCabalAddress: String(mockCabalAddress || ''),
+      mockYominetAddress: String(mockYominetAddress || ''),
+      mockIntergazeAddress: String(mockIntergazeAddress || ''),
+    })
+  }
+
+  async listViralDropItems(): Promise<ViralDropItemState[]> {
+    if (!this.canRead()) return []
+
+    const [nextItemId, payoutVaultAddress, merchants] = await Promise.all([
+      this.viewScalarNumber('viral_drop', 'next_item_id').catch(() => 1),
+      this.viewJson<string>('viral_drop', 'payout_vault_address').catch(() => ''),
+      this.listMerchants().catch(() => []),
+    ])
+
+    const payoutVaultHex = this.normalizeAddress(String(payoutVaultAddress))
+    const linkedMerchant =
+      merchants.find((merchant) => this.normalizeAddress(merchant.merchantAddress) === payoutVaultHex) ?? null
+
+    const itemIds = Array.from({ length: Math.max(0, nextItemId - 1) }, (_, index) => index + 1)
+    const items = await Promise.all(
+      itemIds.map(async (itemId) => {
+        const item = await this.viewJson<ViralDropItemView>('viral_drop', 'get_item', [
+          bcs.u64().serialize(itemId).toBase64(),
+        ])
+
+        return {
+          id: String(toNumber(item.id)),
+          appLabel: 'Viral Drops',
+          merchantId: linkedMerchant?.id,
+          merchantAddress: linkedMerchant?.merchantAddress,
+          name: decodeBytesToUtf8(item.name) ?? String(item.name),
+          uri: decodeBytesToUtf8(item.uri) ?? String(item.uri),
+          price: toNumber(item.price),
+          instantCollateralRequired: await this.viewScalarNumber(
+            'viral_drop',
+            'required_collateral_for_instant',
+            [bcs.u64().serialize(itemId).toBase64()],
+          ).catch(() => 0),
+          active: item.active,
+        } satisfies ViralDropItemState
+      }),
+    )
+
+    return items.sort((left, right) => Number(left.id) - Number(right.id))
+  }
+
+  async listViralDropPurchases(initiaAddress: string): Promise<ViralDropPurchaseState[]> {
+    if (!this.canRead()) return []
+
+    const [nextPurchaseId, items] = await Promise.all([
+      this.viewScalarNumber('viral_drop', 'next_purchase_id').catch(() => 1),
+      this.listViralDropItems().catch(() => []),
+    ])
+    const itemMap = new Map(items.map((item) => [item.id, item]))
+    const buyerHex = this.normalizeAddress(initiaAddress)
+    const purchaseIds = Array.from({ length: Math.max(0, nextPurchaseId - 1) }, (_, index) => index + 1)
+    const purchases: ViralDropPurchaseState[] = []
+
+    for (const purchaseId of purchaseIds) {
+      const [purchase, delivery, collectibleClaimable] = await Promise.all([
+        this.viewJson<ViralDropPurchaseView>('viral_drop', 'get_purchase', [
+          bcs.u64().serialize(purchaseId).toBase64(),
+        ]),
+        this.viewJson<ViralDropDeliveryView>('viral_drop', 'get_purchase_delivery', [
+          bcs.u64().serialize(purchaseId).toBase64(),
+        ]).catch(() => null),
+        this.viewBoolean('viral_drop', 'purchase_collectible_claimable', [
+          bcs.u64().serialize(purchaseId).toBase64(),
+        ]).catch(() => false),
+      ])
+
+      if (this.normalizeAddress(purchase.buyer) !== buyerHex) {
+        continue
+      }
+
+      const item = itemMap.get(String(toNumber(purchase.item_id)))
+      purchases.push({
+        id: String(toNumber(purchase.id)),
+        itemId: String(toNumber(purchase.item_id)),
+        itemName: item?.name ?? `Drop #${String(toNumber(purchase.item_id))}`,
+        appLabel: item?.appLabel ?? 'Viral Drops',
+        merchantId: String(toNumber(purchase.merchant_id)),
+        merchantAddress: item?.merchantAddress,
+        buyer: purchase.buyer,
+        amountPaid: toNumber(purchase.amount_paid),
+        purchasedAt: new Date(toNumber(purchase.purchased_at) * 1000).toISOString(),
+        receiptAddress: purchase.receipt_object,
+        loanId: delivery ? String(toNumber(delivery.loan_id)) : undefined,
+        deliveryMode: delivery?.delivery_mode === 1 ? 'secured_instant' : 'claim_on_repay',
+        collectibleClaimed: delivery?.collectible_claimed ?? false,
+        collectibleClaimable,
+        collectibleAddress:
+          delivery && !this.isZeroAddress(delivery.collectible_object)
+            ? delivery.collectible_object
+            : undefined,
+        claimedAt:
+          delivery && toNumber(delivery.claimed_at) > 0
+            ? new Date(toNumber(delivery.claimed_at) * 1000).toISOString()
+            : undefined,
+      })
+    }
+
+    return purchases.sort((left, right) => Number(right.id) - Number(left.id))
+  }
+
   async findLatestMatchingRequest(input: {
     borrowerAddress: string
     amount: number
@@ -500,6 +696,26 @@ export class RollupClient {
     }
   }
 
+  async listBorrowerRequests(initiaAddress: string): Promise<OnchainRequestSnapshot[]> {
+    if (!this.canRead()) return []
+
+    const borrowerHex = this.addressToHex(initiaAddress).toLowerCase()
+    const nextRequestId = await this.viewScalarNumber('loan_book', 'next_request_id').catch(() => 1)
+    const minRequestId = Math.max(1, nextRequestId - BORROWER_ENTITY_SEARCH_DEPTH)
+    const requests: OnchainRequestSnapshot[] = []
+
+    for (let requestId = nextRequestId - 1; requestId >= minRequestId; requestId -= 1) {
+      const request = await this.getRequestById(requestId).catch(() => null)
+
+      if (!request) continue
+      if (request.borrowerHex.toLowerCase() !== borrowerHex) continue
+
+      requests.push(request)
+    }
+
+    return requests.sort((left, right) => right.id - left.id)
+  }
+
   async findLatestLoanByRequestId(requestId: number): Promise<OnchainLoanSnapshot | null> {
     if (!this.canRead()) return null
 
@@ -540,6 +756,26 @@ export class RollupClient {
       totalRepaid: toNumber(loan.total_repaid),
       status: loan.status,
     }
+  }
+
+  async listBorrowerLoans(initiaAddress: string): Promise<OnchainLoanSnapshot[]> {
+    if (!this.canRead()) return []
+
+    const borrowerHex = this.addressToHex(initiaAddress).toLowerCase()
+    const nextLoanId = await this.viewScalarNumber('loan_book', 'next_loan_id').catch(() => 1)
+    const minLoanId = Math.max(1, nextLoanId - BORROWER_ENTITY_SEARCH_DEPTH)
+    const loans: OnchainLoanSnapshot[] = []
+
+    for (let loanId = nextLoanId - 1; loanId >= minLoanId; loanId -= 1) {
+      const loan = await this.getLoanById(loanId).catch(() => null)
+
+      if (!loan) continue
+      if (loan.borrowerHex.toLowerCase() !== borrowerHex) continue
+
+      loans.push(loan)
+    }
+
+    return loans.sort((left, right) => right.id - left.id)
   }
 
   async getWalletSnapshot(initiaAddress: string) {
@@ -603,6 +839,44 @@ export class RollupClient {
     }
 
     throw new Error(`Timed out waiting for tx ${txHash}.`)
+  }
+
+  async getTxDetails(txHash: string): Promise<TxExplorerState | null> {
+    const url = new URL(`/cosmos/tx/v1beta1/txs/${txHash}`, env.ROLLUP_REST_URL)
+    const response = await fetch(url.toString())
+
+    if (response.status === 404) {
+      return null
+    }
+
+    if (!response.ok) {
+      throw new Error(`Tx query failed with ${response.status}`)
+    }
+
+    const payload = (await response.json()) as RestTxResponse
+    const message = payload.tx?.body?.messages?.[0]
+    const fee = payload.tx?.auth_info?.fee?.amount?.[0]
+    const txResponse = payload.tx_response
+
+    if (!txResponse?.txhash) {
+      return null
+    }
+
+    return {
+      txHash: txResponse.txhash,
+      height: Number(txResponse.height ?? 0),
+      status: Number(txResponse.code ?? 0) === 0 ? 'success' : 'failed',
+      code: Number(txResponse.code ?? 0),
+      timestamp: txResponse.timestamp,
+      sender: message?.sender,
+      moduleAddress: message?.module_address,
+      moduleName: message?.module_name,
+      functionName: message?.function_name,
+      memo: payload.tx?.body?.memo,
+      gasUsed: Number(txResponse.gas_used ?? 0),
+      gasWanted: Number(txResponse.gas_wanted ?? 0),
+      fee: fee?.amount && fee?.denom ? `${fee.amount} ${fee.denom}` : undefined,
+    }
   }
 
   private async getNativeBalance(initiaAddress: string) {
@@ -977,6 +1251,77 @@ export class RollupClient {
     if ((payload.code ?? 0) !== 0 || !payload.txhash) {
       throw new Error(
         `Rollup CLI tx failed with code ${String(payload.code ?? 'unknown')}: ${payload.raw_log || 'unknown error'}`,
+      )
+    }
+
+    await this.waitForTx(payload.txhash)
+    return payload.txhash
+  }
+
+  async sendNativeTokens(recipientAddress: string, amount: number, memo = 'lendpay.faucet') {
+    if (!this.canBroadcast()) {
+      throw new Error('Live rollup writes are disabled, so faucet sends are unavailable.')
+    }
+
+    if (!env.MINITIAD_BIN || !env.ROLLUP_HOME) {
+      throw new Error('CLI signer is not configured for native token transfers.')
+    }
+
+    const binDir = dirname(env.MINITIAD_BIN)
+    const childEnv = {
+      ...process.env,
+      LD_LIBRARY_PATH: process.env.LD_LIBRARY_PATH
+        ? `${binDir}:${process.env.LD_LIBRARY_PATH}`
+        : binDir,
+    }
+
+    const args = [
+      '--home',
+      env.ROLLUP_HOME,
+      'tx',
+      'bank',
+      'send',
+      env.ROLLUP_KEY_NAME,
+      recipientAddress,
+      `${Math.max(1, Math.floor(amount))}${env.ROLLUP_NATIVE_DENOM}`,
+      '--from',
+      env.ROLLUP_KEY_NAME,
+      '--keyring-backend',
+      env.ROLLUP_KEYRING_BACKEND,
+      '--node',
+      env.ROLLUP_RPC_URL,
+      '--chain-id',
+      env.ROLLUP_CHAIN_ID,
+      '--gas',
+      'auto',
+      '--gas-adjustment',
+      String(env.ROLLUP_GAS_ADJUSTMENT),
+      '--gas-prices',
+      env.ROLLUP_GAS_PRICES,
+      '--yes',
+      '--output',
+      'json',
+    ]
+
+    if (memo) {
+      args.push('--note', memo)
+    }
+
+    const { stdout, stderr } = await execFileAsync(env.MINITIAD_BIN, args, {
+      env: childEnv,
+      maxBuffer: 1024 * 1024 * 8,
+    })
+
+    const payloadText = stdout.trim() || stderr.trim()
+    const payload = JSON.parse(payloadText) as {
+      code?: number
+      raw_log?: string
+      txhash?: string
+    }
+
+    if ((payload.code ?? 0) !== 0 || !payload.txhash) {
+      throw new Error(
+        `Native send failed with code ${String(payload.code ?? 'unknown')}: ${payload.raw_log || 'unknown error'}`,
       )
     }
 

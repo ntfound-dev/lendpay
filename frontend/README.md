@@ -7,7 +7,7 @@ Its job is to:
 - connect the wallet with InterwovenKit
 - authenticate the borrower against the backend
 - show live protocol state from the rollup
-- submit Move transactions for checkout credit, repayment, rewards, staking, and governance actions
+- submit Move transactions for Initia app credit, repayment, rewards, staking, and governance actions
 
 ## Technical Architecture
 
@@ -49,7 +49,7 @@ Folder map:
 
 The frontend submits wallet-signed Move transactions for:
 
-- checkout credit requests
+- Initia app credit requests
 - collateralized requests
 - installment repayment
 - claimable LEND
@@ -62,26 +62,31 @@ The frontend submits wallet-signed Move transactions for:
 
 - `Overview`: current borrower state and next actions
 - `Analyze`: score output and agent signals
-- `Request`: merchant checkout credit request flow
-- `Repayment`: active checkout loan, repayment state, fees, and collateral status
+- `Request`: Initia app credit request flow
+- `Repayment`: active app credit, repayment state, fees, and collateral status
 - `Reputation`: rewards, claimable LEND, staking, and borrower perks
-- `Operations`: campaigns, governance, and merchant registry actions
+- `Ecosystem`: campaigns, governance, and app registry activity
 
-## Merchant Checkout Flow
+## App Credit Flow
 
 The request flow is not a generic loan form. It is built around:
 
-- merchant selection
-- checkout amount
+- live Initia app selection
+- optional live viral drop selection to sync request amount
+- requested amount
 - profile quote selection
-- optional collateral requirements
+- unsecured app credit as the default borrower path
+- optional locked `LEND` collateral only for the advanced secured profile
 - wallet-signed Move request submission
+
+After approval, the borrower can use funded balance in the internal `viral_drop` module. That step mints a real onchain receipt object to the borrower wallet and gives the repayment surface a concrete proof-of-use.
 
 The repayment surface then explains where funds go:
 
 - approved amount
-- merchant destination
+- app used
 - wallet funding state
+- receipt state after `viral_drop` purchase
 - next due amount and due date
 - collateral lock state when applicable
 
@@ -126,6 +131,34 @@ npm run dev
 ```bash
 npm run build
 ```
+
+## Deploy To Vercel
+
+Recommended production split:
+
+- frontend on Vercel
+- backend on Railway
+
+This frontend is already prepared for Vercel with:
+
+- [vercel.json](./vercel.json)
+
+Recommended Vercel settings:
+
+- Root Directory: `frontend`
+- Framework Preset: `Vite`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+
+Important envs:
+
+- `VITE_API_BASE_URL`
+- `VITE_APPCHAIN_ID`
+- `VITE_CHAIN_RPC_URL`
+- `VITE_CHAIN_REST_URL`
+- `VITE_CHAIN_INDEXER_URL`
+- `VITE_PACKAGE_ADDRESS`
+- `VITE_NATIVE_SYMBOL`
 
 ## Notes
 

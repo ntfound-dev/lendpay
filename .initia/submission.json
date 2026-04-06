@@ -2,28 +2,52 @@
   "project_name": "LendPay",
   "slug": "lendpay",
   "track": "DeFi",
+  "secondary_track": "AI",
   "vm": "MoveVM",
-  "summary": "LendPay is an Initia MiniMove appchain for merchant checkout credit. It combines wallet identity, AI-assisted underwriting, and onchain installment repayment for users and merchants.",
+  "summary": "LendPay is an Initia MiniMove appchain for agent-guided credit across Initia apps. It combines .init identity, AI-assisted underwriting, live viral drop usage, and installment repayment in one internal flow.",
   "repository_url": "https://github.com/ntfound-dev/lendpay",
   "demo_video_url": "",
   "deployment": {
-    "rollup_chain_id": "lendpay-local-1",
+    "rollup_chain_id": "lendpay-4",
     "deployment_tx_url": "",
     "deployment_url": ""
   },
   "initia_integration": {
     "interwovenkit_used": true,
     "native_features": [
-      "Initia Usernames"
+      "Initia Usernames",
+      "InterwovenKit",
+      "MiniMove Rollup"
     ]
   },
+  "implemented_scope": [
+    "borrower_analysis",
+    "app_credit_request",
+    "operator_approval",
+    "viral_drop_destination",
+    "installment_repayment"
+  ],
+  "demo_flow": [
+    "connect_wallet",
+    "ai_credit_score",
+    "choose_live_app",
+    "request_credit",
+    "approve_request",
+    "use_credit_in_viral_drop",
+    "repay_installments"
+  ],
   "submission_artifacts": {
     "readme_path": "README.md",
     "submission_json_path": ".initia/submission.json"
   },
   "notes": [
-    "Package address: 0x52683DF957C5538C0FA362B068804A120E408D2B",
-    "Deploy tx hash: 47C0DF5AE56C885F5565BB07FE00332FD227BCAC5678C9A049B1C8E510F16276",
-    "Primary native integrations: InterwovenKit and Initia Usernames"
+    "Package address: 0x5972A1C7118A8977852DC3307621535D5C1CDA63",
+    "Native rollup asset: LEND (internal base denom: ulend)",
+    "Deploy tx hash on lendpay-4: F93B0FA4D598833E7664DE8F0A88B5DCC7F921D2CB0EFB3F0C3D95C2D1D66D78",
+    "Bootstrap tx hash on lendpay-4: FEC142843CECAE4011E4ECAEB32A5019A9E66E099EAC875BD82DBF953D3AFF1D",
+    "Viral drop proof tx hash on lendpay-4: 578AB95B519EE25A7E60D52E0A876C5DB81D4B658871BD066938F4E4863A4286",
+    "Core flow request tx hash on lendpay-4: 48A044189CC75E1877E455D208E2F22BD6706DDF25DF410D62144D4DB9E3D5A2",
+    "Verified native integrations: InterwovenKit, Initia Usernames, and MiniMove rollup execution",
+    "Current live destination is the internal viral_drop flow used for the demo and repayment loop"
   ]
 }

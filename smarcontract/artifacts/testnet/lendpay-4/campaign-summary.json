@@ -1,0 +1,28 @@
+{
+  "campaigns": [
+    {
+      "id": 1,
+      "label": "First loan bonus",
+      "allocations": [
+        {
+          "user": "init1t9e2r3c332yh0pfdcvc8vg2nt4wpeknrxh9uc3",
+          "amount": 250
+        },
+        {
+          "user": "init1c3mczhf0wr8umc86q89fps30escq0r35a30pvm",
+          "amount": 250
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "label": "Repayment streak bonus",
+      "allocations": [
+        {
+          "user": "init1c3mczhf0wr8umc86q89fps30escq0r35a30pvm",
+          "amount": 150
+        }
+      ]
+    }
+  ]
+}

@@ -72,7 +72,7 @@ export class ScoreService {
     await this.activityService.push(initiaAddress, {
       kind: 'score',
       label: 'Score refreshed',
-      detail: `Agent analyzed wallet and identity using ${providerLabel} with ${snapshot.baseCurrency}/${snapshot.quoteCurrency} normalization.`,
+      detail: `Your wallet and identity were rechecked using ${providerLabel}. Updated pricing is now available.`,
     })
 
     return mapScore(createdScore)

@@ -12,3 +12,5 @@ backend/.env
 frontend/.env
 .run/
 .codex
+smarcontract/build/
+*.lnk

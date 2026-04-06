@@ -6,6 +6,10 @@ const syncRewardsSchema = z.object({
   txHash: z.string().optional(),
 })
 
+const applyReferralSchema = z.object({
+  code: z.string().min(3),
+})
+
 export const registerUserRoutes = async (app: FastifyInstance, deps: AppDeps) => {
   app.get('/api/v1/me', async (request) => {
     const session = await deps.authService.requireSession(request.headers.authorization)
@@ -43,5 +47,31 @@ export const registerUserRoutes = async (app: FastifyInstance, deps: AppDeps) =>
   app.get('/api/v1/me/activity', async (request) => {
     const session = await deps.authService.requireSession(request.headers.authorization)
     return deps.activityService.list(session.initiaAddress)
+  })
+
+  app.get('/api/v1/me/faucet', async (request) => {
+    const session = await deps.authService.requireSession(request.headers.authorization)
+    return deps.userService.getFaucetStatus(session.initiaAddress)
+  })
+
+  app.post('/api/v1/me/faucet/claim', async (request) => {
+    const session = await deps.authService.requireSession(request.headers.authorization)
+    return deps.userService.claimFaucet(session.initiaAddress)
+  })
+
+  app.get('/api/v1/me/referral', async (request) => {
+    const session = await deps.authService.requireSession(request.headers.authorization)
+    return deps.userService.getReferral(session.initiaAddress)
+  })
+
+  app.post('/api/v1/me/referral/apply', async (request) => {
+    const session = await deps.authService.requireSession(request.headers.authorization)
+    const payload = applyReferralSchema.parse(request.body)
+    return deps.userService.applyReferralCode(session.initiaAddress, payload.code)
+  })
+
+  app.get('/api/v1/leaderboard', async (request) => {
+    const session = await deps.authService.requireSession(request.headers.authorization)
+    return deps.userService.getLeaderboard(session.initiaAddress)
   })
 }

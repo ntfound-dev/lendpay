@@ -43,6 +43,20 @@ module lendpay::errors {
     const E_INSUFFICIENT_PLATFORM_ACTIVITY: u64 = 42;
     const E_INSUFFICIENT_COLLATERAL: u64 = 43;
     const E_COLLATERAL_NOT_ACTIVE: u64 = 44;
+    const E_ITEM_NOT_FOUND: u64 = 45;
+    const E_ITEM_NOT_ACTIVE: u64 = 46;
+    const E_MERCHANT_NOT_ACTIVE: u64 = 47;
+    const E_MERCHANT_DESTINATION_MISMATCH: u64 = 48;
+    const E_REFERRAL_ALREADY_APPLIED: u64 = 49;
+    const E_REFERRAL_CODE_NOT_FOUND: u64 = 50;
+    const E_SELF_REFERRAL_NOT_ALLOWED: u64 = 51;
+    const E_REFERRAL_WINDOW_CLOSED: u64 = 52;
+    const E_VAULT_NOT_FOUND: u64 = 53;
+    const E_POSITION_NOT_FOUND: u64 = 54;
+    const E_POSITION_NOT_OPEN: u64 = 55;
+    const E_DELIVERY_NOT_FOUND: u64 = 56;
+    const E_COLLECTIBLE_LOCKED: u64 = 57;
+    const E_DELIVERY_REGISTRY_NOT_INITIALIZED: u64 = 58;
 
     public fun already_initialized(): u64 { E_ALREADY_INITIALIZED }
     public fun not_initialized(): u64 { E_NOT_INITIALIZED }
@@ -88,4 +102,18 @@ module lendpay::errors {
     public fun insufficient_platform_activity(): u64 { E_INSUFFICIENT_PLATFORM_ACTIVITY }
     public fun insufficient_collateral(): u64 { E_INSUFFICIENT_COLLATERAL }
     public fun collateral_not_active(): u64 { E_COLLATERAL_NOT_ACTIVE }
+    public fun item_not_found(): u64 { E_ITEM_NOT_FOUND }
+    public fun item_not_active(): u64 { E_ITEM_NOT_ACTIVE }
+    public fun merchant_not_active(): u64 { E_MERCHANT_NOT_ACTIVE }
+    public fun merchant_destination_mismatch(): u64 { E_MERCHANT_DESTINATION_MISMATCH }
+    public fun referral_already_applied(): u64 { E_REFERRAL_ALREADY_APPLIED }
+    public fun referral_code_not_found(): u64 { E_REFERRAL_CODE_NOT_FOUND }
+    public fun self_referral_not_allowed(): u64 { E_SELF_REFERRAL_NOT_ALLOWED }
+    public fun referral_window_closed(): u64 { E_REFERRAL_WINDOW_CLOSED }
+    public fun vault_not_found(): u64 { E_VAULT_NOT_FOUND }
+    public fun position_not_found(): u64 { E_POSITION_NOT_FOUND }
+    public fun position_not_open(): u64 { E_POSITION_NOT_OPEN }
+    public fun delivery_not_found(): u64 { E_DELIVERY_NOT_FOUND }
+    public fun collectible_locked(): u64 { E_COLLECTIBLE_LOCKED }
+    public fun delivery_registry_not_initialized(): u64 { E_DELIVERY_REGISTRY_NOT_INITIALIZED }
 }
