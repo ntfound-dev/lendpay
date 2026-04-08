@@ -447,7 +447,10 @@ function App() {
       ? `Available again ${formatDate(faucet.nextClaimAt)} · ${formatRelative(faucet.nextClaimAt)}`
       : 'Unavailable right now'
   const uniqueApps = useMemo(() => dedupeApps(merchants), [merchants])
-  const activeMerchants = uniqueApps.filter((merchant) => merchant.active)
+  const activeMerchants = useMemo(
+    () => uniqueApps.filter((merchant) => merchant.active),
+    [uniqueApps],
+  )
   const selectedAppProof = uniqueApps.find((merchant) => merchant.id === selectedAppProofId) ?? null
   const selectedMerchant =
     activeMerchants.find((merchant) => merchant.id === draft.merchantId) ?? null
@@ -526,10 +529,10 @@ function App() {
     : checkoutFormLocked
       ? 'Add an Initia app in Ecosystem to enable credit requests.'
       : 'Choose one app below. The rest of the request form opens after that.'
-  const orderedProfiles = [...profileQuotes].sort((left, right) => {
+  const orderedProfiles = useMemo(() => {
     const order = ['micro_loan', 'standard_bnpl', 'credit_line', 'collateralized']
-    return order.indexOf(left.label) - order.indexOf(right.label)
-  })
+    return [...profileQuotes].sort((left, right) => order.indexOf(left.label) - order.indexOf(right.label))
+  }, [profileQuotes])
   const openCampaignCount = campaigns.filter((campaign) => campaign.status === 'open').length
   const ecosystemFamilyStats = APP_FAMILIES.map((family) => {
     const apps = uniqueApps.filter((merchant) => appCategoryMeta(merchant.category).family === family)
@@ -549,8 +552,12 @@ function App() {
               : 'Membership and tools',
     }
   }).filter((item) => item.count > 0)
-  const selectedMerchantDropItems = viralDropItems.filter(
-    (item) => item.active && (!selectedMerchant || item.merchantId === selectedMerchant.id),
+  const selectedMerchantDropItems = useMemo(
+    () =>
+      viralDropItems.filter(
+        (item) => item.active && (!selectedMerchant || item.merchantId === selectedMerchant.id),
+      ),
+    [selectedMerchant, viralDropItems],
   )
   const selectedDropItem =
     selectedMerchantDropItems.find((item) => item.id === selectedDropItemId) ?? null
@@ -558,8 +565,12 @@ function App() {
     Boolean(selectedProfile?.requiresCollateral) &&
     Boolean(selectedDropItem) &&
     collateralDraftAmount >= (selectedDropItem?.instantCollateralRequired ?? Number.POSITIVE_INFINITY)
-  const activeLoanDropItems = viralDropItems.filter(
-    (item) => item.active && item.merchantId === (activeLoan?.merchantId ?? latestRequest?.merchantId),
+  const activeLoanDropItems = useMemo(
+    () =>
+      viralDropItems.filter(
+        (item) => item.active && item.merchantId === (activeLoan?.merchantId ?? latestRequest?.merchantId),
+      ),
+    [activeLoan?.merchantId, latestRequest?.merchantId, viralDropItems],
   )
   const latestDropPurchase = viralDropPurchases[0] ?? null
   const latestDropDelivery = latestDropPurchase ? describePurchaseDelivery(latestDropPurchase) : null
@@ -622,12 +633,16 @@ function App() {
       (left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime(),
     )
   }, [activities, viralDropPurchases])
-  const groupedActiveApps = APP_FAMILIES.map((family) => ({
-    family,
-    apps: activeMerchants
-      .filter((merchant) => appCategoryMeta(merchant.category).family === family)
-      .sort((left, right) => formatAppLabel(left).localeCompare(formatAppLabel(right))),
-  })).filter((group) => group.apps.length > 0)
+  const groupedActiveApps = useMemo(
+    () =>
+      APP_FAMILIES.map((family) => ({
+        family,
+        apps: activeMerchants
+          .filter((merchant) => appCategoryMeta(merchant.category).family === family)
+          .sort((left, right) => formatAppLabel(left).localeCompare(formatAppLabel(right))),
+      })).filter((group) => group.apps.length > 0),
+    [activeMerchants],
+  )
   const requestQuickApps = groupedActiveApps.flatMap((group) => group.apps)
   const governanceUpdates: ProtocolUpdateItem[] = governance.slice(0, 2).map((proposal) => {
     const badge = getProtocolEventBadge('proposal')
@@ -760,7 +775,7 @@ function App() {
     }
 
     const hasSelected = activeMerchants.some((merchant) => merchant.id === draft.merchantId)
-    if (!hasSelected) {
+    if (!hasSelected && draft.merchantId !== '') {
       setDraft((current) => ({ ...current, merchantId: '' }))
     }
   }, [activeMerchants, draft.merchantId])
@@ -774,7 +789,7 @@ function App() {
     }
 
     const stillSelected = selectedMerchantDropItems.some((item) => item.id === selectedDropItemId)
-    if (!stillSelected) {
+    if (!stillSelected && selectedDropItemId) {
       setSelectedDropItemId('')
     }
   }, [selectedDropItemId, selectedMerchantDropItems])
@@ -846,7 +861,7 @@ function App() {
       )
       const nextTenor = allowedTenors[allowedTenors.length - 1]
 
-      if (nextTenor) {
+      if (nextTenor && nextTenor !== draft.tenorMonths) {
         setDraft((current) => ({ ...current, tenorMonths: nextTenor }))
       }
     }
@@ -863,9 +878,13 @@ function App() {
     }
 
     if (Number(draft.collateralAmount || 0) <= 0 && requestedAmount > 0) {
+      const nextCollateralAmount = String(requiredCollateralAmount)
+      if (nextCollateralAmount === draft.collateralAmount) {
+        return
+      }
       setDraft((current) => ({
         ...current,
-        collateralAmount: String(requiredCollateralAmount),
+        collateralAmount: nextCollateralAmount,
       }))
     }
   }, [
