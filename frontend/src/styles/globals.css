@@ -5102,6 +5102,14 @@ body::after {
   gap: 8px;
 }
 
+.app-purpose-card__examples-label {
+  color: #475569;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .app-purpose-chip,
 .merchant-partner-card__use-chip {
   display: inline-flex;
@@ -5114,6 +5122,17 @@ body::after {
   color: #1d4ed8;
   font-size: 0.82rem;
   font-weight: 500;
+}
+
+.app-purpose-chip--static {
+  cursor: default;
+  user-select: none;
+}
+
+.app-purpose-card__examples-note {
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 .app-purpose-card__next {

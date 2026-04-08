@@ -298,13 +298,19 @@ export function RequestPage({
                     ? 'This app already has live items onchain. Pick one below so the request amount matches a real item price.'
                     : selectedAppMeta.description}
                 </p>
+                <div className="app-purpose-card__examples-label">Example actions in this app</div>
                 <div className="app-purpose-card__chips">
                   {selectedAppMeta.examples.map((example) => (
-                    <span className="app-purpose-chip" key={example}>
+                    <span className="app-purpose-chip app-purpose-chip--static" key={example}>
                       {example}
                     </span>
                   ))}
                 </div>
+                <p className="app-purpose-card__examples-note">
+                  {selectedMerchantDropItems.length
+                    ? 'These tags are examples only. Use the live item cards below to actually continue with a mint, drop, or collectible route.'
+                    : 'These tags are examples only. Continue below to set the amount and send the credit request.'}
+                </p>
                 <div className="app-purpose-card__next">
                   <span>What happens next</span>
                   <strong>{selectedRouteOutcomeCopy}</strong>
