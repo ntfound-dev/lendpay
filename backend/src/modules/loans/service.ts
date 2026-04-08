@@ -354,11 +354,29 @@ export class LoanService {
   ) {
     const borrower = await this.userService.ensureUser(initiaAddress)
     const score = await this.scoreService.getLatest(initiaAddress)
+    const collateralAmount = input.collateralAmount ?? 0
+    const profileId = input.profileId ?? 1
+    let resolvedOnchainRequest: Awaited<ReturnType<RollupClient['findLatestMatchingRequest']>> | null = null
+
+    if (input.txHash && this.rollupClient.canRead()) {
+      await this.rollupClient.waitForTx(input.txHash)
+      resolvedOnchainRequest =
+        (await this.rollupClient
+          .findLatestMatchingRequest({
+            borrowerAddress: initiaAddress,
+            amount: input.amount,
+            collateralAmount,
+            tenorMonths: input.tenorMonths,
+            profileId,
+          })
+          .catch(() => null)) ?? null
+    }
+
     const borrowerState = await this.syncBorrowerMirrors(initiaAddress)
     const existingActiveLoan = borrowerState.loans.find((loan) => loan.status === 'active')
     const existingPendingRequest = borrowerState.requests.find((request) => request.status === 'pending')
 
-    if (existingActiveLoan) {
+    if (!resolvedOnchainRequest && existingActiveLoan) {
       throw new AppError(
         409,
         'ACTIVE_LOAN_EXISTS',
@@ -366,7 +384,7 @@ export class LoanService {
       )
     }
 
-    if (existingPendingRequest) {
+    if (!resolvedOnchainRequest && existingPendingRequest) {
       throw new AppError(
         409,
         'PENDING_REQUEST_EXISTS',
@@ -378,7 +396,6 @@ export class LoanService {
       throw new AppError(400, 'INVALID_AMOUNT', 'Requested amount must be positive.')
     }
 
-    const profileId = input.profileId ?? 1
     const profileQuote =
       (await this.rollupClient.getProfileQuote(initiaAddress, profileId).catch(() => null)) ?? null
 
@@ -407,7 +424,6 @@ export class LoanService {
       throw new AppError(400, 'LIMIT_EXCEEDED', 'Requested amount exceeds the approved limit.')
     }
 
-    const collateralAmount = input.collateralAmount ?? 0
     const [onchainMerchants, viralDropItems, knownAppRoutes] = await Promise.all([
       this.rollupClient.listMerchants().catch(() => []),
       this.rollupClient.listViralDropItems().catch(() => []),
@@ -467,21 +483,12 @@ export class LoanService {
 
     let requestId = createPrefixedId(`request-${initiaAddress.slice(-6)}`)
     let requestStatus: LoanRequestState['status'] = 'pending'
+    let submittedAt = new Date()
 
-    if (input.txHash && this.rollupClient.canRead()) {
-      await this.rollupClient.waitForTx(input.txHash)
-      const onchainRequest = await this.rollupClient.findLatestMatchingRequest({
-        borrowerAddress: initiaAddress,
-        amount: input.amount,
-        collateralAmount,
-        tenorMonths: input.tenorMonths,
-        profileId,
-      })
-
-      if (onchainRequest) {
-        requestId = String(onchainRequest.id)
-        requestStatus = REQUEST_STATUS_MAP[onchainRequest.status] ?? 'pending'
-      }
+    if (resolvedOnchainRequest) {
+      requestId = String(resolvedOnchainRequest.id)
+      requestStatus = REQUEST_STATUS_MAP[resolvedOnchainRequest.status] ?? 'pending'
+      submittedAt = new Date(resolvedOnchainRequest.createdAtSeconds * 1000)
     }
 
     const request = await prisma.loanRequest.upsert({
@@ -495,7 +502,7 @@ export class LoanService {
         merchantCategory: merchant?.category,
         merchantAddress: merchant?.merchantAddress,
         tenorMonths: input.tenorMonths,
-        submittedAt: new Date(),
+        submittedAt,
         status: requestStatus,
         txHash: input.txHash || this.rollupClient.previewTxHash('request'),
         assetSymbol: env.ROLLUP_NATIVE_SYMBOL,
@@ -505,6 +512,7 @@ export class LoanService {
         merchantId: merchant?.id,
         merchantCategory: merchant?.category,
         merchantAddress: merchant?.merchantAddress,
+        submittedAt,
         status: requestStatus,
         txHash: input.txHash || this.rollupClient.previewTxHash('request'),
       },

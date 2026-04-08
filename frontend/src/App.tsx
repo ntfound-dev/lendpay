@@ -1903,10 +1903,26 @@ function App() {
         return
       }
 
+      if (error instanceof ApiError && error.status === 409) {
+        const latestToken = sessionTokenRef.current
+        if (latestToken) {
+          await syncBorrowerState(latestToken).catch(() => undefined)
+        }
+      }
+
+      const requestConflictMessage =
+        error instanceof ApiError && error.status === 409
+          ? error.code === 'ACTIVE_LOAN_EXISTS'
+            ? 'You already have active credit. Finish it on the Repay page before sending another request.'
+            : error.code === 'PENDING_REQUEST_EXISTS'
+              ? 'A credit request is already pending. Wait for a decision or clear the pending request first.'
+              : getErrorMessage(error, 'Loan request could not be submitted.')
+          : getErrorMessage(error, 'Loan request could not be submitted.')
+
       showToast({
-        tone: 'danger',
-        title: 'Request failed',
-        message: error instanceof Error ? error.message : 'Loan request could not be submitted.',
+        tone: error instanceof ApiError && error.status === 409 ? 'warning' : 'danger',
+        title: error instanceof ApiError && error.status === 409 ? 'Request already in progress' : 'Request failed',
+        message: requestConflictMessage,
       })
     } finally {
       setIsSubmittingRequest(false)
