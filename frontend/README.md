@@ -1,14 +1,17 @@
 # LendPay Frontend
 
-The frontend is a React + Vite borrower console for the LendPay MiniMove appchain.
+React + Vite borrower console for the LendPay Move rollup.
 
-It is responsible for:
+This app is the user-facing product shell. It connects the wallet with InterwovenKit, authenticates against the backend, loads mirrored borrower state, and opens wallet approvals for Move actions such as request, repay, claim, stake, and campaign flows.
 
-- connecting the wallet through InterwovenKit
-- authenticating the borrower against the backend with a signed challenge
-- loading borrower, rewards, loan, campaign, and ecosystem state mirrored from the rollup
-- submitting Move transactions through the wallet for request, repay, rewards, staking, campaign, and governance actions
-- presenting operator and technical surfaces when those modes are enabled
+## What It Does
+
+- connects wallets through `@initia/interwovenkit-react`
+- signs backend login challenges and persists the backend session per wallet address
+- renders the borrower dashboard, request flow, repay flow, loyalty surfaces, ecosystem reads, and proof explorer
+- builds Move `MsgExecute` payloads for rollup actions
+- tries to enable Interwoven auto-sign for supported Move actions
+- shows a human-readable tx preview before the wallet signer opens
 
 ## Stack
 
@@ -22,130 +25,144 @@ It is responsible for:
 
 `npm` is the expected package manager in this folder because the repo already includes `package-lock.json`.
 
+Current dependency baseline in this folder:
+
+- `@initia/interwovenkit-react`: `2.6.0`
+- `wagmi`: `2.17.2`
+- `viem`: `2.47.10`
+- `@tanstack/react-query`: `5.96.2`
+- `@cosmjs/amino`: `0.36.2`
+
+The lockfile also pins WalletConnect/AppKit transitives through npm `overrides` so React 19 no longer trips the old `valtio` peer warning during normal installs.
+
+## Main Files
+
+Bootstrap and config:
+
+- [`src/main.tsx`](./src/main.tsx): React root, QueryClient, Wagmi, InterwovenKit provider, auto-sign config, reconnect behavior, error boundary, and wallet suggestion pruning
+- [`src/config/env.ts`](./src/config/env.ts): Vite env mapping
+- [`src/config/chain.ts`](./src/config/chain.ts): custom chain passed to InterwovenKit
+
+App and hooks:
+
+- [`src/App.tsx`](./src/App.tsx): top-level page orchestration, borrower sync, tx submission, toasts, technical mode, and view state
+- [`src/hooks/useBackendSession.ts`](./src/hooks/useBackendSession.ts): backend session creation, persistence, and reuse
+- [`src/hooks/useAutoSignPermission.ts`](./src/hooks/useAutoSignPermission.ts): auto-sign permission grant flow
+- [`src/hooks/useTxPreview.ts`](./src/hooks/useTxPreview.ts): preview modal state and confirmation handling
+
+Libraries:
+
+- [`src/lib/api.ts`](./src/lib/api.ts): backend API client with timeout and retry logic
+- [`src/lib/move.ts`](./src/lib/move.ts): Move message builders
+- [`src/lib/auth.ts`](./src/lib/auth.ts): wallet signing helpers for backend login
+- [`src/lib/tx.ts`](./src/lib/tx.ts): tx hash extraction helpers
+- [`src/lib/appHelpers.ts`](./src/lib/appHelpers.ts): labels, grouping, summaries, and helper formatting
+- [`src/lib/nav.ts`](./src/lib/nav.ts): shared navigation model
+
+Shared UI:
+
+- [`src/components/pages`](./src/components/pages): Overview, Profile, Request, Repay, Loyalty Hub, and Ecosystem
+- [`src/components/shared/TxPreviewModal.tsx`](./src/components/shared/TxPreviewModal.tsx): pre-wallet transaction summary modal
+- [`src/components/shared/ProofModal.tsx`](./src/components/shared/ProofModal.tsx): tx proof and protocol explorer surface
+- [`src/components/shared/ErrorBoundary.tsx`](./src/components/shared/ErrorBoundary.tsx): crash guard for the app shell
+
 ## Product Surfaces
 
-- `Overview`: borrower summary, safe-spend guidance, outstanding balance, claimable rewards, wallet balance, and recent activity
-- `Profile`: score output, APR, tier, score breakdown, identity status, and refresh flow
-- `Request`: app credit request flow, merchant selection, profile quote selection, and collateralized request path
-- `Repay`: active loan, installment schedule, fees, viral drop purchase state, and collectible claim flow
-- `Loyalty Hub`: claimable LEND, staking, referral, leaderboard, perks, and wallet recovery actions
-- `Ecosystem`: campaigns, governance, merchant registry, proof explorer, and operator tooling
+- `Overview`: account summary, credit limit, outstanding amount, wallet balance, next payment, and activity
+- `Profile`: score, APR, breakdown, username status, and refresh actions
+- `Request`: merchant selection, profile quote selection, amount, tenor, collateral path, and request submit flow
+- `Repay`: active loan, due installment, fee state, and repay actions
+- `Loyalty Hub`: LEND balances, reward claims, staking actions, referral, leaderboard, and perk purchases
+- `Ecosystem`: campaign reads, governance reads, merchant catalog, proof explorer, and technical surfaces
 
-## Technical Architecture
+## Wallet, Auth, and Tx Flow
 
-Main entry points:
+1. The app opens InterwovenKit connect flow through `openConnect()`.
+2. The frontend requests a backend challenge.
+3. It prefers plain-text signing for login and falls back to Amino signing when needed.
+4. The backend returns a signed session token, which is stored per wallet address in local storage.
+5. The app loads borrower state from backend routes.
+6. For onchain actions, LendPay first shows `TxPreviewModal`.
+7. For supported `MsgExecute` calls, the app tries to enable auto-sign permission through Interwoven.
+8. The primary wallet path is `requestTxBlock` with a 45 second approval timeout.
+9. If that approval path fails or the extension stalls, the app falls back to direct submit with `estimateGas + submitTxBlock`.
+10. After the tx succeeds, the app asks the backend to resync borrower state.
 
-- [`src/main.tsx`](./src/main.tsx): React bootstrap, QueryClient, Wagmi, and InterwovenKit provider wiring
-- [`src/App.tsx`](./src/App.tsx): page orchestration, borrower state sync, toast handling, and transaction actions
-- [`src/config/env.ts`](./src/config/env.ts): runtime config mapped from Vite env vars
-- [`src/config/chain.ts`](./src/config/chain.ts): custom chain definition passed to InterwovenKit
-- [`src/lib/api.ts`](./src/lib/api.ts): backend API client
-- [`src/lib/move.ts`](./src/lib/move.ts): Move `MsgExecute` builders
-- [`src/lib/auth.ts`](./src/lib/auth.ts): challenge-signing helpers
-- [`src/lib/tx.ts`](./src/lib/tx.ts): tx hash extraction helpers
-- [`src/lib/appHelpers.ts`](./src/lib/appHelpers.ts): UI helpers for labels, grouping, and borrower summaries
-- [`src/components/pages`](./src/components/pages): page-level surfaces
-- [`src/components/shared`](./src/components/shared): agent panel, activity feed, proof modal, identity card, and empty states
-- [`src/styles`](./src/styles): tokens and app styling
+Important current behavior:
 
-Folder map:
-
-- `components/layout`: sidebar, topbar, and mobile nav
-- `components/ui`: buttons, cards, and badges
-- `components/score`: score visualizations
-- `components/loans`: installment schedule UI
-- `components/pages`: Overview, Profile, Request, Repay, Loyalty Hub, and Ecosystem
-- `components/shared`: cross-page surfaces and proof explorer
-- `config`: env and chain config
-- `lib`: API, Move tx, auth, formatting, and app helpers
-- `types`: frontend domain types mirrored from backend responses
-
-## Runtime Flow
-
-1. The user connects a wallet with InterwovenKit.
-2. The frontend requests an auth challenge from the backend.
-3. The wallet signs the challenge.
-4. The frontend exchanges the signature for a backend session token.
-5. The app loads borrower state from backend routes that mirror rollup state.
-6. When the user takes an onchain action, the frontend builds Move messages in [`src/lib/move.ts`](./src/lib/move.ts) and submits them through InterwovenKit.
-7. After a successful transaction, the frontend asks the backend to resync product state so the UI reflects chain state instead of guesses.
-
-## Transaction Handling
-
-InterwovenKit is the primary transaction handler.
-
-The frontend uses `requestTxBlock` for wallet approval and wraps it with a timeout inside [`src/App.tsx`](./src/App.tsx). If the extension stops on `Loading...`, the app shows a warning toast and recovery actions in Loyalty Hub so the user can reopen the wallet instead of staring at a spinner forever.
-
-The main transaction surfaces include:
-
-- loan requests
-- collateralized loan requests
-- installment repayment
-- claimable LEND
-- staking reward claims
-- point redemption
-- staking and unstaking
-- viral drop purchases and collectible claims
-- campaign claims
-- governance propose, vote, and finalize
-- merchant registration and active-state changes
+- the Wagmi connector is restricted to `initiaPrivyWalletConnector`
+- `reconnectOnMount` is enabled, so refresh should reconnect instead of feeling like a logout
+- the app clears stale non-Initia Wagmi connector state on boot
+- some wallet UI still belongs to the wallet extension itself, so raw JSON sign docs can still appear after the in-app preview
 
 ## Modes
 
-The app has two URL-driven modes:
+Technical mode is still available:
 
-- operator mode: enabled by `?operator=1` or `#operator`
-- technical mode: enabled by `?technical=1` or `#technical`
+- `?technical=1`
+- `#technical`
 
-Operator mode unlocks admin actions in Ecosystem. Technical mode exposes more provenance and protocol-oriented detail in the UI.
+Public operator mode is currently disabled in the client. Admin buttons remain visible only where the product needs to explain the flow, but public actions return disabled messaging until server-side operator auth is reintroduced safely.
 
 ## Environment
 
 Copy `.env.example` to `.env`.
 
-Core envs:
+Core backend and chain wiring:
 
-- `VITE_API_BASE_URL`: backend base URL, defaults to `http://localhost:8080`
-- `VITE_APPCHAIN_ID`: chain id passed to InterwovenKit and used for tx submission
-- `VITE_CHAIN_NAME`: short chain name for the custom chain config
-- `VITE_CHAIN_PRETTY_NAME`: human-readable chain label
-- `VITE_CHAIN_NETWORK_TYPE`: usually `testnet`
-- `VITE_CHAIN_BECH32_PREFIX`: address prefix, currently `init`
-- `VITE_CHAIN_RPC_URL`: rollup RPC URL
-- `VITE_CHAIN_REST_URL`: rollup REST URL
-- `VITE_CHAIN_INDEXER_URL`: indexer URL used in the custom chain config
-- `VITE_NATIVE_DENOM`: native gas denom
-- `VITE_NATIVE_SYMBOL`: token label shown in the UI
-- `VITE_NATIVE_DECIMALS`: native token decimals
-- `VITE_PACKAGE_ADDRESS`: deployed Move package address
-- `VITE_LOAN_MODULE_NAME`: default loan module, currently `loan_book`
-- `VITE_REQUEST_FUNCTION_NAME`: unsecured/profiled request entry function
-- `VITE_REQUEST_COLLATERAL_FUNCTION_NAME`: collateralized request entry function
-- `VITE_REQUEST_PROFILE_ID`: default profile id passed to profiled requests
-- `VITE_REPAY_FUNCTION_NAME`: installment repayment function
+- `VITE_API_BASE_URL`
+- `VITE_APPCHAIN_ID`
+- `VITE_CHAIN_NAME`
+- `VITE_CHAIN_PRETTY_NAME`
+- `VITE_CHAIN_NETWORK_TYPE`
+- `VITE_CHAIN_BECH32_PREFIX`
+- `VITE_CHAIN_RPC_URL`
+- `VITE_CHAIN_REST_URL`
+- `VITE_CHAIN_INDEXER_URL`
 
-Optional envs:
+Asset and package config:
 
-- `VITE_PREVIEW_OPERATOR_TOKEN`: enables preview/operator actions from the frontend
-- `VITE_ENABLE_DEMO_APPROVAL`: allows demo approval UX in local/test environments
+- `VITE_NATIVE_DENOM`
+- `VITE_NATIVE_SYMBOL`
+- `VITE_NATIVE_DECIMALS`
+- `VITE_PACKAGE_ADDRESS`
+- `VITE_LOAN_MODULE_NAME`
 
-Important behavior notes:
+Move entry functions:
 
-- if `VITE_PACKAGE_ADDRESS` is missing, read-only surfaces can still render, but live Move writes should be treated as unavailable
-- if `VITE_API_BASE_URL` points to a dead backend, the app can boot, but borrower state will not load
-- the defaults in [`src/config/env.ts`](./src/config/env.ts) are local-development oriented and match the included `.env.example`
+- `VITE_REQUEST_FUNCTION_NAME`
+- `VITE_REQUEST_COLLATERAL_FUNCTION_NAME`
+- `VITE_CANCEL_REQUEST_FUNCTION_NAME`
+- `VITE_REQUEST_PROFILE_ID`
+- `VITE_REPAY_FUNCTION_NAME`
+
+Optional:
+
+- `VITE_ENABLE_DEMO_APPROVAL`
+
+Notes:
+
+- if `VITE_PACKAGE_ADDRESS` is missing, write paths should be treated as unavailable
+- if `VITE_API_BASE_URL` is unreachable, the shell can boot but borrower state will fail to load
+- `VITE_CANCEL_REQUEST_FUNCTION_NAME` is read by the app config and should stay aligned with the deployed Move package
 
 ## Local Development
 
-Recommended full-stack path from the repo root:
+Best full-stack path from the repo root:
 
 ```bash
 make up
 ```
 
-That brings up the frontend, backend, and local rollup services together.
+That starts:
 
-If you only want to run the frontend:
+- PostgreSQL
+- rollup RPC and REST
+- backend API
+- frontend
+- docs site
+
+If you want the frontend only:
 
 ```bash
 cd frontend
@@ -156,27 +173,45 @@ npm run dev
 
 Open `http://127.0.0.1:5173`.
 
-Frontend-only caveat:
+Frontend-only caveats:
 
-- most connected screens still expect a working backend at `VITE_API_BASE_URL`
-- wallet actions still expect a reachable rollup RPC and REST target
-- InterwovenKit still needs the browser wallet extension/session to be available
+- most connected screens still expect the backend to be reachable at `VITE_API_BASE_URL`
+- wallet actions still need a live rollup RPC and REST target
+- auto-sign and signer flows still require the Interwoven wallet extension or session to be available
+- when this repo is installed from a Windows-mounted path such as `/mnt/c/...` inside WSL, `npm install` can still hit occasional rename permission errors from the filesystem layer; if that happens, rerun from a normal Windows shell or move the repo into the Linux filesystem for the cleanest `node_modules` behavior
 
 ## Scripts
 
-- `npm run dev`: start Vite on `0.0.0.0:5173`
-- `npm run build`: run `tsc -b` and then produce the Vite build
-- `npm run preview`: preview the production build locally
+- `npm run dev`: starts Vite
+- `npm run build`: runs `tsc -b` and then `vite build`
+- `npm run preview`: previews the built app locally
 
 Useful manual check:
 
 ```bash
-npx tsc -p tsconfig.app.json --noEmit
+./node_modules/.bin/tsc -p tsconfig.app.json --noEmit --pretty false
 ```
 
-## Deploy To Vercel
+## Build and Node Notes
 
-Recommended hosting split:
+Vite 7 needs a modern Node runtime. In practice, use Node `20.19+`, `22.12+`, or `24+`.
+
+Current repo state:
+
+- repo root `.nvmrc`: `24.10.0`
+- frontend-local `.nvmrc`: `20.20.2`
+
+If `npm run build` fails with an engine/version warning, switch Node first before debugging the app itself.
+
+Dependency cleanup status:
+
+- the old React 19 peer warning from `@reown/appkit`/`valtio` has been removed by the current lockfile overrides
+- `npm audit` still reports a small residual set of low-risk advisories plus one upstream `lodash` advisory from the MetaMask/Gemini connector chain used under `wagmi`
+- that remaining `lodash` advisory is in a transitive wallet connector dependency and is not force-overridden here to avoid destabilizing wallet flows
+
+## Deployment
+
+Recommended split:
 
 - frontend on Vercel
 - backend on Railway
@@ -190,7 +225,7 @@ Recommended Vercel settings:
 - Build Command: `npm run build`
 - Output Directory: `dist`
 
-Important envs in Vercel:
+Important Vercel envs:
 
 - `VITE_API_BASE_URL`
 - `VITE_APPCHAIN_ID`
@@ -199,12 +234,12 @@ Important envs in Vercel:
 - `VITE_CHAIN_INDEXER_URL`
 - `VITE_PACKAGE_ADDRESS`
 - `VITE_NATIVE_SYMBOL`
-- `VITE_PREVIEW_OPERATOR_TOKEN` if operator preview actions should remain available
+- `VITE_CANCEL_REQUEST_FUNCTION_NAME`
 
 ## Troubleshooting
 
-- Wallet popup stuck on `Loading...`: the app should surface recovery UI, but the first check is still to open the extension and confirm there is a pending approval request
-- Connected UI loads with missing data: confirm the backend is reachable at `VITE_API_BASE_URL` and the wallet session challenge flow succeeds
-- Onchain actions fail immediately: confirm `VITE_PACKAGE_ADDRESS`, function-name envs, and chain endpoints match the currently deployed package
-- Rewards, request, or repay actions look live but do nothing: verify the rollup RPC and REST URLs are reachable and the wallet is connected to the same chain id configured in `VITE_APPCHAIN_ID`
-- Vite build or typecheck fails after domain changes: re-run `npx tsc -p tsconfig.app.json --noEmit` and compare page props against [`src/types/domain.ts`](./src/types/domain.ts)
+- wallet reconnect feels lost after refresh: confirm the backend is still reachable and the wallet extension session is still alive
+- wallet popup stuck on `Loading...`: open the Interwoven extension directly and check for a pending approval or permission grant
+- backend login fails after a successful wallet sign: restart the local backend if you changed auth code, then refresh and reconnect
+- tx preview looks right but the signer shows raw JSON: that last screen is coming from the wallet extension, not from the LendPay modal
+- request, repay, or claim actions fail immediately: check chain ID, package address, and function-name env vars against the deployed package
