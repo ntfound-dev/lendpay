@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { EncodeObject } from '@cosmjs/proto-signing'
+import type { TxPreviewContent } from '../components/shared/TxPreviewModal'
+import { shortenAddress } from '../lib/format'
 import type { ToastState } from '../types/domain'
 
 const AUTO_SIGN_STATUS_WAIT_MS = 12_000
@@ -14,6 +16,8 @@ type AutoSignController = {
 type UseAutoSignPermissionInput = {
   autoSign: AutoSignController
   chainId: string
+  confirmWalletAction: (messages: EncodeObject[], preview?: TxPreviewContent | false) => Promise<void>
+  initiaAddress?: string | null
   isUserRejectedWalletError: (error: unknown) => boolean
   showToast: (nextToast: ToastState) => void
 }
@@ -25,6 +29,8 @@ const supportsConfiguredAutoSignMessages = (messages: EncodeObject[]) =>
 export function useAutoSignPermission({
   autoSign,
   chainId,
+  confirmWalletAction,
+  initiaAddress,
   isUserRejectedWalletError,
   showToast,
 }: UseAutoSignPermissionInput) {
@@ -77,6 +83,27 @@ export function useAutoSignPermission({
       await autoSignEnablePromiseRef.current
       return waitForAutoSignReady(chainId, 5_000)
     }
+
+    const origin =
+      typeof window === 'undefined' ? 'Current site' : window.location.origin
+
+    await confirmWalletAction([], {
+      actionLabel: 'Continue to wallet',
+      eyebrow: 'Auto-sign setup',
+      title: 'Enable faster wallet approvals',
+      subtitle:
+        'LendPay is about to ask the wallet for temporary auto-sign permission for supported Move actions on this chain.',
+      rows: [
+        { label: 'App', value: 'LendPay' },
+        { label: 'Origin', value: origin },
+        { label: 'Wallet', value: initiaAddress ? shortenAddress(initiaAddress) : 'Connected wallet' },
+        { label: 'Chain', value: chainId },
+        { label: 'Permission', value: 'Supported Move actions only' },
+        { label: 'Session window', value: 'Temporary wallet-managed session (often 10 minutes)' },
+      ],
+      note:
+        'Your wallet may open two prompts next: first a signature to create the helper signer, then a temporary grant/allowance for supported LendPay actions. This is permission setup, not a loan repayment or token transfer.',
+    })
 
     const pendingAutoSignEnable = autoSign
       .enable(chainId)

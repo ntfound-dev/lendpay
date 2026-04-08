@@ -348,6 +348,8 @@ function App() {
   const { ensureAutoSignPermission } = useAutoSignPermission({
     autoSign,
     chainId: appEnv.appchainId,
+    confirmWalletAction,
+    initiaAddress,
     isUserRejectedWalletError,
     showToast,
   })
