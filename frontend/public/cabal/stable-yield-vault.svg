@@ -1,0 +1,31 @@
+<svg width="800" height="520" viewBox="0 0 800 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="78" y1="46" x2="726" y2="482" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0D2334"/>
+      <stop offset="1" stop-color="#153A4E"/>
+    </linearGradient>
+    <linearGradient id="vault" x1="320" y1="166" x2="498" y2="356" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#85F6E8"/>
+      <stop offset="1" stop-color="#39BDA2"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="752" height="472" rx="32" fill="url(#bg)"/>
+  <circle cx="156" cy="122" r="70" fill="#57FFD5" fill-opacity="0.12"/>
+  <circle cx="636" cy="104" r="58" fill="#8EECFF" fill-opacity="0.14"/>
+  <text x="94" y="102" fill="#B7FFF0" font-family="Arial, sans-serif" font-size="16" font-weight="700">CABAL VAULT</text>
+  <text x="94" y="164" fill="white" font-family="Arial, sans-serif" font-size="48" font-weight="700">Stable Yield Vault</text>
+  <text x="94" y="204" fill="#D4FFF6" font-family="Arial, sans-serif" font-size="23">Conservative deposit route for short-term yield with clean exits</text>
+  <ellipse cx="411" cy="396" rx="140" ry="24" fill="#081A24" fill-opacity="0.5"/>
+  <rect x="314" y="168" width="194" height="188" rx="28" fill="url(#vault)"/>
+  <rect x="336" y="192" width="150" height="46" rx="14" fill="#0F3A49" fill-opacity="0.75"/>
+  <circle cx="411" cy="284" r="52" fill="#0F3A49" fill-opacity="0.78"/>
+  <path d="M411 246V322" stroke="#E9FFF8" stroke-width="10" stroke-linecap="round"/>
+  <path d="M378 286H444" stroke="#E9FFF8" stroke-width="10" stroke-linecap="round"/>
+  <path d="M314 228H274" stroke="#82F7DF" stroke-opacity="0.72" stroke-width="10" stroke-linecap="round"/>
+  <path d="M508 228H548" stroke="#82F7DF" stroke-opacity="0.72" stroke-width="10" stroke-linecap="round"/>
+  <path d="M314 314H274" stroke="#A8FBFF" stroke-opacity="0.62" stroke-width="10" stroke-linecap="round"/>
+  <path d="M508 314H548" stroke="#A8FBFF" stroke-opacity="0.62" stroke-width="10" stroke-linecap="round"/>
+  <rect x="94" y="394" width="134" height="62" rx="18" fill="#163E47"/>
+  <text x="161" y="418" text-anchor="middle" fill="#B5FFF1" font-family="Arial, sans-serif" font-size="14" font-weight="700">SUGGESTED</text>
+  <text x="161" y="444" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="28" font-weight="700">$260</text>
+</svg>

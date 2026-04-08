@@ -1,0 +1,29 @@
+<svg width="800" height="520" viewBox="0 0 800 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="88" y1="38" x2="722" y2="482" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#071D35"/>
+      <stop offset="1" stop-color="#291247"/>
+    </linearGradient>
+    <linearGradient id="capsule" x1="319" y1="165" x2="499" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7BE8FF"/>
+      <stop offset="0.55" stop-color="#547BFF"/>
+      <stop offset="1" stop-color="#55FFD7"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="752" height="472" rx="32" fill="url(#bg)"/>
+  <circle cx="636" cy="118" r="62" fill="#62C8FF" fill-opacity="0.14"/>
+  <circle cx="142" cy="390" r="82" fill="#7C5DFF" fill-opacity="0.12"/>
+  <text x="94" y="102" fill="#A6D9FF" font-family="Arial, sans-serif" font-size="16" font-weight="700">INTERGAZE CAPSULE</text>
+  <text x="94" y="164" fill="white" font-family="Arial, sans-serif" font-size="48" font-weight="700">Orbit Capsule</text>
+  <text x="94" y="204" fill="#D0E5FF" font-family="Arial, sans-serif" font-size="23">A reveal-ready mint capsule with boosted metadata and claim perks</text>
+  <ellipse cx="412" cy="398" rx="140" ry="24" fill="#071425" fill-opacity="0.48"/>
+  <path d="M411 164C468 164 514 212 514 271C514 330 468 378 411 378C354 378 308 330 308 271C308 212 354 164 411 164Z" fill="url(#capsule)"/>
+  <path d="M411 182C458 182 496 221 496 271C496 321 458 360 411 360C364 360 326 321 326 271C326 221 364 182 411 182Z" stroke="white" stroke-opacity="0.28" stroke-width="4"/>
+  <circle cx="411" cy="271" r="45" fill="#081D43" fill-opacity="0.78"/>
+  <circle cx="411" cy="271" r="24" fill="#E4FFFC"/>
+  <path d="M360 220C377 202 395 192 411 192C427 192 445 202 462 220" stroke="#B9FFFA" stroke-opacity="0.72" stroke-width="8" stroke-linecap="round"/>
+  <path d="M360 322C377 340 395 350 411 350C427 350 445 340 462 322" stroke="#B3D8FF" stroke-opacity="0.72" stroke-width="8" stroke-linecap="round"/>
+  <rect x="94" y="394" width="134" height="62" rx="18" fill="#112F53"/>
+  <text x="161" y="418" text-anchor="middle" fill="#A7DBFF" font-family="Arial, sans-serif" font-size="14" font-weight="700">SUGGESTED</text>
+  <text x="161" y="444" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="28" font-weight="700">$320</text>
+</svg>

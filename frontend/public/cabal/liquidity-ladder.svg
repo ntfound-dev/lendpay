@@ -1,0 +1,32 @@
+<svg width="800" height="520" viewBox="0 0 800 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="62" y1="54" x2="734" y2="482" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#10253A"/>
+      <stop offset="1" stop-color="#0E3E43"/>
+    </linearGradient>
+    <linearGradient id="ladder" x1="324" y1="176" x2="503" y2="363" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#90D7FF"/>
+      <stop offset="1" stop-color="#57F1C8"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="752" height="472" rx="32" fill="url(#bg)"/>
+  <circle cx="146" cy="130" r="72" fill="#5DF2D1" fill-opacity="0.12"/>
+  <circle cx="638" cy="102" r="58" fill="#7FB6FF" fill-opacity="0.16"/>
+  <text x="94" y="102" fill="#B7F8F3" font-family="Arial, sans-serif" font-size="16" font-weight="700">CABAL ROTATION</text>
+  <text x="94" y="164" fill="white" font-family="Arial, sans-serif" font-size="48" font-weight="700">Liquidity Ladder</text>
+  <text x="94" y="204" fill="#D4FFF8" font-family="Arial, sans-serif" font-size="23">Balanced vault mix for rotating liquidity while repayments stay on schedule</text>
+  <ellipse cx="412" cy="398" rx="144" ry="24" fill="#081A22" fill-opacity="0.48"/>
+  <path d="M350 176H474V356H350V176Z" fill="url(#ladder)"/>
+  <path d="M366 196V336" stroke="#123B46" stroke-width="12" stroke-linecap="round"/>
+  <path d="M458 196V336" stroke="#123B46" stroke-width="12" stroke-linecap="round"/>
+  <path d="M378 224H446" stroke="#E8FFFD" stroke-width="10" stroke-linecap="round"/>
+  <path d="M378 256H446" stroke="#E8FFFD" stroke-width="10" stroke-linecap="round"/>
+  <path d="M378 288H446" stroke="#E8FFFD" stroke-width="10" stroke-linecap="round"/>
+  <path d="M378 320H446" stroke="#E8FFFD" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="540" cy="252" r="32" fill="#0E4151"/>
+  <path d="M528 252H552" stroke="#E8FFFD" stroke-width="8" stroke-linecap="round"/>
+  <path d="M540 240V264" stroke="#E8FFFD" stroke-width="8" stroke-linecap="round"/>
+  <rect x="94" y="394" width="134" height="62" rx="18" fill="#14454C"/>
+  <text x="161" y="418" text-anchor="middle" fill="#B8FFF3" font-family="Arial, sans-serif" font-size="14" font-weight="700">SUGGESTED</text>
+  <text x="161" y="444" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="28" font-weight="700">$500</text>
+</svg>

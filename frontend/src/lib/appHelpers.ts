@@ -181,6 +181,32 @@ export const getMerchantShowcaseItems = (merchant?: MerchantState | null): Merch
   const name = merchant?.name?.trim().toLowerCase() ?? ''
   const category = merchant?.category?.trim().toLowerCase() ?? ''
 
+  if (name.includes('intergaze')) {
+    return [
+      {
+        id: 'intergaze-genesis-pass',
+        name: 'Genesis Mint Pass',
+        artwork: '/intergaze/genesis-mint-pass.svg',
+        price: 180,
+        detail: 'Launch pass that opens the first mint window, gated rooms, and collector perks.',
+      },
+      {
+        id: 'intergaze-orbit-capsule',
+        name: 'Orbit Capsule',
+        artwork: '/intergaze/orbit-capsule.svg',
+        price: 320,
+        detail: 'Mid-tier collectible capsule with reveal traits, bonus metadata, and claim boosts.',
+      },
+      {
+        id: 'intergaze-founder-totem',
+        name: 'Founder Totem',
+        artwork: '/intergaze/founder-totem.svg',
+        price: 470,
+        detail: 'Premium collector mint with rare trait odds and access to founder-only drops.',
+      },
+    ]
+  }
+
   if (name.includes('yominet') || category.includes('gaming') || category.includes('game')) {
     return [
       {
@@ -207,7 +233,47 @@ export const getMerchantShowcaseItems = (merchant?: MerchantState | null): Merch
     ]
   }
 
+  if (name.includes('cabal') || category.includes('defi')) {
+    return [
+      {
+        id: 'cabal-stable-vault',
+        name: 'Stable Yield Vault',
+        artwork: '/cabal/stable-yield-vault.svg',
+        price: 260,
+        detail: 'Lower-volatility vault route for idle balances that need short-term yield.',
+      },
+      {
+        id: 'cabal-basis-tranche',
+        name: 'Basis Trade Tranche',
+        artwork: '/cabal/basis-trade-tranche.svg',
+        price: 420,
+        detail: 'Higher-conviction strategy sleeve for short bursts of carry and basis capture.',
+      },
+      {
+        id: 'cabal-liquidity-ladder',
+        name: 'Liquidity Ladder',
+        artwork: '/cabal/liquidity-ladder.svg',
+        price: 500,
+        detail: 'Balanced vault mix for rotating liquidity across yield lanes while you repay on schedule.',
+      },
+    ]
+  }
+
   return []
+}
+
+export const getMerchantShowcaseHint = (merchant?: MerchantState | null, family?: AppFamily) => {
+  const name = merchant?.name?.trim() || 'this app'
+
+  if (family === 'Gaming') {
+    return `Pick one of these ${name} items to match the request amount to a real in-game purchase.`
+  }
+
+  if (family === 'DeFi') {
+    return `Pick one of these ${name} vault routes to match the request amount to a realistic deposit size.`
+  }
+
+  return `Pick one of these ${name} drops to match the request amount to a realistic mint or collectible purchase.`
 }
 
 export const formatMerchantCategory = (value?: string) =>

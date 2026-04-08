@@ -1,0 +1,29 @@
+<svg width="800" height="520" viewBox="0 0 800 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="66" y1="38" x2="744" y2="482" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#14273D"/>
+      <stop offset="1" stop-color="#1D1646"/>
+    </linearGradient>
+    <linearGradient id="bars" x1="324" y1="188" x2="492" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE593"/>
+      <stop offset="1" stop-color="#FF9C66"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="752" height="472" rx="32" fill="url(#bg)"/>
+  <circle cx="646" cy="118" r="64" fill="#8C8EFF" fill-opacity="0.14"/>
+  <circle cx="142" cy="388" r="84" fill="#56E3FF" fill-opacity="0.12"/>
+  <text x="94" y="102" fill="#FFDAB2" font-family="Arial, sans-serif" font-size="16" font-weight="700">CABAL STRATEGY</text>
+  <text x="94" y="164" fill="white" font-family="Arial, sans-serif" font-size="48" font-weight="700">Basis Trade Tranche</text>
+  <text x="94" y="204" fill="#F2DFFF" font-family="Arial, sans-serif" font-size="23">Higher-conviction sleeve for short bursts of carry and basis capture</text>
+  <ellipse cx="412" cy="400" rx="146" ry="24" fill="#081627" fill-opacity="0.52"/>
+  <path d="M330 334V236C330 210 351 188 377 188H445C471 188 492 210 492 236V334H330Z" fill="url(#bars)"/>
+  <rect x="356" y="224" width="32" height="90" rx="14" fill="#18214C"/>
+  <rect x="394" y="248" width="32" height="66" rx="14" fill="#18214C"/>
+  <rect x="432" y="206" width="32" height="108" rx="14" fill="#18214C"/>
+  <path d="M318 348H504" stroke="#FFF6DD" stroke-opacity="0.62" stroke-width="10" stroke-linecap="round"/>
+  <path d="M304 216L332 186L360 216" stroke="#83E8FF" stroke-opacity="0.72" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M517 304L545 274L573 304" stroke="#FFB889" stroke-opacity="0.72" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="94" y="394" width="134" height="62" rx="18" fill="#2A234A"/>
+  <text x="161" y="418" text-anchor="middle" fill="#FFD7B4" font-family="Arial, sans-serif" font-size="14" font-weight="700">SUGGESTED</text>
+  <text x="161" y="444" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="28" font-weight="700">$420</text>
+</svg>

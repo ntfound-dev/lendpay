@@ -8,6 +8,7 @@ import {
   formatAppLabel,
   formatProfileLabel,
   getDropItemArtwork,
+  getMerchantShowcaseHint,
   getMerchantShowcaseItems,
   parseNumericId,
   productRequirementCopy,
@@ -144,6 +145,12 @@ export function RequestPage({
   const amountInputRef = useRef<HTMLInputElement | null>(null)
   const lastSelectedMerchantIdRef = useRef<string | null>(null)
   const merchantShowcaseItems = getMerchantShowcaseItems(selectedMerchant)
+  const merchantShowcaseHint = getMerchantShowcaseHint(selectedMerchant, selectedAppMeta.family)
+  const hasDraftAmount = Number(draft.amount || 0) > 0
+  const tenorCapMessage =
+    selectedProfile && selectedProfile.maxTenorMonths < 6
+      ? `${formatProfileLabel(selectedProfile.label)} currently supports up to ${selectedProfile.maxTenorMonths} month${selectedProfile.maxTenorMonths > 1 ? 's' : ''}. Choose another credit product to unlock a longer repayment period.`
+      : null
 
   const revealRequestBuilder = () => {
     if (typeof window === 'undefined') {
@@ -375,9 +382,7 @@ export function RequestPage({
               <Card className="checkout-card">
                 <div className="checkout-section checkout-section--tight">
                   <div className="checkout-section__label">Preview item picks</div>
-                  <p className="checkout-section__hint">
-                    Pick one of these Yominet items to match the request amount to a real in-game purchase.
-                  </p>
+                  <p className="checkout-section__hint">{merchantShowcaseHint}</p>
                   <div className="drop-item-grid">
                     {merchantShowcaseItems.map((item) => {
                       const selected = Number(draft.amount || 0) === item.price
@@ -617,6 +622,7 @@ export function RequestPage({
                     </button>
                   ))}
                 </div>
+                {tenorCapMessage ? <p className="checkout-section__hint">{tenorCapMessage}</p> : null}
               </div>
             </Card>
 
@@ -684,17 +690,13 @@ export function RequestPage({
           <Card title="If approved, this is your repayment plan" className="checkout-summary-card">
             <div className="checkout-summary-card__total">
               <span>Estimated repayment</span>
-              <strong>
-                {estimatedTotalRepayment === null ? '—' : formatCurrency(estimatedTotalRepayment)}
-              </strong>
+              <strong>{!hasDraftAmount || estimatedTotalRepayment === null ? 'Choose amount' : formatCurrency(estimatedTotalRepayment)}</strong>
             </div>
 
             <div className="checkout-summary-card__rows">
               <div className="checkout-summary-card__row">
                 <span>Monthly payment</span>
-                <strong>
-                  {monthlyPaymentPreview === null ? 'Analyze first' : formatCurrency(monthlyPaymentPreview)}
-                </strong>
+                <strong>{!hasDraftAmount ? 'Choose amount' : monthlyPaymentPreview === null ? 'Analyze first' : formatCurrency(monthlyPaymentPreview)}</strong>
               </div>
               <div className="checkout-summary-card__row">
                 <span>APR</span>

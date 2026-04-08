@@ -1,0 +1,29 @@
+<svg width="800" height="520" viewBox="0 0 800 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="70" y1="50" x2="736" y2="474" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#221133"/>
+      <stop offset="1" stop-color="#0A2345"/>
+    </linearGradient>
+    <linearGradient id="totem" x1="356" y1="146" x2="455" y2="392" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE29F"/>
+      <stop offset="1" stop-color="#FF8A65"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="752" height="472" rx="32" fill="url(#bg)"/>
+  <circle cx="160" cy="130" r="70" fill="#FF8A65" fill-opacity="0.14"/>
+  <circle cx="628" cy="116" r="56" fill="#7F8BFF" fill-opacity="0.16"/>
+  <text x="94" y="102" fill="#FFD2C4" font-family="Arial, sans-serif" font-size="16" font-weight="700">INTERGAZE FOUNDER DROP</text>
+  <text x="94" y="164" fill="white" font-family="Arial, sans-serif" font-size="48" font-weight="700">Founder Totem</text>
+  <text x="94" y="204" fill="#FFDCD0" font-family="Arial, sans-serif" font-size="23">Premium collector mint with rare-trait odds and founder access</text>
+  <ellipse cx="406" cy="398" rx="132" ry="24" fill="#08152B" fill-opacity="0.52"/>
+  <path d="M406 146L458 190V338L406 384L354 338V190L406 146Z" fill="url(#totem)"/>
+  <path d="M406 172L434 196V244L406 268L378 244V196L406 172Z" fill="#3B2152" fill-opacity="0.72"/>
+  <path d="M385 286H427" stroke="#402449" stroke-width="10" stroke-linecap="round"/>
+  <path d="M372 316H440" stroke="#402449" stroke-width="10" stroke-linecap="round"/>
+  <path d="M390 216L406 201L422 216" stroke="#FFF4D0" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M335 224L310 250L335 276" stroke="#FFB799" stroke-opacity="0.72" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M477 224L502 250L477 276" stroke="#A4B8FF" stroke-opacity="0.72" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="94" y="394" width="134" height="62" rx="18" fill="#3A1B2E"/>
+  <text x="161" y="418" text-anchor="middle" fill="#FFD0BA" font-family="Arial, sans-serif" font-size="14" font-weight="700">SUGGESTED</text>
+  <text x="161" y="444" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="28" font-weight="700">$470</text>
+</svg>
