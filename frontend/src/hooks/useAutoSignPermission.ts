@@ -90,6 +90,7 @@ export function useAutoSignPermission({
 
     const nextExpiration = autoSign.expiredAtByChain[chainId]
     const nextTimestamp = nextExpiration instanceof Date ? nextExpiration.getTime() : null
+    const storedTimestamp = readStoredAutoSignExpiry(initiaAddress, chainId)
 
     if (nextTimestamp && nextTimestamp > Date.now()) {
       writeStoredAutoSignExpiry(initiaAddress, chainId, nextTimestamp)
@@ -97,6 +98,13 @@ export function useAutoSignPermission({
     }
 
     if (nextExpiration === null) {
+      if (!storedTimestamp || storedTimestamp <= Date.now()) {
+        clearStoredAutoSignExpiry(initiaAddress, chainId)
+      }
+      return
+    }
+
+    if (nextTimestamp && nextTimestamp <= Date.now()) {
       clearStoredAutoSignExpiry(initiaAddress, chainId)
     }
   }, [autoSign.expiredAtByChain, chainId, initiaAddress])
