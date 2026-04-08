@@ -206,8 +206,8 @@ If `npm run build` fails with an engine/version warning, switch Node first befor
 Dependency cleanup status:
 
 - the old React 19 peer warning from `@reown/appkit`/`valtio` has been removed by the current lockfile overrides
-- `npm audit` still reports a small residual set of low-risk advisories plus one upstream `lodash` advisory from the MetaMask/Gemini connector chain used under `wagmi`
-- that remaining `lodash` advisory is in a transitive wallet connector dependency and is not force-overridden here to avoid destabilizing wallet flows
+- `npm audit` no longer reports any `high` severity items in this folder after the current lockfile overrides for the wallet connector chain
+- the remaining advisories are low-severity transitive issues in `@initia/initia.js` and the browser polyfill toolchain
 
 ## Deployment
 
