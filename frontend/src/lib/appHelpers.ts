@@ -31,6 +31,14 @@ export type PurchaseDeliverySummary = {
   detail: string
 }
 
+export type MerchantShowcaseItem = {
+  id: string
+  name: string
+  artwork: string
+  price: number
+  detail: string
+}
+
 export type AppCategoryMeta = {
   family: AppFamily
   headline: string
@@ -167,6 +175,39 @@ export const getAppPostApprovalCopy = (category?: string) => {
   }
 
   return 'Pick a live item there to finish the purchase onchain.'
+}
+
+export const getMerchantShowcaseItems = (merchant?: MerchantState | null): MerchantShowcaseItem[] => {
+  const name = merchant?.name?.trim().toLowerCase() ?? ''
+  const category = merchant?.category?.trim().toLowerCase() ?? ''
+
+  if (name.includes('yominet') || category.includes('gaming') || category.includes('game')) {
+    return [
+      {
+        id: 'kamigotchi-egg',
+        name: 'Kamigotchi Egg',
+        artwork: '/yominet/kamigotchi-egg.svg',
+        price: 220,
+        detail: 'Starter creature capsule with hatch-ready cosmetics and first-run perks.',
+      },
+      {
+        id: 'arena-starter-pack',
+        name: 'Arena Starter Pack',
+        artwork: '/yominet/arena-starter-pack.svg',
+        price: 340,
+        detail: 'Battle-ready loadout with consumables, skin shards, and ranked queue entry.',
+      },
+      {
+        id: 'guild-access-pass',
+        name: 'Guild Access Pass',
+        artwork: '/yominet/guild-access-pass.svg',
+        price: 480,
+        detail: 'World access pass that unlocks guild halls, raids, and social events.',
+      },
+    ]
+  }
+
+  return []
 }
 
 export const formatMerchantCategory = (value?: string) =>

@@ -8,6 +8,7 @@ import {
   formatAppLabel,
   formatProfileLabel,
   getDropItemArtwork,
+  getMerchantShowcaseItems,
   parseNumericId,
   productRequirementCopy,
   productTagMeta,
@@ -142,6 +143,7 @@ export function RequestPage({
   const requestBuilderRef = useRef<HTMLDivElement | null>(null)
   const amountInputRef = useRef<HTMLInputElement | null>(null)
   const lastSelectedMerchantIdRef = useRef<string | null>(null)
+  const merchantShowcaseItems = getMerchantShowcaseItems(selectedMerchant)
 
   const revealRequestBuilder = () => {
     if (typeof window === 'undefined') {
@@ -366,6 +368,50 @@ export function RequestPage({
                         </div>
                       </button>
                     ))}
+                  </div>
+                </div>
+              </Card>
+            ) : merchantShowcaseItems.length ? (
+              <Card className="checkout-card">
+                <div className="checkout-section checkout-section--tight">
+                  <div className="checkout-section__label">Preview item picks</div>
+                  <p className="checkout-section__hint">
+                    Pick one of these Yominet items to match the request amount to a real in-game purchase.
+                  </p>
+                  <div className="drop-item-grid">
+                    {merchantShowcaseItems.map((item) => {
+                      const selected = Number(draft.amount || 0) === item.price
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`drop-item-card ${selected ? 'drop-item-card--selected' : ''}`}
+                          onClick={() => updateDraftAmount(item.price)}
+                        >
+                          <div className="drop-item-card__art">
+                            <img src={item.artwork} alt={item.name} className="drop-item-card__image" />
+                          </div>
+                          <div className="drop-item-card__head">
+                            <div>
+                              <div className="drop-item-card__title">{item.name}</div>
+                              <div className="drop-item-card__copy">{item.detail}</div>
+                            </div>
+                            <Badge tone="info">{selected ? 'Amount matched' : 'Preview'}</Badge>
+                          </div>
+                          <div className="summary drop-item-card__summary">
+                            <div className="summary-row">
+                              <span>Suggested amount</span>
+                              <strong>{formatCurrency(item.price)}</strong>
+                            </div>
+                            <div className="summary-row">
+                              <span>Use</span>
+                              <strong>{selected ? 'Ready below' : 'Match request'}</strong>
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               </Card>

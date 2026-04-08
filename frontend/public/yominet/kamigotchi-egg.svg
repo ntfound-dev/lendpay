@@ -1,0 +1,38 @@
+<svg width="800" height="520" viewBox="0 0 800 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="88" y1="54" x2="720" y2="462" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0D2547"/>
+      <stop offset="1" stop-color="#102D63"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(415 244) rotate(90) scale(160 138)">
+      <stop stop-color="#B8F4FF"/>
+      <stop offset="1" stop-color="#B8F4FF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="egg" x1="289" y1="138" x2="518" y2="390" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7EE7FF"/>
+      <stop offset="0.48" stop-color="#72A7FF"/>
+      <stop offset="1" stop-color="#8C71FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="752" height="472" rx="32" fill="url(#bg)"/>
+  <circle cx="615" cy="128" r="58" fill="#2C5CFF" fill-opacity="0.24"/>
+  <circle cx="179" cy="394" r="76" fill="#2EF2C7" fill-opacity="0.12"/>
+  <circle cx="408" cy="256" r="160" fill="url(#glow)"/>
+  <rect x="94" y="74" width="150" height="34" rx="17" fill="#15386D"/>
+  <text x="169" y="96" text-anchor="middle" fill="#B6D4FF" font-family="Arial, sans-serif" font-size="16" font-weight="700">YOMINET DROP</text>
+  <text x="94" y="162" fill="white" font-family="Arial, sans-serif" font-size="50" font-weight="700">Kamigotchi Egg</text>
+  <text x="94" y="202" fill="#C6DBFF" font-family="Arial, sans-serif" font-size="23">Starter creature capsule for first-time hatchers</text>
+  <ellipse cx="407" cy="404" rx="120" ry="28" fill="#08152E" fill-opacity="0.42"/>
+  <path d="M404 128C468 128 522 192 522 274C522 349 472 395 404 395C336 395 286 349 286 274C286 192 340 128 404 128Z" fill="url(#egg)"/>
+  <path d="M404 144C455 144 497 197 497 273C497 340 454 379 404 379C354 379 311 340 311 273C311 197 353 144 404 144Z" stroke="white" stroke-opacity="0.28" stroke-width="4"/>
+  <path d="M343 247C362 226 389 215 418 215C447 215 475 226 493 247" stroke="#FFFFFF" stroke-opacity="0.7" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="369" cy="259" r="11" fill="#15315E"/>
+  <circle cx="438" cy="259" r="11" fill="#15315E"/>
+  <path d="M375 304C392 320 415 320 433 304" stroke="#15315E" stroke-width="10" stroke-linecap="round"/>
+  <path d="M389 176L405 154L420 176" stroke="#E6FBFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M287 206C255 226 239 262 239 303C239 327 246 349 261 367" stroke="#74F0D1" stroke-opacity="0.72" stroke-width="10" stroke-linecap="round"/>
+  <path d="M521 206C553 226 569 262 569 303C569 327 562 349 547 367" stroke="#7DB8FF" stroke-opacity="0.72" stroke-width="10" stroke-linecap="round"/>
+  <rect x="94" y="398" width="134" height="62" rx="18" fill="#122E5F"/>
+  <text x="161" y="422" text-anchor="middle" fill="#9FC7FF" font-family="Arial, sans-serif" font-size="14" font-weight="700">SUGGESTED</text>
+  <text x="161" y="448" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="28" font-weight="700">$220</text>
+</svg>

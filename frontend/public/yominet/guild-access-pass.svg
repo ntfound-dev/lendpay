@@ -1,0 +1,32 @@
+<svg width="800" height="520" viewBox="0 0 800 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="76" y1="58" x2="726" y2="482" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#122B34"/>
+      <stop offset="1" stop-color="#17305A"/>
+    </linearGradient>
+    <linearGradient id="card" x1="296" y1="146" x2="520" y2="380" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7F0C4"/>
+      <stop offset="1" stop-color="#C49C36"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="752" height="472" rx="32" fill="url(#bg)"/>
+  <circle cx="144" cy="384" r="72" fill="#18E1A7" fill-opacity="0.12"/>
+  <circle cx="650" cy="124" r="56" fill="#58A6FF" fill-opacity="0.14"/>
+  <text x="94" y="102" fill="#A9FFD8" font-family="Arial, sans-serif" font-size="16" font-weight="700">YOMINET SOCIAL</text>
+  <text x="94" y="164" fill="white" font-family="Arial, sans-serif" font-size="48" font-weight="700">Guild Access Pass</text>
+  <text x="94" y="204" fill="#D4E8FF" font-family="Arial, sans-serif" font-size="23">Unlock raids, guild halls, and prestige rooms across the world map</text>
+  <ellipse cx="408" cy="400" rx="154" ry="28" fill="#06172B" fill-opacity="0.44"/>
+  <rect x="290" y="150" width="236" height="190" rx="28" fill="url(#card)"/>
+  <rect x="304" y="164" width="208" height="162" rx="22" fill="#183869"/>
+  <path d="M408 187L451 212V260C451 300 430 329 408 346C386 329 365 300 365 260V212L408 187Z" fill="#6BE2FF"/>
+  <path d="M408 210L430 223V257C430 280 419 299 408 310C397 299 386 280 386 257V223L408 210Z" fill="#DFFBFF"/>
+  <path d="M351 210H329V279C329 310 345 336 367 350" stroke="#F7F0C4" stroke-width="12" stroke-linecap="round"/>
+  <path d="M465 210H487V279C487 310 471 336 449 350" stroke="#F7F0C4" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="408" cy="253" r="11" fill="#16345D"/>
+  <path d="M408 244V262" stroke="#16345D" stroke-width="8" stroke-linecap="round"/>
+  <path d="M354 364H462" stroke="#6BE2FF" stroke-width="10" stroke-linecap="round"/>
+  <text x="408" y="297" text-anchor="middle" fill="#16345D" font-family="Arial, sans-serif" font-size="24" font-weight="700">GUILD PASS</text>
+  <rect x="94" y="392" width="134" height="62" rx="18" fill="#133B45"/>
+  <text x="161" y="416" text-anchor="middle" fill="#A9FFD8" font-family="Arial, sans-serif" font-size="14" font-weight="700">SUGGESTED</text>
+  <text x="161" y="442" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="28" font-weight="700">$480</text>
+</svg>
