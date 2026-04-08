@@ -3,6 +3,7 @@ import type { CreditScoreState, RewardsState, ScoreBreakdownItem, UsernameSource
 import { Badge } from '../ui/Badge'
 import { Card } from '../ui/Card'
 import { ScoreRing } from '../score/ScoreRing'
+import { Button } from '../ui/Button'
 
 export type ScoreBreakdownRow = {
   label: string
@@ -27,7 +28,9 @@ type AgentSignal = {
 type ProfilePageProps = {
   agentEngineLabel: string
   agentSignals: AgentSignal[]
+  handleRefreshUsernameVerification: () => void | Promise<void>
   initiaAddress?: string | null
+  isRefreshingUsername: boolean
   nextProfileMilestone: NextProfileMilestone
   rewards: RewardsState | null
   riskBadgeTone: 'success' | 'warning' | 'danger'
@@ -46,7 +49,9 @@ type ProfilePageProps = {
 export function ProfilePage({
   agentEngineLabel,
   agentSignals,
+  handleRefreshUsernameVerification,
   initiaAddress,
+  isRefreshingUsername,
   nextProfileMilestone,
   rewards,
   riskBadgeTone,
@@ -220,6 +225,17 @@ export function ProfilePage({
                 </div>
               </div>
             </div>
+
+            {username && (!usernameVerified || !usernameAttestedOnRollup) ? (
+              <div className="card-action-row">
+                <Button onClick={handleRefreshUsernameVerification} disabled={isRefreshingUsername}>
+                  {isRefreshingUsername ? 'Refreshing .init status...' : 'Refresh .init verification'}
+                </Button>
+                <span className="muted-copy">
+                  Use this after the same wallet has a real `.init` username on Initia L1.
+                </span>
+              </div>
+            ) : null}
 
             <div className="profile-identity-card__wallet">
               <span>Wallet address</span>

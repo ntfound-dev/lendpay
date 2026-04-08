@@ -265,6 +265,7 @@ function App() {
   const [viralDropPurchases, setViralDropPurchases] = useState<ViralDropPurchaseState[]>([])
   const [draft, setDraft] = useState<RequestDraft>(defaultDraft)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isRefreshingUsername, setIsRefreshingUsername] = useState(false)
   const [isBackendSyncing, setIsBackendSyncing] = useState(false)
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false)
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
@@ -1563,6 +1564,35 @@ function App() {
       })
     } finally {
       setIsAnalyzing(false)
+    }
+  }
+
+  const handleRefreshUsernameVerification = async () => {
+    setIsRefreshingUsername(true)
+
+    try {
+      const token = await ensureBackendSession()
+      await lendpayApi.refreshUsername(token)
+      await lendpayApi.analyzeScore(token)
+      await syncBorrowerState(token)
+      setHasLoadedBorrowerState(true)
+      setLoadError(null)
+      showToast({
+        tone: 'success',
+        title: '.init identity refreshed',
+        message: 'LendPay rechecked your Initia username and refreshed the score with the latest identity status.',
+      })
+    } catch (error) {
+      showToast({
+        tone: 'warning',
+        title: 'Identity refresh incomplete',
+        message: getErrorMessage(
+          error,
+          'LendPay could not confirm this wallet on Initia L1 yet. Make sure the same address owns the .init username, then retry.',
+        ),
+      })
+    } finally {
+      setIsRefreshingUsername(false)
     }
   }
 
@@ -3863,7 +3893,9 @@ function App() {
               <ProfilePage
                 agentEngineLabel={agentEngineLabel}
                 agentSignals={agentSignals}
+                handleRefreshUsernameVerification={handleRefreshUsernameVerification}
                 initiaAddress={initiaAddress}
+                isRefreshingUsername={isRefreshingUsername}
                 nextProfileMilestone={nextProfileMilestone}
                 rewards={rewards}
                 riskBadgeTone={riskBadgeTone}

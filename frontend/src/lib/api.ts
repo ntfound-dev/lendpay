@@ -177,6 +177,14 @@ export const lendpayApi = {
     return request<UserProfile>('/api/v1/me', { signal, token })
   },
 
+  refreshUsername(token: string) {
+    return request<UserProfile>('/api/v1/me/username/refresh', {
+      method: 'POST',
+      token,
+      body: {},
+    })
+  },
+
   syncRewards(token: string, txHash?: string) {
     return request<RewardsState>('/api/v1/me/rewards/sync', {
       method: 'POST',
