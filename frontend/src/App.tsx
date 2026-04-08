@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useInterwovenKit } from '@initia/interwovenkit-react'
 import type { EncodeObject } from '@cosmjs/proto-signing'
-import { signBackendChallenge } from './lib/auth'
+import { calculateFee, GasPrice } from '@cosmjs/stargate'
+import { useSignMessage } from 'wagmi'
 import { appEnv, isChainWriteReady } from './config/env'
-import { lendpayApi } from './lib/api'
+import { ApiError, lendpayApi } from './lib/api'
 import {
   createBuyViralDropMessage,
+  createCancelLoanRequestMessage,
   createClaimCampaignMessage,
   createClaimLendMessage,
   createClaimViralDropCollectibleMessage,
@@ -47,9 +49,10 @@ import {
   formatProfileLabel,
   getAppUpdateDescription,
   getCampaignIneligibleReason,
-  getProtocolEventBadge,
-  getAppPostApprovalCopy,
   getErrorMessage,
+  getAppPostApprovalCopy,
+  getProtocolEventBadge,
+  isWalletSignInCancelledMessage,
   humanizeRepayError,
   nextTierBenefitCopy,
   nextTierLabel,
@@ -57,6 +60,7 @@ import {
   scoreStatusLabel,
   tierHoldingsThreshold,
   titleCase,
+  WALLET_SIGN_IN_CANCELLED_MESSAGE,
   type AppFamily,
   type RequestDraft,
 } from './lib/appHelpers'
@@ -67,6 +71,7 @@ import type {
   CreditScoreState,
   FaucetState,
   GovernanceProposalState,
+  LendLiquidityRouteState,
   LeaderboardEntry,
   LeaderboardState,
   LoanFeeState,
@@ -76,6 +81,7 @@ import type {
   NavKey,
   ReferralState,
   RewardsState,
+  TierVoucherState,
   ToastState,
   TxExplorerState,
   UserProfile,
@@ -96,6 +102,10 @@ import { RepayPage } from './components/pages/RepayPage'
 import { LoyaltyHubPage } from './components/pages/LoyaltyHubPage'
 import { EcosystemPage, type ProtocolUpdateItem } from './components/pages/EcosystemPage'
 import { ProofModal } from './components/shared/ProofModal'
+import { TxPreviewModal, type TxPreviewContent } from './components/shared/TxPreviewModal'
+import { useAutoSignPermission } from './hooks/useAutoSignPermission'
+import { useBackendSession } from './hooks/useBackendSession'
+import { useTxPreview } from './hooks/useTxPreview'
 
 
 type DataSection =
@@ -103,6 +113,7 @@ type DataSection =
   | 'campaigns'
   | 'faucet'
   | 'governance'
+  | 'liquidity'
   | 'leaderboard'
   | 'loanFees'
   | 'merchants'
@@ -144,15 +155,95 @@ const defaultMerchantDraft = {
   partnerFeeBps: '',
 }
 
+const interwovenGasPrice = GasPrice.fromString(`0.015${appEnv.nativeDenom}`)
+const INTERWOVEN_APPROVAL_TIMEOUT_MS = 45_000
+
+const isUserRejectedWalletError = (error: unknown) => {
+  const message = getErrorMessage(error, '').toLowerCase()
+  return (
+    message.includes('user rejected') ||
+    message.includes('rejected the request') ||
+    message.includes('user denied') ||
+    message.includes('denied by user') ||
+    message.includes('user cancelled') ||
+    message.includes('user canceled') ||
+    message.includes('cancelled by user') ||
+    message.includes('canceled by user')
+  )
+}
+
+const isWalletInfrastructureError = (error: unknown) => {
+  const message = getErrorMessage(error, '').toLowerCase()
+  return (
+    message.includes('wallet') ||
+    message.includes('signer') ||
+    message.includes('amino') ||
+    message.includes('not initialized') ||
+    message.includes('unsupported') ||
+    message.includes('failed to fetch') ||
+    message.includes('network') ||
+    message.includes('timeout')
+  )
+}
+
+const isUnsupportedDirectSignerPubkeyError = (error: unknown) => {
+  const message = getErrorMessage(error, '').toLowerCase()
+  return (
+    message.includes('pubkey type url') ||
+    message.includes('pubkey type') ||
+    (message.includes('type url') && message.includes('not recognized')) ||
+    message.includes('/initia.crypto.v1beta1.ethsecp256k1.pubkey')
+  )
+}
+
+const dismissInterwovenDrawerWithEscape = () => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return
+  }
+
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+}
+
+const tierVoucherCopy: Record<
+  RewardsState['tier'],
+  { discountBps: number; label: string; detail: string }
+> = {
+  Bronze: {
+    discountBps: 500,
+    label: 'Bronze Drop Saver NFT',
+    detail: 'Entry ecosystem voucher for starter drops, passes, and lower-ticket app checkouts.',
+  },
+  Silver: {
+    discountBps: 1000,
+    label: 'Silver App Credit NFT',
+    detail: 'Mid-tier voucher for repeat ecosystem usage once your wallet keeps a stronger LEND balance.',
+  },
+  Gold: {
+    discountBps: 1500,
+    label: 'Gold Power Buyer NFT',
+    detail: 'Higher-value voucher for premium collectibles, gaming inventory, and partner app spend.',
+  },
+  Diamond: {
+    discountBps: 2500,
+    label: 'Diamond Signature NFT',
+    detail: 'Top-tier ecosystem voucher for the healthiest wallets and the strongest repeat usage.',
+  },
+}
+
 function App() {
   const {
+    autoSign,
+    estimateGas,
+    disconnect,
     initiaAddress,
+    isOpen: isInterwovenOpen,
     offlineSigner,
     openConnect,
-    openWallet,
     requestTxBlock,
+    submitTxBlock,
     username: walletUsername,
   } = useInterwovenKit()
+  const { signMessageAsync } = useSignMessage()
 
   const [activePage, setActivePage] = useState<NavKey>('overview')
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -169,16 +260,20 @@ function App() {
   const [referral, setReferral] = useState<ReferralState | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardState | null>(null)
   const [faucet, setFaucet] = useState<FaucetState | null>(null)
+  const [lendLiquidityRoute, setLendLiquidityRoute] = useState<LendLiquidityRouteState | null>(null)
   const [viralDropItems, setViralDropItems] = useState<ViralDropItemState[]>([])
   const [viralDropPurchases, setViralDropPurchases] = useState<ViralDropPurchaseState[]>([])
   const [draft, setDraft] = useState<RequestDraft>(defaultDraft)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isBackendSyncing, setIsBackendSyncing] = useState(false)
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false)
+  const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
+  const [reviewingPendingRequestId, setReviewingPendingRequestId] = useState<string | null>(null)
   const [isRepaying, setIsRepaying] = useState(false)
   const [pendingProtocolAction, setPendingProtocolAction] = useState<string | null>(null)
-  const [sessionToken, setSessionToken] = useState<string | null>(null)
+  const [walletPubKeyType, setWalletPubKeyType] = useState<string | null>(null)
   const [toast, setToast] = useState<ToastState | null>(null)
+  const showToast = (nextToast: ToastState) => setToast(nextToast)
   const [username, setUsername] = useState<string | undefined>(walletUsername ?? undefined)
   const [stakeAmount, setStakeAmount] = useState('')
   const [unstakeAmount, setUnstakeAmount] = useState('')
@@ -205,9 +300,57 @@ function App() {
   const [isProofLoading, setIsProofLoading] = useState(false)
   const [isClaimingFaucet, setIsClaimingFaucet] = useState(false)
   const [showWalletRecovery, setShowWalletRecovery] = useState(false)
+  const [walletRecoveryActionKey, setWalletRecoveryActionKey] = useState<string | null>(null)
+  const borrowerSyncCacheRef = useRef<Map<string, { at: number; data: unknown }>>(new Map())
+  const hasUserSelectedProfileRef = useRef(false)
+  const requestTxBlockRef = useRef(requestTxBlock)
+  const submitTxBlockRef = useRef(submitTxBlock)
 
   const apiEnabled = Boolean(appEnv.apiBaseUrl)
   const isConnected = Boolean(initiaAddress)
+  const hasOfflineSigner = Boolean(offlineSigner)
+  const {
+    assignSessionToken,
+    ensureBackendSession,
+    readPersistedSessionToken,
+    resetBackendSession,
+    sessionToken,
+    sessionTokenRef,
+  } = useBackendSession({
+    apiEnabled,
+    initiaAddress,
+    isAbortError: (error) => error instanceof Error && error.name === 'AbortError',
+    isUserRejectedWalletError,
+    offlineSigner,
+    onAuthenticated: (user) => {
+      setProfile(user)
+      setRewards(user.rewards)
+      setUsername(user.username ?? walletUsername ?? undefined)
+    },
+    setLoadError,
+    setWalletPubKeyType,
+    signMessageAsync,
+    throwIfAborted: (signal) => {
+      if (signal?.aborted) {
+        throw new DOMException('The operation was aborted.', 'AbortError')
+      }
+    },
+  })
+  const {
+    txPreview,
+    resolveTxPreview,
+    confirmWalletAction,
+    isTransactionPreviewCancelled,
+  } = useTxPreview({
+    chainId: appEnv.appchainId,
+    initiaAddress,
+  })
+  const { ensureAutoSignPermission } = useAutoSignPermission({
+    autoSign,
+    chainId: appEnv.appchainId,
+    isUserRejectedWalletError,
+    showToast,
+  })
   const activeLoan = loans.find((loan) => loan.status === 'active') ?? null
   const pendingRequest = requests.find((request) => request.status === 'pending') ?? null
   const nextDueItem = activeLoan?.schedule.find((item) => item.status === 'due') ?? null
@@ -237,21 +380,56 @@ function App() {
   const isProtocolActionPending = (key: string) => pendingProtocolAction === key
   const selectedDraftProfile =
     profileQuotes.find((profile) => profile.profileId === draft.profileId) ?? null
+  const getEffectiveProfileLimit = (profileQuote: CreditProfileQuote) =>
+    profileQuote.requiresCollateral
+      ? profileQuote.maxPrincipal
+      : Math.min(score?.limitUsd ?? profileQuote.maxPrincipal, profileQuote.maxPrincipal)
+  const bestQualifiedProfile = useMemo(() => {
+    const qualifiedProfiles = profileQuotes.filter((profile) => profile.qualified)
+    const candidates = qualifiedProfiles.length ? qualifiedProfiles : profileQuotes
+    if (!candidates.length) {
+      return null
+    }
+
+    return [...candidates].sort((left, right) => {
+      const limitDelta = getEffectiveProfileLimit(right) - getEffectiveProfileLimit(left)
+      if (limitDelta !== 0) return limitDelta
+
+      if (left.requiresCollateral !== right.requiresCollateral) {
+        return Number(left.requiresCollateral) - Number(right.requiresCollateral)
+      }
+
+      return right.maxTenorMonths - left.maxTenorMonths
+    })[0]
+  }, [profileQuotes, score?.limitUsd])
   const selectedProfile =
     (selectedDraftProfile?.qualified ? selectedDraftProfile : null) ??
-    profileQuotes.find((profile) => profile.qualified) ??
+  profileQuotes.find((profile) => profile.qualified) ??
     selectedDraftProfile ??
     profileQuotes[0] ??
     null
+  const canRunPendingDemoReview = appEnv.enableDemoApproval
+  const shouldKeepInterwovenDrawerOpen =
+    isSubmittingRequest ||
+    Boolean(cancellingRequestId) ||
+    Boolean(reviewingPendingRequestId) ||
+    isRepaying ||
+    Boolean(pendingProtocolAction) ||
+    isAnalyzing ||
+    isApplyingReferral ||
+    isClaimingFaucet
+  const showRequestWalletRecovery =
+    showWalletRecovery &&
+    (walletRecoveryActionKey === 'submit-request' ||
+      Boolean(walletRecoveryActionKey?.startsWith('cancel-request:')))
+  const showRepayWalletRecovery =
+    showWalletRecovery &&
+    (walletRecoveryActionKey === 'repay-loan' || walletRecoveryActionKey === 'pay-fees')
   const requiredCollateralAmount =
     selectedProfile?.requiresCollateral && requestedAmount > 0
       ? Math.ceil((requestedAmount * selectedProfile.collateralRatioBps) / 10_000)
       : 0
-  const effectiveAvailableLimit = selectedProfile
-    ? selectedProfile.requiresCollateral
-      ? selectedProfile.maxPrincipal
-      : Math.min(score?.limitUsd ?? selectedProfile.maxPrincipal, selectedProfile.maxPrincipal)
-    : score?.limitUsd ?? null
+  const effectiveAvailableLimit = selectedProfile ? getEffectiveProfileLimit(selectedProfile) : score?.limitUsd ?? null
   const walletNativeBalance = profile?.wallet.nativeBalance ?? null
   const walletNativeBalanceLabel =
     walletNativeBalance === null
@@ -268,7 +446,7 @@ function App() {
     : faucet?.nextClaimAt
       ? `Available again ${formatDate(faucet.nextClaimAt)} · ${formatRelative(faucet.nextClaimAt)}`
       : 'Unavailable right now'
-  const uniqueApps = dedupeApps(merchants)
+  const uniqueApps = useMemo(() => dedupeApps(merchants), [merchants])
   const activeMerchants = uniqueApps.filter((merchant) => merchant.active)
   const selectedAppProof = uniqueApps.find((merchant) => merchant.id === selectedAppProofId) ?? null
   const selectedMerchant =
@@ -316,7 +494,26 @@ function App() {
     checkoutSliderMax,
     Math.max(0, Number(draft.amount || 0)),
   )
-  const quickPickAmounts = [100, 300, 500]
+  const quickPickAmounts = useMemo(() => {
+    if (checkoutSliderMax <= 0) {
+      return [100, 300, 500]
+    }
+
+    const picks = [100, 300, 500]
+    if (checkoutSliderMax >= 1_000) picks.push(1_000)
+    if (checkoutSliderMax >= 1_500) picks.push(1_500)
+    picks.push(checkoutSliderMax)
+
+    return [...new Set(picks.filter((amount) => amount > 0 && amount <= checkoutSliderMax))].sort((left, right) => left - right)
+  }, [checkoutSliderMax])
+  const requestAmountHelper =
+    selectedProfile && effectiveAvailableLimit !== null
+      ? score && score.limitUsd > effectiveAvailableLimit
+        ? `${formatProfileLabel(selectedProfile.label)} currently caps a single request at ${formatCurrency(effectiveAvailableLimit)}, even though your total limit is ${formatCurrency(score.limitUsd)}. Choose a higher credit product below to unlock more of the limit.`
+        : `${formatProfileLabel(selectedProfile.label)} supports up to ${formatCurrency(effectiveAvailableLimit)} for this wallet right now.`
+      : score
+        ? `Your total limit is ${formatCurrency(score.limitUsd)}. Choose a credit product below to see the per-request cap.`
+        : 'Refresh your profile first to unlock live request sizing.'
   const checkoutFormLocked = activeMerchants.length === 0
   const checkoutMerchantReady = Boolean(selectedMerchant)
   const requestBlockingMessage = activeLoan
@@ -500,6 +697,26 @@ function App() {
   }, [sessionToken, walletUsername])
 
   useEffect(() => {
+    requestTxBlockRef.current = requestTxBlock
+  }, [requestTxBlock])
+
+  useEffect(() => {
+    submitTxBlockRef.current = submitTxBlock
+  }, [submitTxBlock])
+
+  useEffect(() => {
+    if (!isConnected || !isInterwovenOpen || shouldKeepInterwovenDrawerOpen) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      dismissInterwovenDrawerWithEscape()
+    }, 180)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [isConnected, isInterwovenOpen, shouldKeepInterwovenDrawerOpen])
+
+  useEffect(() => {
     if (!initiaAddress) return
 
     setAllocationDraft((current) =>
@@ -513,15 +730,26 @@ function App() {
   useEffect(() => {
     if (!profileQuotes.length) return
 
-    const nextProfile =
-      profileQuotes.find((profile) => profile.profileId === draft.profileId && profile.qualified) ??
-      profileQuotes.find((profile) => profile.qualified) ??
-      profileQuotes[0]
+    const currentProfile = profileQuotes.find((profile) => profile.profileId === draft.profileId) ?? null
+    const shouldKeepCurrentSelection =
+      hasUserSelectedProfileRef.current && currentProfile && currentProfile.qualified
+
+    const nextProfile = shouldKeepCurrentSelection
+      ? currentProfile
+      : currentProfile?.qualified && currentProfile.profileId !== appEnv.requestProfileId
+        ? currentProfile
+        : bestQualifiedProfile ??
+          profileQuotes.find((profile) => profile.qualified) ??
+          profileQuotes[0]
 
     if (nextProfile && nextProfile.profileId !== draft.profileId) {
       setDraft((current) => ({ ...current, profileId: nextProfile.profileId }))
     }
-  }, [draft.profileId, profileQuotes])
+  }, [bestQualifiedProfile, draft.profileId, profileQuotes])
+
+  useEffect(() => {
+    hasUserSelectedProfileRef.current = false
+  }, [initiaAddress])
 
   useEffect(() => {
     if (!activeMerchants.length) {
@@ -659,11 +887,13 @@ function App() {
     setGovernance([])
     setMerchants([])
     setFaucet(null)
+    setLendLiquidityRoute(null)
     setReferral(null)
     setLeaderboard(null)
     setViralDropItems([])
     setViralDropPurchases([])
     setActivities([])
+    setWalletPubKeyType(null)
     setUsername(walletUsername ?? undefined)
     setDraft(defaultDraft)
     setStakeAmount('')
@@ -678,9 +908,32 @@ function App() {
     setReferralCodeInput('')
     setLeaderboardTab('borrowers')
     setSectionErrors({})
+    setShowWalletRecovery(false)
+    setWalletRecoveryActionKey(null)
+    resolveTxPreview(false)
+    resetBackendSession()
+    borrowerSyncCacheRef.current.clear()
   }
+  const cacheBorrowerSection = <T,>(key: string, data: T) => {
+    borrowerSyncCacheRef.current.set(key, {
+      at: Date.now(),
+      data,
+    })
+    return data
+  }
+  const loadCachedBorrowerSection = async <T,>(
+    key: string,
+    ttlMs: number,
+    loader: () => Promise<T>,
+  ) => {
+    const cached = borrowerSyncCacheRef.current.get(key)
+    if (cached && Date.now() - cached.at < ttlMs) {
+      return cached.data as T
+    }
 
-  const showToast = (nextToast: ToastState) => setToast(nextToast)
+    const data = await loader()
+    return cacheBorrowerSection(key, data)
+  }
 
   const executeWithTimeout = async <T,>(txFn: () => Promise<T>, timeoutMs = 15_000): Promise<T> => {
     let timeoutId: ReturnType<typeof setTimeout> | undefined
@@ -699,20 +952,61 @@ function App() {
 
   const isTransactionTimedOut = (error: unknown) =>
     error instanceof Error && error.message === 'Transaction timed out'
-
-  const requireOperatorToken = () => {
-    if (!appEnv.previewOperatorToken) {
-      const message =
-        'Operator token not configured. Set VITE_PREVIEW_OPERATOR_TOKEN in your .env file.'
-      showToast({
-        tone: 'danger',
-        title: 'Operator token missing',
-        message,
-      })
-      throw new Error(message)
+  const isAbortError = (error: unknown) =>
+    error instanceof Error && error.name === 'AbortError'
+  const throwIfAborted = (signal?: AbortSignal) => {
+    if (signal?.aborted) {
+      throw new DOMException('The operation was aborted.', 'AbortError')
+    }
+  }
+  const isSessionAuthError = (error: unknown) => {
+    if (error instanceof ApiError) {
+      return error.status === 401
     }
 
-    return appEnv.previewOperatorToken
+    const message = getErrorMessage(error, '').toLowerCase()
+    return (
+      message.includes('session expired') ||
+      message.includes('session not found') ||
+      message.includes('missing bearer token') ||
+      message.includes('unauthorized')
+    )
+  }
+
+  const assertWalletTxServicesReady = async () => {
+    const checks = [
+      {
+        label: 'Rollup REST',
+        url: `${appEnv.chainRestUrl.replace(/\/$/, '')}/cosmos/base/tendermint/v1beta1/node_info`,
+      },
+    ]
+
+    if (apiEnabled) {
+      checks.push({
+        label: 'Backend API',
+        url: `${appEnv.apiBaseUrl.replace(/\/$/, '')}/api/v1/health`,
+      })
+    }
+
+    await Promise.all(checks.map(async (check) => {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 2_500)
+
+      try {
+        const response = await fetch(check.url, { signal: controller.signal })
+        if (!response.ok) {
+          throw new Error(`${check.label} responded with ${response.status}.`)
+        }
+      } catch (error) {
+        const detail =
+          error instanceof Error && error.name === 'AbortError'
+            ? 'did not respond in time'
+            : getErrorMessage(error, 'could not be reached')
+        throw new Error(`${check.label} is unavailable right now (${detail}).`)
+      } finally {
+        clearTimeout(timeoutId)
+      }
+    }))
   }
 
   type BorrowerSyncState = {
@@ -726,7 +1020,10 @@ function App() {
   const syncBorrowerState = async (
     token: string,
     profileOverride?: UserProfile,
+    signal?: AbortSignal,
   ): Promise<BorrowerSyncState> => {
+    throwIfAborted(signal)
+    const cacheScope = initiaAddress ?? 'wallet'
     const nextErrors: Partial<Record<DataSection, string>> = {}
     const loadOptionalSection = async <T,>(
       section: DataSection,
@@ -735,8 +1032,15 @@ function App() {
       fallbackMessage: string,
     ) => {
       try {
-        return await loader()
+        throwIfAborted(signal)
+        const result = await loader()
+        throwIfAborted(signal)
+        return result
       } catch (error) {
+        if (isAbortError(error)) {
+          throw error
+        }
+
         nextErrors[section] = getErrorMessage(error, fallbackMessage)
         return fallback
       }
@@ -755,41 +1059,98 @@ function App() {
       nextFaucet,
       nextReferral,
       nextLeaderboard,
+      nextLiquidityRoute,
       nextViralDrop,
     ] =
       await Promise.all([
-        profileOverride ? Promise.resolve(profileOverride) : lendpayApi.getMe(token),
-        lendpayApi.getScore(token),
-        lendpayApi.listLoanRequests(token),
-        lendpayApi.listLoans(token),
-        loadOptionalSection('activity', () => lendpayApi.getActivity(token), [], 'Recent activity could not be loaded.'),
-        loadOptionalSection('profiles', () => lendpayApi.listProtocolProfiles(token), [], 'Credit products could not be loaded.'),
-        loadOptionalSection('campaigns', () => lendpayApi.listCampaigns(token), [], 'Reward campaigns could not be loaded.'),
-        loadOptionalSection('governance', () => lendpayApi.listGovernance(token), [], 'Governance activity could not be loaded.'),
-        loadOptionalSection('merchants', () => lendpayApi.listMerchants(token), [], 'Initia apps could not be loaded.'),
-        loadOptionalSection('faucet', () => lendpayApi.getFaucet(token), null, 'Faucet status could not be loaded.'),
-        loadOptionalSection('referral', () => lendpayApi.getReferral(token), null, 'Referral data could not be loaded.'),
-        loadOptionalSection('leaderboard', () => lendpayApi.getLeaderboard(token), null, 'Leaderboard data could not be loaded.'),
+        profileOverride ? Promise.resolve(profileOverride) : lendpayApi.getMe(token, signal),
+        lendpayApi.getScore(token, signal),
+        lendpayApi.listLoanRequests(token, signal),
+        lendpayApi.listLoans(token, signal),
+        loadOptionalSection('activity', () => lendpayApi.getActivity(token, signal), [], 'Recent activity could not be loaded.'),
+        loadOptionalSection(
+          'profiles',
+          () =>
+            loadCachedBorrowerSection(`${cacheScope}:profiles`, 60_000, () =>
+              lendpayApi.listProtocolProfiles(token, signal),
+            ),
+          [],
+          'Credit products could not be loaded.',
+        ),
+        loadOptionalSection(
+          'campaigns',
+          () =>
+            loadCachedBorrowerSection(`${cacheScope}:campaigns`, 30_000, () =>
+              lendpayApi.listCampaigns(token, signal),
+            ),
+          [],
+          'Reward campaigns could not be loaded.',
+        ),
+        loadOptionalSection(
+          'governance',
+          () =>
+            loadCachedBorrowerSection(`${cacheScope}:governance`, 30_000, () =>
+              lendpayApi.listGovernance(token, signal),
+            ),
+          [],
+          'Governance activity could not be loaded.',
+        ),
+        loadOptionalSection(
+          'merchants',
+          () =>
+            loadCachedBorrowerSection(`${cacheScope}:merchants`, 60_000, () =>
+              lendpayApi.listMerchants(token, signal),
+            ),
+          [],
+          'Initia apps could not be loaded.',
+        ),
+        loadOptionalSection('faucet', () => lendpayApi.getFaucet(token, signal), null, 'Faucet status could not be loaded.'),
+        loadOptionalSection('referral', () => lendpayApi.getReferral(token, signal), null, 'Referral data could not be loaded.'),
+        loadOptionalSection(
+          'leaderboard',
+          () =>
+            loadCachedBorrowerSection(`${cacheScope}:leaderboard`, 60_000, () =>
+              lendpayApi.getLeaderboard(token, signal),
+            ),
+          null,
+          'Leaderboard data could not be loaded.',
+        ),
+        loadOptionalSection(
+          'liquidity',
+          () =>
+            loadCachedBorrowerSection(`${cacheScope}:liquidity`, 60_000, () =>
+              lendpayApi.getLendLiquidityRoute(token, signal),
+            ),
+          null,
+          'MiniEVM route data could not be loaded.',
+        ),
         loadOptionalSection(
           'viralDrop',
-          async () => ({
-            items: await lendpayApi.listViralDropItems(token),
-            purchases: await lendpayApi.listViralDropPurchases(token),
-          }),
+          () =>
+            loadCachedBorrowerSection(`${cacheScope}:viral-drop`, 30_000, async () => {
+              const [items, purchases] = await Promise.all([
+                lendpayApi.listViralDropItems(token, signal),
+                lendpayApi.listViralDropPurchases(token, signal),
+              ])
+
+              return { items, purchases }
+            }),
           { items: [], purchases: [] },
           'Viral drop activity could not be loaded.',
         ),
       ])
+    throwIfAborted(signal)
     const nextActiveLoan = nextLoans.find((loan) => loan.status === 'active') ?? null
     const nextLoanFees = nextActiveLoan
       ? await loadOptionalSection(
           'loanFees',
-          () => lendpayApi.getLoanFees(token, nextActiveLoan.id),
+          () => lendpayApi.getLoanFees(token, nextActiveLoan.id, signal),
           null,
           'Fee details could not be loaded.',
         )
       : null
 
+    throwIfAborted(signal)
     setProfile(profile)
     setRewards(profile.rewards)
     setUsername(profile.username ?? walletUsername ?? undefined)
@@ -804,6 +1165,7 @@ function App() {
     setFaucet(nextFaucet)
     setReferral(nextReferral)
     setLeaderboard(nextLeaderboard)
+    setLendLiquidityRoute(nextLiquidityRoute)
     setViralDropItems(nextViralDrop.items)
     setViralDropPurchases(nextViralDrop.purchases)
     setActivities(nextActivities)
@@ -820,6 +1182,8 @@ function App() {
   }
 
   const syncProtocolAfterTx = async (token: string, txHash?: string) => {
+    borrowerSyncCacheRef.current.clear()
+
     if (apiEnabled) {
       await lendpayApi.syncRewards(token, txHash)
     }
@@ -827,48 +1191,16 @@ function App() {
     return syncBorrowerState(token)
   }
 
-  const ensureBackendSession = async () => {
-    if (!apiEnabled) {
-      throw new Error('API base URL is not configured.')
+  const loadBorrowerState = async (signal?: AbortSignal) => {
+    if (signal?.aborted) {
+      return
     }
 
-    if (!initiaAddress || !offlineSigner) {
-      throw new Error('Connect your wallet before starting a backend session.')
-    }
-
-    if (sessionToken) {
-      return sessionToken
-    }
-
-    try {
-      const challenge = await lendpayApi.getChallenge(initiaAddress)
-      const signedChallenge = await signBackendChallenge(
-        offlineSigner,
-        initiaAddress,
-        challenge.message,
-      )
-      const auth = await lendpayApi.verifySession(
-        initiaAddress,
-        challenge.challengeId,
-        signedChallenge,
-      )
-      setSessionToken(auth.token)
-      setProfile(auth.user)
-      setRewards(auth.user.rewards)
-      setUsername(auth.user.username ?? walletUsername ?? undefined)
-      setLoadError(null)
-      return auth.token
-    } catch (error) {
-      setSessionToken(null)
-      throw new Error(getErrorMessage(error, 'Backend session could not be created.'))
-    }
-  }
-
-  const loadBorrowerState = async () => {
     if (!apiEnabled || !initiaAddress) {
-      setSessionToken(null)
+      assignSessionToken(null)
       setLoadError(null)
       setHasLoadedBorrowerState(false)
+      setIsBackendSyncing(false)
       resetBorrowerState()
       return
     }
@@ -877,28 +1209,82 @@ function App() {
     setLoadError(null)
 
     try {
-      const token = await ensureBackendSession()
-      await syncBorrowerState(token)
+      throwIfAborted(signal)
+      const persistedToken = readPersistedSessionToken(initiaAddress)
+      throwIfAborted(signal)
+      if (persistedToken && persistedToken !== sessionTokenRef.current) {
+        assignSessionToken(persistedToken)
+      }
+
+      const reusableToken = sessionTokenRef.current ?? persistedToken
+      if (reusableToken) {
+        try {
+          await syncBorrowerState(reusableToken, undefined, signal)
+          throwIfAborted(signal)
+          setHasLoadedBorrowerState(true)
+          return
+        } catch (error) {
+          if (isAbortError(error)) {
+            return
+          }
+
+          if (!isSessionAuthError(error)) {
+            throw error
+          }
+
+          assignSessionToken(null)
+        }
+      }
+
+      const token = await ensureBackendSession(signal)
+      throwIfAborted(signal)
+      await syncBorrowerState(token, undefined, signal)
+      throwIfAborted(signal)
       setHasLoadedBorrowerState(true)
     } catch (error) {
-      setSessionToken(null)
+      if (isAbortError(error)) {
+        return
+      }
+
+      const message = getErrorMessage(error, 'Could not load borrower state from the API.')
+      if (isUserRejectedWalletError(error) || isWalletSignInCancelledMessage(message)) {
+        assignSessionToken(null)
+        resetBorrowerState()
+        setHasLoadedBorrowerState(false)
+        setLoadError(WALLET_SIGN_IN_CANCELLED_MESSAGE)
+        return
+      }
+
+      assignSessionToken(null)
       resetBorrowerState()
       setHasLoadedBorrowerState(false)
-      setLoadError(getErrorMessage(error, 'Could not load borrower state from the API.'))
+      setLoadError(message)
       throw error
     } finally {
-      setIsBackendSyncing(false)
+      if (!signal?.aborted) {
+        setIsBackendSyncing(false)
+      }
     }
+  }
+
+  const openPreferredWalletConnect = async () => {
+    openConnect()
+  }
+
+  const handleSelectProfile = (profileId: number) => {
+    hasUserSelectedProfileRef.current = true
+    setDraft((current) => ({ ...current, profileId }))
   }
 
   const executeProtocolAction = async (input: {
     actionKey: string
     message: EncodeObject
+    preview?: TxPreviewContent | false
     successMessage: string
     successTitle: string
   }) => {
     if (!isConnected) {
-      openConnect()
+      await openPreferredWalletConnect()
       return
     }
 
@@ -906,11 +1292,15 @@ function App() {
       throw new Error('Move package is not configured. Live protocol actions require a real chain target.')
     }
 
+    await confirmWalletAction([input.message], input.preview)
+
     setPendingProtocolAction(input.actionKey)
 
+    let txHash = ''
+
     try {
-      const result = await requestWalletTx([input.message])
-      const txHash = extractTxHash(result)
+      const result = await requestWalletTx([input.message], input.actionKey, false)
+      txHash = extractTxHash(result)
       const token = await ensureBackendSession()
 
       if (!apiEnabled || !token) {
@@ -924,7 +1314,16 @@ function App() {
         message: `${input.successMessage}${txHash ? ` ${formatTxHash(txHash)}` : ''}`,
       })
     } catch (error) {
-      if (isTransactionTimedOut(error)) {
+      if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
+        return
+      }
+
+      if (txHash) {
+        showToast({
+          tone: 'warning',
+          title: `${input.successTitle} submitted`,
+          message: `The transaction was broadcast${txHash ? `: ${formatTxHash(txHash)}` : ''}. The dashboard may take a moment to refresh.`,
+        })
         return
       }
 
@@ -934,56 +1333,177 @@ function App() {
     }
   }
 
-  const requestWalletTx = async (messages: EncodeObject[]) => {
-    if (typeof requestTxBlock !== 'function') {
-      throw new Error('Wallet approval is unavailable right now. Reconnect your wallet and try again.')
-    }
+  const requestWalletTx = async (
+    messages: EncodeObject[],
+    recoveryActionKey?: string,
+    preview?: TxPreviewContent | false,
+  ) => {
+    await confirmWalletAction(messages, preview)
+    const autoSignReady = await ensureAutoSignPermission(messages)
 
-    try {
-      const result = await executeWithTimeout(() =>
-        (requestTxBlock as unknown as (payload: unknown) => Promise<unknown>)({
-          chainId: appEnv.appchainId,
-          messages,
-        }),
-      )
-
-      setShowWalletRecovery(false)
-      return result
-    } catch (error) {
-      if (isTransactionTimedOut(error)) {
-        setShowWalletRecovery(true)
-        showToast({
-          tone: 'warning',
-          title: 'Wallet not responding',
-          message: 'Open your wallet and check for a pending transaction, then try again.',
-        })
+    const requestWithInterwovenDrawer = async () => {
+      const requestTxBlockFn = requestTxBlockRef.current
+      if (!requestTxBlockFn) {
+        throw new Error('Wallet approval is unavailable right now. Reconnect your wallet and try again.')
       }
 
-      throw error
+      type RequestTxBlockPayload = Parameters<typeof requestTxBlockFn>[0]
+      const payload: RequestTxBlockPayload = {
+        chainId: appEnv.appchainId,
+        messages,
+      }
+
+      return executeWithTimeout(
+        () => requestTxBlockFn(payload),
+        INTERWOVEN_APPROVAL_TIMEOUT_MS,
+      )
+    }
+
+    const submitWithInterwovenKit = async () => {
+      if (!initiaAddress) {
+        throw new Error('Wallet signer unavailable. Reconnect your wallet and try again.')
+      }
+
+      const submitTxBlockFn = submitTxBlockRef.current
+      if (typeof estimateGas !== 'function' || typeof submitTxBlockFn !== 'function') {
+        throw new Error('Wallet submission is unavailable right now. Reconnect your wallet and try again.')
+      }
+
+      const estimatedGas = await estimateGas({
+        chainId: appEnv.appchainId,
+        messages,
+      })
+      const fee = calculateFee(Math.max(Math.ceil(estimatedGas * 1.25), estimatedGas), interwovenGasPrice)
+
+      return submitTxBlockFn(
+        {
+          chainId: appEnv.appchainId,
+          fee,
+          messages,
+          preferredFeeDenom: appEnv.nativeDenom,
+        },
+        20_000,
+        500,
+      )
+    }
+
+    await assertWalletTxServicesReady()
+    setShowWalletRecovery(false)
+    setWalletRecoveryActionKey(null)
+
+    try {
+      if (autoSignReady) {
+        const result = await submitWithInterwovenKit()
+        setShowWalletRecovery(false)
+        setWalletRecoveryActionKey(null)
+        return result
+      }
+
+      const result = await requestWithInterwovenDrawer()
+      setShowWalletRecovery(false)
+      setWalletRecoveryActionKey(null)
+      return result
+    } catch (primaryError) {
+      if (isUserRejectedWalletError(primaryError)) {
+        throw primaryError
+      }
+
+      if (autoSignReady) {
+        console.warn('Auto-sign submit failed, falling back to Interwoven drawer approval', primaryError)
+
+        try {
+          const result = await requestWithInterwovenDrawer()
+          setShowWalletRecovery(false)
+          setWalletRecoveryActionKey(null)
+          return result
+        } catch (drawerError) {
+          if (isUserRejectedWalletError(drawerError)) {
+            throw drawerError
+          }
+
+          if (!isTransactionTimedOut(drawerError) && !isWalletInfrastructureError(drawerError)) {
+            throw drawerError
+          }
+
+          if (
+            isWalletInfrastructureError(primaryError) &&
+            (isWalletInfrastructureError(drawerError) || isTransactionTimedOut(drawerError))
+          ) {
+            setShowWalletRecovery(true)
+            setWalletRecoveryActionKey(recoveryActionKey ?? null)
+            showToast({
+              tone: 'warning',
+              title: 'Wallet not responding',
+              message: 'The Interwoven drawer is still loading. Reconnect your wallet and try again.',
+            })
+          }
+
+          throw drawerError
+        }
+      }
+
+      if (!isTransactionTimedOut(primaryError) && !isWalletInfrastructureError(primaryError)) {
+        throw primaryError
+      }
+
+      console.warn('Interwoven requestTxBlock failed, falling back to direct submit', primaryError)
+
+      try {
+        const result = await submitWithInterwovenKit()
+        setShowWalletRecovery(false)
+        setWalletRecoveryActionKey(null)
+        return result
+      } catch (directError) {
+        if (isUserRejectedWalletError(directError)) {
+          throw directError
+        }
+
+        if (isUnsupportedDirectSignerPubkeyError(directError)) {
+          setWalletPubKeyType('initia/PubKeyEthSecp256k1')
+        }
+
+        if (
+          (isTransactionTimedOut(primaryError) || isWalletInfrastructureError(primaryError)) &&
+          (isWalletInfrastructureError(directError) || isUnsupportedDirectSignerPubkeyError(directError))
+        ) {
+          setShowWalletRecovery(true)
+          setWalletRecoveryActionKey(recoveryActionKey ?? null)
+          showToast({
+            tone: 'warning',
+            title: 'Wallet not responding',
+            message: 'The Interwoven drawer is still loading. Reconnect your wallet and try again.',
+          })
+        }
+
+        throw directError
+      }
     }
   }
 
   useEffect(() => {
     if (!apiEnabled || !initiaAddress) {
-      setSessionToken(null)
+      assignSessionToken(null)
       setLoadError(null)
       setHasLoadedBorrowerState(false)
+      setIsBackendSyncing(false)
       resetBorrowerState()
       return
     }
 
-    let cancelled = false
+    const controller = new AbortController()
 
     const bootstrap = async () => {
       try {
         if (!offlineSigner) {
+          if (controller.signal.aborted) return
           setHasLoadedBorrowerState(false)
+          setIsBackendSyncing(false)
           setLoadError('Wallet signer unavailable. Reconnect your wallet to continue.')
           return
         }
-        await loadBorrowerState()
+        await loadBorrowerState(controller.signal)
       } catch (error) {
-        if (cancelled) return
+        if (isAbortError(error) || controller.signal.aborted) return
 
         showToast({
           tone: 'warning',
@@ -996,9 +1516,9 @@ function App() {
     void bootstrap()
 
     return () => {
-      cancelled = true
+      controller.abort()
     }
-  }, [apiEnabled, initiaAddress, offlineSigner])
+  }, [apiEnabled, hasOfflineSigner, initiaAddress])
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true)
@@ -1093,6 +1613,15 @@ function App() {
       return
     }
 
+    if (!/^[a-z0-9-]{3,32}$/i.test(code)) {
+      showToast({
+        tone: 'warning',
+        title: 'Code format invalid',
+        message: 'Referral codes must be 3-32 characters and use only letters, numbers, or hyphens.',
+      })
+      return
+    }
+
     try {
       setIsApplyingReferral(true)
       const token = await ensureBackendSession()
@@ -1118,7 +1647,7 @@ function App() {
 
   const handleClaimFaucet = async () => {
     if (!isConnected) {
-      openConnect()
+      await openPreferredWalletConnect()
       return
     }
 
@@ -1237,7 +1766,7 @@ function App() {
     }
 
     if (!isConnected) {
-      openConnect()
+      await openPreferredWalletConnect()
       return
     }
 
@@ -1262,6 +1791,14 @@ function App() {
         throw new Error('Move package is not configured. Live loan requests require a real chain target.')
       }
 
+      const requestedProfileId = selectedProfile?.profileId ?? draft.profileId
+      const requestedProfileLabel = selectedProfile
+        ? formatProfileLabel(selectedProfile.label)
+        : 'Selected profile'
+      const requestFunctionName = selectedProfile?.requiresCollateral
+        ? appEnv.requestCollateralFunctionName
+        : appEnv.requestFunctionName
+      const requestModuleLabel = `${appEnv.loanModuleName}::${requestFunctionName}`
       const message = selectedProfile?.requiresCollateral
         ? createRequestCollateralizedLoanMessage({
             amount,
@@ -1269,7 +1806,7 @@ function App() {
             functionName: appEnv.requestCollateralFunctionName,
             moduleAddress: appEnv.packageAddress,
             moduleName: appEnv.loanModuleName,
-            profileId: selectedProfile?.profileId ?? draft.profileId,
+            profileId: requestedProfileId,
             sender: initiaAddress!,
             tenorMonths: draft.tenorMonths,
           })
@@ -1278,12 +1815,30 @@ function App() {
             functionName: appEnv.requestFunctionName,
             moduleAddress: appEnv.packageAddress,
             moduleName: appEnv.loanModuleName,
-            profileId: selectedProfile?.profileId ?? draft.profileId,
+            profileId: requestedProfileId,
             sender: initiaAddress!,
             tenorMonths: draft.tenorMonths,
           })
 
-      const result = await requestWalletTx([message])
+      const result = await requestWalletTx([message], 'submit-request', {
+        actionLabel: 'Open wallet signer',
+        eyebrow: 'Credit request',
+        title: selectedProfile?.requiresCollateral ? 'Lock collateral and request credit' : 'Submit credit request',
+        subtitle: `This signs your onchain credit request for ${selectedMerchantTitle}.`,
+        rows: [
+          { label: 'Borrow amount', value: formatCurrency(amount) },
+          { label: 'App', value: selectedMerchantTitle },
+          { label: 'Credit profile', value: requestedProfileLabel },
+          { label: 'Profile ID', value: `#${requestedProfileId}` },
+          { label: 'Tenor', value: `${draft.tenorMonths} month${draft.tenorMonths > 1 ? 's' : ''}` },
+          ...(selectedProfile?.requiresCollateral
+            ? [{ label: 'Collateral locked', value: `${formatNumber(collateralDraftAmount)} LEND` }]
+            : []),
+          { label: 'Onchain call', value: requestModuleLabel },
+          { label: 'Network', value: appEnv.appchainId },
+        ],
+        note: `If your wallet shows raw JSON, look for ${requestModuleLabel}. The encoded fields match profile #${requestedProfileId}, ${formatCurrency(amount)}, and a ${draft.tenorMonths}-month term${selectedProfile?.requiresCollateral ? ` with ${formatNumber(collateralDraftAmount)} LEND locked as collateral` : ''}.`,
+      })
       txHash = extractTxHash(result)
 
       const nextRequest = await lendpayApi.createLoanRequest(token, {
@@ -1297,11 +1852,12 @@ function App() {
 
       let approvalMode: 'preview' | 'live' | null = null
 
-      if (appEnv.enableDemoApproval && appEnv.previewOperatorToken) {
-        const approval = await lendpayApi.approveLoanRequest(nextRequest.id, {
-          operatorToken: appEnv.previewOperatorToken,
-          reason: 'Auto-approval from borrower flow',
-        })
+      if (appEnv.enableDemoApproval) {
+        const approval = await lendpayApi.reviewLoanRequest(
+          token,
+          nextRequest.id,
+          'Auto-approval from borrower flow',
+        )
         approvalMode = approval.mode
       }
 
@@ -1322,7 +1878,7 @@ function App() {
             : `Credit request submitted for ${selectedMerchantTitle}${txHash ? `: ${formatTxHash(txHash)}` : '.'}`,
       })
     } catch (error) {
-      if (isTransactionTimedOut(error)) {
+      if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
         return
       }
 
@@ -1333,6 +1889,116 @@ function App() {
       })
     } finally {
       setIsSubmittingRequest(false)
+    }
+  }
+
+  const handleCancelPendingRequest = async (request: LoanRequestState) => {
+    if (!isConnected) {
+      await openPreferredWalletConnect()
+      return
+    }
+
+    const numericRequestId = parseNumericId(request.id)
+    if (!numericRequestId) {
+      showToast({
+        tone: 'danger',
+        title: 'Request unavailable',
+        message: 'This pending request is not linked to a live onchain request id yet.',
+      })
+      return
+    }
+
+    if (!isChainWriteReady) {
+      showToast({
+        tone: 'danger',
+        title: 'Chain target missing',
+        message: 'Move package is not configured. Clearing a request requires a real chain target.',
+      })
+      return
+    }
+
+    setCancellingRequestId(request.id)
+
+    try {
+      const token = await ensureBackendSession()
+      const message = createCancelLoanRequestMessage({
+        functionName: appEnv.cancelRequestFunctionName,
+        moduleAddress: appEnv.packageAddress,
+        moduleName: appEnv.loanModuleName,
+        requestId: numericRequestId,
+        sender: initiaAddress!,
+      })
+
+      const result = await requestWalletTx([message], `cancel-request:${request.id}`, {
+        actionLabel: 'Open wallet signer',
+        eyebrow: 'Pending request',
+        title: 'Clear pending request',
+        subtitle: 'This signs an onchain cancellation for your pending credit request.',
+        rows: [
+          { label: 'Request', value: `#${numericRequestId}` },
+          { label: 'Amount', value: formatCurrency(request.amount) },
+          { label: 'Tenor', value: `${request.tenorMonths} month${request.tenorMonths > 1 ? 's' : ''}` },
+          { label: 'Network', value: appEnv.appchainId },
+        ],
+      })
+      const txHash = extractTxHash(result)
+      await syncProtocolAfterTx(token, txHash || undefined)
+
+      showToast({
+        tone: 'success',
+        title: 'Pending request cleared',
+        message: `Request #${numericRequestId} was cancelled onchain${txHash ? `: ${formatTxHash(txHash)}` : '.'}`,
+      })
+    } catch (error) {
+      if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
+        return
+      }
+
+      showToast({
+        tone: 'danger',
+        title: 'Clear request failed',
+        message: getErrorMessage(error, 'The pending request could not be cancelled right now.'),
+      })
+    } finally {
+      setCancellingRequestId(null)
+    }
+  }
+
+  const handleReviewPendingRequest = async (request: LoanRequestState) => {
+    if (!canRunPendingDemoReview) {
+      showToast({
+        tone: 'info',
+        title: 'Demo review unavailable',
+        message: 'Set VITE_ENABLE_DEMO_APPROVAL=true to review pending requests from the borrower demo UI.',
+      })
+      return
+    }
+
+    setReviewingPendingRequestId(request.id)
+
+    try {
+      const token = await ensureBackendSession()
+      const approval = await lendpayApi.reviewLoanRequest(
+        token,
+        request.id,
+        'Manual review from borrower recovery flow',
+      )
+
+      await syncProtocolAfterTx(token, approval.txHash || undefined)
+      setActivePage('loan')
+      showToast({
+        tone: 'success',
+        title: 'Request reviewed',
+        message: `Pending request moved through operator review${approval.txHash ? `: ${formatTxHash(approval.txHash)}` : '.'}`,
+      })
+    } catch (error) {
+      showToast({
+        tone: 'danger',
+        title: 'Review failed',
+        message: getErrorMessage(error, 'The pending request could not be reviewed right now.'),
+      })
+    } finally {
+      setReviewingPendingRequestId(null)
     }
   }
 
@@ -1347,7 +2013,7 @@ function App() {
     }
 
     if (!isConnected) {
-      openConnect()
+      await openPreferredWalletConnect()
       return
     }
 
@@ -1389,7 +2055,21 @@ function App() {
         sender: initiaAddress!,
       })
 
-      const result = await requestWalletTx([message])
+      const result = await requestWalletTx([message], 'repay-loan', {
+        actionLabel: 'Open wallet signer',
+        eyebrow: 'Repayment',
+        title: 'Repay next installment',
+        subtitle: 'This sends your next due payment onchain for the active loan.',
+        rows: [
+          { label: 'Loan', value: `#${activeLoan.id}` },
+          { label: 'Due now', value: formatCurrency(nextInstallment.amount) },
+          { label: 'Due date', value: formatDate(nextInstallment.dueAt) },
+          { label: 'Outstanding after this step', value: formatCurrency(outstandingAmount) },
+          { label: 'Onchain call', value: `${appEnv.loanModuleName}::${appEnv.repayFunctionName}` },
+          { label: 'Network', value: appEnv.appchainId },
+        ],
+        note: `If your wallet shows raw JSON, look for ${appEnv.loanModuleName}::${appEnv.repayFunctionName}. In this case the encoded argument maps to loan #${numericLoanId}, so this approval is only for the next installment on that loan.`,
+      })
       txHash = extractTxHash(result)
 
       const token = await ensureBackendSession()
@@ -1405,7 +2085,7 @@ function App() {
             : 'Payment status has been updated.',
       })
     } catch (error) {
-      if (isTransactionTimedOut(error)) {
+      if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
         return
       }
 
@@ -1434,7 +2114,7 @@ function App() {
     }
 
     if (!isConnected) {
-      openConnect()
+      await openPreferredWalletConnect()
       return
     }
 
@@ -1464,7 +2144,27 @@ function App() {
         sender: initiaAddress!,
       })
 
-      const result = await requestWalletTx([message])
+      const result = await requestWalletTx([message], undefined, {
+        actionLabel: 'Open wallet signer',
+        eyebrow: 'App purchase',
+        title: `Buy ${item.name}`,
+        subtitle: 'This uses your approved credit inside the selected Initia app route.',
+        rows: [
+          { label: 'Item', value: item.name },
+          { label: 'App', value: item.appLabel },
+          { label: 'Price', value: formatCurrency(item.price) },
+          {
+            label: 'Delivery',
+            value:
+              activeLoan.collateralAmount >= item.instantCollateralRequired
+                ? 'Receipt + collectible delivered now'
+                : 'Receipt now, collectible after full repayment',
+          },
+          { label: 'Module', value: 'viral_drop::buy_item' },
+          { label: 'Network', value: appEnv.appchainId },
+        ],
+        note: `If your wallet shows raw JSON, look for viral_drop::buy_item. The encoded fields in this request map to merchant #${merchantId} and item #${item.id}.`,
+      })
       const txHash = extractTxHash(result)
       const token = await ensureBackendSession()
       await syncProtocolAfterTx(token, txHash || undefined)
@@ -1477,7 +2177,7 @@ function App() {
           : `${item.name} receipt was minted onchain. The full collectible unlocks after full repayment${txHash ? `: ${formatTxHash(txHash)}` : '.'}`,
       })
     } catch (error) {
-      if (isTransactionTimedOut(error)) {
+      if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
         return
       }
 
@@ -1530,6 +2230,20 @@ function App() {
           purchaseId,
           sender: initiaAddress!,
         }),
+        preview: {
+          actionLabel: 'Open wallet signer',
+          eyebrow: 'Collectible claim',
+          title: `Claim ${purchase.itemName}`,
+          subtitle: 'This unlocks the final collectible for a fully repaid viral drop purchase.',
+          rows: [
+            { label: 'Purchase', value: `#${purchaseId}` },
+            { label: 'Item', value: purchase.itemName },
+            { label: 'Receipt', value: shortenAddress(purchase.receiptAddress) },
+            { label: 'Module', value: 'viral_drop::claim_collectible' },
+            { label: 'Network', value: appEnv.appchainId },
+          ],
+          note: `If your wallet shows raw JSON, look for viral_drop::claim_collectible. The encoded argument in this request points to purchase #${purchaseId}.`,
+        },
         successMessage: `${purchase.itemName} collectible was delivered to your wallet.`,
         successTitle: 'Collectible claimed',
       })
@@ -1561,6 +2275,18 @@ function App() {
           moduleName: 'rewards',
           sender: initiaAddress!,
         }),
+        preview: {
+          actionLabel: 'Open wallet signer',
+          eyebrow: 'Reward claim',
+          title: 'Claim available LEND',
+          subtitle: 'This moves your claimable LEND rewards into the connected wallet.',
+          rows: [
+            { label: 'Claimable now', value: `${formatNumber(rewards.claimableLend)} LEND` },
+            { label: 'Module', value: 'rewards::claim_lend' },
+            { label: 'Network', value: appEnv.appchainId },
+          ],
+          note: 'If your wallet shows raw JSON, look for rewards::claim_lend. This action has no hidden purchase data, it only claims currently available LEND rewards.',
+        },
         successMessage: 'Claimable LEND moved into the wallet.',
         successTitle: 'LEND claimed',
       })
@@ -1594,6 +2320,18 @@ function App() {
           moduleName: 'staking',
           sender: initiaAddress!,
         }),
+        preview: {
+          actionLabel: 'Open wallet signer',
+          eyebrow: 'Staking',
+          title: 'Stake LEND',
+          subtitle: 'This moves liquid LEND from your wallet into the staking vault.',
+          rows: [
+            { label: 'Amount', value: `${formatNumber(amount)} LEND` },
+            { label: 'Module', value: 'staking::stake' },
+            { label: 'Network', value: appEnv.appchainId },
+          ],
+          note: 'If your wallet shows raw JSON, look for staking::stake. The encoded argument is just the LEND amount you chose to stake.',
+        },
         successMessage: 'LEND moved into the staking vault.',
         successTitle: 'Stake confirmed',
       })
@@ -1627,6 +2365,18 @@ function App() {
           moduleName: 'staking',
           sender: initiaAddress!,
         }),
+        preview: {
+          actionLabel: 'Open wallet signer',
+          eyebrow: 'Staking',
+          title: 'Unstake LEND',
+          subtitle: 'This returns LEND from the staking vault back into your wallet.',
+          rows: [
+            { label: 'Amount', value: `${formatNumber(amount)} LEND` },
+            { label: 'Module', value: 'staking::unstake' },
+            { label: 'Network', value: appEnv.appchainId },
+          ],
+          note: 'If your wallet shows raw JSON, look for staking::unstake. The encoded argument is just the LEND amount you chose to unstake.',
+        },
         successMessage: 'LEND returned from the staking vault.',
         successTitle: 'Unstake confirmed',
       })
@@ -1655,12 +2405,26 @@ function App() {
       moduleName: 'staking',
       sender: initiaAddress!,
     })
-    console.log('Claim message:', JSON.stringify(stakingClaimMessage, null, 2))
 
     try {
       await executeProtocolAction({
         actionKey: 'claim-staking',
         message: stakingClaimMessage,
+        preview: {
+          actionLabel: 'Open wallet signer',
+          eyebrow: 'Reward claim',
+          title: 'Claim staking rewards',
+          subtitle: 'This claims the LEND rewards generated by your staked balance.',
+          rows: [
+            {
+              label: 'Claimable now',
+              value: `${formatNumber(rewards.claimableStakingRewards)} LEND`,
+            },
+            { label: 'Module', value: 'staking::claim_rewards' },
+            { label: 'Network', value: appEnv.appchainId },
+          ],
+          note: 'If your wallet shows raw JSON, look for staking::claim_rewards. This action only claims the staking rewards currently available for your wallet.',
+        },
         successMessage: 'Staking rewards were claimed into the wallet.',
         successTitle: 'Staking rewards claimed',
       })
@@ -1687,7 +2451,7 @@ function App() {
     }
 
     if (!isConnected) {
-      openConnect()
+      await openPreferredWalletConnect()
       return
     }
 
@@ -1705,6 +2469,34 @@ function App() {
 
     try {
       const token = await ensureBackendSession()
+      await confirmWalletAction([], {
+        actionLabel: 'Open wallet signer',
+        eyebrow: 'Reward claim',
+        title: 'Claim all available rewards',
+        subtitle:
+          claimableLend > 0 && claimableStaking > 0
+            ? 'This flow may ask for two wallet approvals: one for claimable LEND and one for staking rewards.'
+            : 'This claims all currently available LEND rewards into your wallet.',
+        rows: [
+          ...(claimableLend > 0
+            ? [{ label: 'Claimable LEND', value: `${formatNumber(claimableLend)} LEND` }]
+            : []),
+          ...(claimableStaking > 0
+            ? [{ label: 'Staking rewards', value: `${formatNumber(claimableStaking)} LEND` }]
+            : []),
+          {
+            label: 'Wallet approvals',
+            value: `${Number(claimableLend > 0) + Number(claimableStaking > 0)} signature${claimableLend > 0 && claimableStaking > 0 ? 's' : ''}`,
+          },
+          { label: 'Network', value: appEnv.appchainId },
+        ],
+        note:
+          claimableLend > 0 && claimableStaking > 0
+            ? 'If your wallet shows raw JSON next, the first signer is rewards::claim_lend and the second is staking::claim_rewards.'
+            : claimableLend > 0
+              ? 'If your wallet shows raw JSON next, look for rewards::claim_lend.'
+              : 'If your wallet shows raw JSON next, look for staking::claim_rewards.',
+      })
 
       const txHashes: string[] = []
 
@@ -1715,11 +2507,7 @@ function App() {
           moduleName: 'rewards',
           sender: initiaAddress!,
         })
-        console.log('Claim message:', JSON.stringify(lendClaimMessage, null, 2))
-
-        const lendResult = await requestWalletTx([
-          lendClaimMessage,
-        ])
+        const lendResult = await requestWalletTx([lendClaimMessage], 'claim-all', false)
         const lendHash = extractTxHash(lendResult)
         if (lendHash) txHashes.push(lendHash)
         await syncProtocolAfterTx(token, lendHash || undefined)
@@ -1732,11 +2520,7 @@ function App() {
           moduleName: 'staking',
           sender: initiaAddress!,
         })
-        console.log('Claim message:', JSON.stringify(stakingClaimMessage, null, 2))
-
-        const stakingResult = await requestWalletTx([
-          stakingClaimMessage,
-        ])
+        const stakingResult = await requestWalletTx([stakingClaimMessage], 'claim-all', false)
         const stakingHash = extractTxHash(stakingResult)
         if (stakingHash) txHashes.push(stakingHash)
         await syncProtocolAfterTx(token, stakingHash || undefined)
@@ -1750,7 +2534,7 @@ function App() {
           : 'Available rewards were claimed.',
       })
     } catch (error) {
-      if (isTransactionTimedOut(error)) {
+      if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
         return
       }
 
@@ -1765,12 +2549,19 @@ function App() {
     }
   }
 
-  const handleOpenWalletApproval = () => {
-    openWallet()
+  const handleOpenWalletApproval = async () => {
+    try {
+      await disconnect()
+    } catch {
+      // If the wallet is already disconnected or the provider errors, still reopen connect.
+    }
+
+    await openPreferredWalletConnect()
   }
 
   const handleDismissWalletRecovery = () => {
     setShowWalletRecovery(false)
+    setWalletRecoveryActionKey(null)
   }
 
   const handlePayFeesInLend = async () => {
@@ -1793,6 +2584,19 @@ function App() {
           moduleName: 'fee_engine',
           sender: initiaAddress!,
         }),
+        preview: {
+          actionLabel: 'Open wallet signer',
+          eyebrow: 'Fee payment',
+          title: 'Pay outstanding fees in LEND',
+          subtitle: 'This clears the current unpaid fee balance on your active loan using LEND.',
+          rows: [
+            { label: 'Fees due', value: formatCurrency(totalFeesDue) },
+            { label: 'Loan', value: `#${activeLoan.id}` },
+            { label: 'Module', value: 'fee_engine::pay_outstanding_fees_in_lend' },
+            { label: 'Network', value: appEnv.appchainId },
+          ],
+          note: `If your wallet shows raw JSON, look for fee_engine::pay_outstanding_fees_in_lend. The encoded argument in this request points to loan #${activeLoan.id}.`,
+        },
         successMessage: 'Outstanding fees were paid in LEND.',
         successTitle: 'Fees paid',
       })
@@ -1826,6 +2630,19 @@ function App() {
           moduleName: 'rewards',
           sender: initiaAddress!,
         }),
+        preview: {
+          actionLabel: 'Open wallet signer',
+          eyebrow: 'Points redemption',
+          title: 'Convert points into claimable LEND',
+          subtitle: 'This spends loyalty points and turns them into claimable LEND rewards.',
+          rows: [
+            { label: 'Points spent', value: `${formatNumber(amount)} pts` },
+            { label: 'Estimated output', value: `${formatNumber((amount / REDEEM_POINTS_BASE) * REDEEM_LEND_OUTPUT)} LEND` },
+            { label: 'Module', value: 'rewards::redeem_points_to_claimable_lend' },
+            { label: 'Network', value: appEnv.appchainId },
+          ],
+          note: 'If your wallet shows raw JSON, look for rewards::redeem_points_to_claimable_lend. The encoded argument is the number of loyalty points being redeemed.',
+        },
         successMessage: 'Points were converted into claimable LEND.',
         successTitle: 'Points redeemed',
       })
@@ -1857,6 +2674,19 @@ function App() {
           moduleName: 'rewards',
           sender: initiaAddress!,
         }),
+        preview: {
+          actionLabel: 'Open wallet signer',
+          eyebrow: 'Account upgrade',
+          title: 'Buy credit limit boost',
+          subtitle: 'This spends loyalty points to permanently increase your available credit limit.',
+          rows: [
+            { label: 'Cost', value: `${formatNumber(LIMIT_BOOST_COST)} pts` },
+            { label: 'Benefit', value: 'Adds one credit limit boost' },
+            { label: 'Module', value: 'rewards::spend_points_for_limit_boost' },
+            { label: 'Network', value: appEnv.appchainId },
+          ],
+          note: 'If your wallet shows raw JSON, look for rewards::spend_points_for_limit_boost. This action has no hidden arguments, it simply spends the fixed points cost for the upgrade.',
+        },
         successMessage: 'Your limit boost is now active.',
         successTitle: 'Limit boost added',
       })
@@ -1892,6 +2722,19 @@ function App() {
           moduleName: 'rewards',
           sender: initiaAddress!,
         }),
+        preview: {
+          actionLabel: 'Open wallet signer',
+          eyebrow: 'Account upgrade',
+          title: 'Buy APR discount',
+          subtitle: 'This spends loyalty points to activate an APR discount on your account.',
+          rows: [
+            { label: 'Discount', value: `${formatNumber(wholePercent)}% APR` },
+            { label: 'Cost', value: `${formatNumber(pointsCost)} pts` },
+            { label: 'Module', value: 'rewards::spend_points_for_interest_discount' },
+            { label: 'Network', value: appEnv.appchainId },
+          ],
+          note: 'If your wallet shows raw JSON, look for rewards::spend_points_for_interest_discount. The encoded argument is the discount percentage you selected.',
+        },
         successMessage: 'Your APR discount is now active.',
         successTitle: 'APR discount added',
       })
@@ -1923,6 +2766,19 @@ function App() {
           moduleName: 'rewards',
           sender: initiaAddress!,
         }),
+        preview: {
+          actionLabel: 'Open wallet signer',
+          eyebrow: 'Account upgrade',
+          title: 'Unlock premium credit check',
+          subtitle: 'This spends loyalty points to add one premium underwriting refresh to your account.',
+          rows: [
+            { label: 'Cost', value: `${formatNumber(PREMIUM_CHECK_COST)} pts` },
+            { label: 'Benefit', value: 'Adds one premium credit check' },
+            { label: 'Module', value: 'rewards::unlock_premium_credit_check' },
+            { label: 'Network', value: appEnv.appchainId },
+          ],
+          note: 'If your wallet shows raw JSON, look for rewards::unlock_premium_credit_check. This action has no hidden purchase data, it only unlocks the premium check on your account.',
+        },
         successMessage: 'A premium credit check was added to your account.',
         successTitle: 'Premium check added',
       })
@@ -1955,6 +2811,19 @@ function App() {
           moduleName: 'rewards',
           sender: initiaAddress!,
         }),
+        preview: {
+          actionLabel: 'Open wallet signer',
+          eyebrow: 'Badge redemption',
+          title: 'Redeem exclusive badge',
+          subtitle: 'This spends loyalty points to mint an exclusive account badge.',
+          rows: [
+            { label: 'Cost', value: `${formatNumber(BADGE_COST)} pts` },
+            { label: 'Benefit', value: 'Adds one exclusive badge' },
+            { label: 'Module', value: 'rewards::redeem_exclusive_badge' },
+            { label: 'Network', value: appEnv.appchainId },
+          ],
+          note: 'If your wallet shows raw JSON, look for rewards::redeem_exclusive_badge. This action has no encoded purchase fields, it simply redeems the badge reward.',
+        },
         successMessage: 'Your badge has been added to the account.',
         successTitle: 'Badge redeemed',
       })
@@ -1968,16 +2837,38 @@ function App() {
   }
 
   const handleClaimCampaign = async (campaignId: string) => {
+    const activeCampaign = campaigns.find((campaign) => campaign.id === campaignId) ?? null
+    const numericCampaignId = Number(campaignId)
+    const message = createClaimCampaignMessage({
+      campaignId: numericCampaignId,
+      functionName: 'claim_campaign',
+      moduleAddress: appEnv.packageAddress,
+      moduleName: 'campaigns',
+      sender: initiaAddress!,
+    })
+
     try {
       await executeProtocolAction({
         actionKey: `campaign-${campaignId}`,
-        message: createClaimCampaignMessage({
-          campaignId: Number(campaignId),
-          functionName: 'claim_campaign',
-          moduleAddress: appEnv.packageAddress,
-          moduleName: 'campaigns',
-          sender: initiaAddress!,
-        }),
+        message,
+        preview: {
+          actionLabel: 'Open wallet signer',
+          eyebrow: 'Campaign reward',
+          title: 'Claim campaign reward',
+          subtitle: 'This claims the currently available borrower incentive from the selected campaign.',
+          rows: [
+            { label: 'Campaign', value: `#${numericCampaignId}` },
+            ...(activeCampaign
+              ? [
+                  { label: 'Phase', value: `Phase ${activeCampaign.phase}` },
+                  { label: 'Claimable now', value: `${formatNumber(activeCampaign.claimableAmount)} LEND` },
+                ]
+              : []),
+            { label: 'Module', value: 'campaigns::claim_campaign' },
+            { label: 'Network', value: appEnv.appchainId },
+          ],
+          note: `If your wallet shows raw JSON, look for campaigns::claim_campaign. The encoded argument in this request points to campaign #${numericCampaignId}.`,
+        },
         successMessage: 'Campaign rewards were added to your account.',
         successTitle: 'Campaign claimed',
       })
@@ -1991,227 +2882,64 @@ function App() {
   }
 
   const handleProposeGovernance = async () => {
-    const proposalType = Number(governanceDraft.proposalType || 0)
-    if (!proposalType || !governanceDraft.title.trim() || !governanceDraft.body.trim()) {
-      showToast({
-        tone: 'warning',
-        title: 'Incomplete proposal',
-        message: 'Fill proposal type, title, and body before submitting governance.',
-      })
-      return
-    }
-
-    try {
-      const operatorToken = requireOperatorToken()
-      const { txHash } = await lendpayApi.proposeGovernance({
-        operatorToken,
-        proposalType,
-        title: governanceDraft.title.trim(),
-        body: governanceDraft.body.trim(),
-      })
-      const token = await ensureBackendSession()
-      await syncBorrowerState(token)
-      showToast({
-        tone: 'success',
-        title: 'Proposal submitted',
-        message: `Governance proposal was broadcast.${txHash ? ` ${formatTxHash(txHash)}` : ''}`,
-      })
-    } catch (error) {
-      showToast({
-        tone: 'danger',
-        title: 'Proposal failed',
-        message: error instanceof Error ? error.message : 'Governance proposal could not be submitted.',
-      })
-    }
+    showToast({
+      tone: 'info',
+      title: 'Operator actions disabled',
+      message: 'Protocol admin actions were removed from the public client until server-side operator auth is added.',
+    })
   }
 
   const handleVoteGovernance = async (proposalId: string, support: boolean) => {
-    try {
-      const operatorToken = requireOperatorToken()
-      const { txHash } = await lendpayApi.voteGovernance({
-        operatorToken,
-        proposalId,
-        support,
-      })
-      const token = await ensureBackendSession()
-      await syncBorrowerState(token)
-      showToast({
-        tone: 'success',
-        title: 'Vote submitted',
-        message: `Governance vote ${support ? 'yes' : 'no'} was submitted.${txHash ? ` ${formatTxHash(txHash)}` : ''}`,
-      })
-    } catch (error) {
-      showToast({
-        tone: 'danger',
-        title: 'Vote failed',
-        message: error instanceof Error ? error.message : 'Governance vote could not be submitted.',
-      })
-    }
+    void proposalId
+    void support
+    showToast({
+      tone: 'info',
+      title: 'Operator actions disabled',
+      message: 'Protocol admin actions were removed from the public client until server-side operator auth is added.',
+    })
   }
 
   const handleFinalizeProposal = async (proposalId: string) => {
-    try {
-      const operatorToken = requireOperatorToken()
-      const { txHash } = await lendpayApi.finalizeGovernance({
-        operatorToken,
-        proposalId,
-      })
-      const token = await ensureBackendSession()
-      await syncBorrowerState(token)
-      showToast({
-        tone: 'success',
-        title: 'Finalization submitted',
-        message: `Proposal finalization was submitted.${txHash ? ` ${formatTxHash(txHash)}` : ''}`,
-      })
-    } catch (error) {
-      showToast({
-        tone: 'danger',
-        title: 'Finalize failed',
-        message: error instanceof Error ? error.message : 'Governance proposal could not be finalized.',
-      })
-    }
+    void proposalId
+    showToast({
+      tone: 'info',
+      title: 'Operator actions disabled',
+      message: 'Protocol admin actions were removed from the public client until server-side operator auth is added.',
+    })
   }
 
   const handleCreateCampaign = async () => {
-    const phase = Number(campaignDraft.phase || 0)
-    const totalAllocation = Number(campaignDraft.totalAllocation || 0)
-    const minimumPlatformActions = Number(campaignDraft.minimumPlatformActions || 0)
-
-    if (!phase || totalAllocation <= 0 || minimumPlatformActions < 0) {
-      showToast({
-        tone: 'warning',
-        title: 'Invalid campaign',
-        message: 'Fill phase, allocation, and minimum platform activity with valid values.',
-      })
-      return
-    }
-
-    try {
-      const operatorToken = requireOperatorToken()
-      const { txHash } = await lendpayApi.createCampaign({
-        operatorToken,
-        phase,
-        totalAllocation,
-        requiresUsername: campaignDraft.requiresUsername,
-        minimumPlatformActions,
-      })
-      const token = await ensureBackendSession()
-      await syncBorrowerState(token)
-      showToast({
-        tone: 'success',
-        title: 'Campaign created',
-        message: `Campaign created.${txHash ? ` ${formatTxHash(txHash)}` : ''}`,
-      })
-      setCampaignDraft(defaultCampaignDraft)
-    } catch (error) {
-      showToast({
-        tone: 'danger',
-        title: 'Campaign failed',
-        message: error instanceof Error ? error.message : 'Campaign could not be created.',
-      })
-    }
+    showToast({
+      tone: 'info',
+      title: 'Operator actions disabled',
+      message: 'Protocol admin actions were removed from the public client until server-side operator auth is added.',
+    })
   }
 
   const handleAllocateCampaign = async () => {
-    const campaignId = Number(allocationDraft.campaignId || 0)
-    const amount = Number(allocationDraft.amount || 0)
-    const userAddress = allocationDraft.userAddress.trim()
-
-    if (!campaignId || amount <= 0 || !userAddress) {
-      showToast({
-        tone: 'warning',
-        title: 'Invalid allocation',
-        message: 'Campaign id, user address, and allocation amount are required.',
-      })
-      return
-    }
-
-    try {
-      const operatorToken = requireOperatorToken()
-      const { txHash } = await lendpayApi.allocateCampaign({
-        operatorToken,
-        campaignId: String(campaignId),
-        userAddress,
-        amount,
-      })
-      const token = await ensureBackendSession()
-      await syncBorrowerState(token)
-      showToast({
-        tone: 'success',
-        title: 'Allocation created',
-        message: `Campaign allocation was recorded.${txHash ? ` ${formatTxHash(txHash)}` : ''}`,
-      })
-    } catch (error) {
-      showToast({
-        tone: 'danger',
-        title: 'Allocation failed',
-        message: error instanceof Error ? error.message : 'Campaign allocation could not be created.',
-      })
-    }
+    showToast({
+      tone: 'info',
+      title: 'Operator actions disabled',
+      message: 'Protocol admin actions were removed from the public client until server-side operator auth is added.',
+    })
   }
 
   const handleRegisterMerchant = async () => {
-    const merchantAddress = merchantDraft.merchantAddress.trim()
-    const category = merchantDraft.category.trim()
-    const listingFeeBps = Number(merchantDraft.listingFeeBps || 0)
-    const partnerFeeBps = Number(merchantDraft.partnerFeeBps || 0)
-
-    if (!merchantAddress || !category || listingFeeBps < 0 || partnerFeeBps < 0) {
-      showToast({
-        tone: 'warning',
-        title: 'Invalid merchant',
-        message: 'Merchant address, category, and fee fields must be valid before submitting.',
-      })
-      return
-    }
-
-    try {
-      const operatorToken = requireOperatorToken()
-      const { txHash } = await lendpayApi.registerMerchant({
-        operatorToken,
-        merchantAddress,
-        category,
-        listingFeeBps,
-        partnerFeeBps,
-      })
-      const token = await ensureBackendSession()
-      await syncBorrowerState(token)
-      showToast({
-        tone: 'success',
-        title: 'Merchant registered',
-        message: `Store added.${txHash ? ` ${formatTxHash(txHash)}` : ''}`,
-      })
-    } catch (error) {
-      showToast({
-        tone: 'danger',
-        title: 'Merchant failed',
-        message: error instanceof Error ? error.message : 'Merchant could not be registered.',
-      })
-    }
+    showToast({
+      tone: 'info',
+      title: 'Operator actions disabled',
+      message: 'Protocol admin actions were removed from the public client until server-side operator auth is added.',
+    })
   }
 
   const handleSetMerchantActive = async (merchantId: string, active: boolean) => {
-    try {
-      const operatorToken = requireOperatorToken()
-      const { txHash } = await lendpayApi.setMerchantActive({
-        operatorToken,
-        merchantId,
-        active,
-      })
-      const token = await ensureBackendSession()
-      await syncBorrowerState(token)
-      showToast({
-        tone: 'success',
-        title: 'Merchant updated',
-        message: `Store marked ${active ? 'active' : 'inactive'}.${txHash ? ` ${formatTxHash(txHash)}` : ''}`,
-      })
-    } catch (error) {
-      showToast({
-        tone: 'danger',
-        title: 'Merchant update failed',
-        message: error instanceof Error ? error.message : 'Merchant status could not be updated.',
-      })
-    }
+    void merchantId
+    void active
+    showToast({
+      tone: 'info',
+      title: 'Operator actions disabled',
+      message: 'Protocol admin actions were removed from the public client until server-side operator auth is added.',
+    })
   }
 
   const agentSignals = score?.signals
@@ -2267,9 +2995,7 @@ function App() {
         rewards.claimableStakingRewards > 0),
   )
   const hasPointInventory = Boolean(rewards && rewards.points > 0)
-  const operatorModeEnabled =
-    typeof window !== 'undefined' &&
-    (window.location.search.includes('operator=1') || window.location.hash.includes('operator'))
+  const operatorModeEnabled = false
   const technicalModeEnabled =
     typeof window !== 'undefined' &&
     (window.location.search.includes('technical=1') || window.location.hash.includes('technical'))
@@ -2342,6 +3068,25 @@ function App() {
   const loyaltyHeroUsername =
     verifiedUsername ?? previewUsername ?? (initiaAddress ? shortenAddress(initiaAddress) : 'Identity unavailable')
   const nextTierBenefits = currentTier ? nextTierBenefitCopy[currentTier] : null
+  const tierVoucherStates: TierVoucherState[] = (
+    ['Bronze', 'Silver', 'Gold', 'Diamond'] as RewardsState['tier'][]
+  ).map((tier) => {
+    const holdingsRequired = tierHoldingsThreshold[tier]
+    const unlocked = heldLendAmount >= holdingsRequired
+    const nextUp = !unlocked && nextTier === tier
+    const copy = tierVoucherCopy[tier]
+
+    return {
+      tier,
+      label: copy.label,
+      discountBps: copy.discountBps,
+      status: unlocked ? 'unlocked' : nextUp ? 'next' : 'locked',
+      requirementLabel: unlocked
+        ? `${formatNumber(heldLendAmount)} LEND held`
+        : `${formatNumber(holdingsRequired)} LEND required`,
+      detail: copy.detail,
+    }
+  })
   const benefitRows = [
     {
       label: 'APR discount',
@@ -2754,8 +3499,16 @@ function App() {
 
   if (isConnected && !hasLoadedBorrowerState) {
     topbarTitleBadge = undefined
-    topbarStatus = loadError ? 'Load failed' : 'Syncing account'
-    topbarPrimaryLabel = loadError ? 'Retry load' : undefined
+    topbarStatus = loadError
+      ? isWalletSignInCancelledMessage(loadError)
+        ? 'Sign-in needed'
+        : 'Load failed'
+      : 'Syncing account'
+    topbarPrimaryLabel = loadError
+      ? isWalletSignInCancelledMessage(loadError)
+        ? 'Continue sign-in'
+        : 'Retry load'
+      : undefined
     topbarSecondaryLabel = undefined
     handleTopbarPrimaryAction = loadError ? () => void handleRetryLoad() : undefined
     handleTopbarSecondaryAction = undefined
@@ -2765,7 +3518,9 @@ function App() {
     ? 'Connect to start'
     : !hasLoadedBorrowerState
       ? loadError
-        ? 'Waiting for a retry'
+        ? isWalletSignInCancelledMessage(loadError)
+          ? 'Waiting for sign-in'
+          : 'Waiting for a retry'
         : 'Syncing live account data'
     : activePage === 'analyze'
       ? 'Profile status'
@@ -2787,7 +3542,15 @@ function App() {
       : agentPanelRecommendation
   const isInitialDataLoading = isConnected && !hasLoadedBorrowerState && isBackendSyncing
   const hasInitialLoadError = isConnected && !hasLoadedBorrowerState && Boolean(loadError)
+  const hasInitialLoadCancelled = hasInitialLoadError && isWalletSignInCancelledMessage(loadError)
   const canRenderConnectedPages = isConnected && hasLoadedBorrowerState
+  const footerLinks = {
+    github: 'https://github.com/ntfound-dev/lendpay',
+    docs: 'https://github.com/ntfound-dev/lendpay/tree/main/docs-site',
+    discord: 'https://discord.gg/initia',
+    x: 'https://x.com/InitiaFDN',
+    explorer: 'https://scan.testnet.initia.xyz',
+  }
 
   return (
     <div className="app-shell">
@@ -2811,7 +3574,6 @@ function App() {
           agentDetail={assistantDetail}
           agentLabel={isConnected ? assistantLabel : undefined}
           connected={isConnected}
-          onConnect={openConnect}
           onPrimaryAction={handleTopbarPrimaryAction}
           onSecondaryAction={handleTopbarSecondaryAction}
           pageSubtitle={topbarSubtitle}
@@ -2830,34 +3592,141 @@ function App() {
             transition={{ duration: 0.22, ease: 'easeOut' }}
           >
             {!isConnected ? (
-              <div className="wallet-gate">
-                <Card eyebrow="Wallet required" title="Connect your wallet to get started" className="wallet-gate__card card--primary">
-                  <p className="wallet-gate__body">
-                    LendPay starts working after it can read your wallet and rewards. Connect once,
-                    then you can see your limit, live apps, and upcoming payments.
+              <>
+                <section className="lendpay-hero">
+                  <div className="lendpay-hero__badge">Built on Initia · MiniMove Rollup · AI-Powered</div>
+                  <h1 className="lendpay-hero__title">
+                    Pay later across
+                    <br />
+                    every Initia app
+                  </h1>
+                  <p className="lendpay-hero__subtitle">
+                    LendPay gives you a credit line based on your on-chain reputation. Use it at NFT drops,
+                    games, and DeFi vaults across the Initia ecosystem with smaller purchases unlocked first.
                   </p>
-                  <div className="wallet-gate__steps">
-                    <div className="wallet-gate__step">
-                      <span>1</span>
-                      <strong>Connect wallet</strong>
-                      <small>Link your Initia wallet to load your account.</small>
+                  <div className="lendpay-hero__stats">
+                    <div className="hero-stat">
+                      <strong>4</strong>
+                      <span>Live apps</span>
                     </div>
-                    <div className="wallet-gate__step">
-                      <span>2</span>
-                      <strong>Refresh profile</strong>
-                      <small>See your limit, pricing, and rewards in one place.</small>
+                    <div className="hero-stat">
+                      <strong>AI</strong>
+                      <span>Credit scoring</span>
                     </div>
-                    <div className="wallet-gate__step">
-                      <span>3</span>
-                      <strong>Use credit</strong>
-                      <small>Pick an Initia app, use credit, and repay over time.</small>
+                    <div className="hero-stat">
+                      <strong>0</strong>
+                      <span>Collateral needed</span>
+                    </div>
+                    <div className="hero-stat">
+                      <strong>.init</strong>
+                      <span>Identity layer</span>
                     </div>
                   </div>
-                  <div className="wallet-gate__cta">
-                    <Button onClick={openConnect}>Connect wallet</Button>
+                  <div className="hero-social-links">
+                    <a href={footerLinks.github} target="_blank" rel="noreferrer" className="hero-social-link">
+                      GitHub
+                    </a>
+                    <span className="hero-social-dot">·</span>
+                    <a href={footerLinks.docs} target="_blank" rel="noreferrer" className="hero-social-link">
+                      Docs
+                    </a>
+                    <span className="hero-social-dot">·</span>
+                    <a href={footerLinks.x} target="_blank" rel="noreferrer" className="hero-social-link">
+                      X (Twitter)
+                    </a>
+                    <span className="hero-social-dot">·</span>
+                    <a href={footerLinks.discord} target="_blank" rel="noreferrer" className="hero-social-link">
+                      Discord
+                    </a>
+                    <span className="hero-social-dot">·</span>
+                    <a
+                      href={footerLinks.explorer}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="hero-social-link hero-social-link--accent"
+                    >
+                      Testnet Explorer
+                    </a>
                   </div>
-                </Card>
-              </div>
+                  <div className="lendpay-hero__features">
+                    <div className="hero-feature">
+                      <span className="hero-feature__icon">◆</span>
+                      <div>
+                        <strong>Reputation-based credit</strong>
+                        <p>Your wallet history becomes your credit score</p>
+                      </div>
+                    </div>
+                    <div className="hero-feature">
+                      <span className="hero-feature__icon">◆</span>
+                      <div>
+                        <strong>Cross-app spending</strong>
+                        <p>Use credit at NFT, gaming, and DeFi apps</p>
+                      </div>
+                    </div>
+                    <div className="hero-feature">
+                      <span className="hero-feature__icon">◆</span>
+                      <div>
+                        <strong>Installment repayment</strong>
+                        <p>Pay back in 1, 3, or 6 monthly installments</p>
+                      </div>
+                    </div>
+                    <div className="hero-feature">
+                      <span className="hero-feature__icon">◆</span>
+                      <div>
+                        <strong>Auto-signing ready</strong>
+                        <p>Payments can run automatically via Initia wallet</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="lendpay-hero__cta">
+                    <button
+                      type="button"
+                      className="hero-cta-btn"
+                      onClick={() => {
+                        void openPreferredWalletConnect()
+                      }}
+                    >
+                      Connect wallet to start
+                    </button>
+                    <span className="hero-cta-note">Free · No collateral required for starter credit</span>
+                  </div>
+                </section>
+
+                <div className="wallet-gate">
+                  <Card eyebrow="Wallet required" title="Connect your wallet to get started" className="wallet-gate__card">
+                    <p className="wallet-gate__body">
+                      LendPay starts working after it can read your wallet and rewards. Connect once,
+                      then you can see your limit, live apps, and upcoming payments.
+                    </p>
+                    <div className="wallet-gate__steps">
+                      <div className="wallet-gate__step">
+                        <span>1</span>
+                        <strong>Connect wallet</strong>
+                        <small>Link your Initia wallet to load your account.</small>
+                      </div>
+                      <div className="wallet-gate__step">
+                        <span>2</span>
+                        <strong>Refresh profile</strong>
+                        <small>See your limit, pricing, and rewards in one place.</small>
+                      </div>
+                      <div className="wallet-gate__step">
+                        <span>3</span>
+                        <strong>Use credit</strong>
+                        <small>Pick an Initia app, use credit, and repay over time.</small>
+                      </div>
+                    </div>
+                    <div className="wallet-gate__cta">
+                      <Button
+                        onClick={() => {
+                          void openPreferredWalletConnect()
+                        }}
+                      >
+                        Connect wallet
+                      </Button>
+                    </div>
+                  </Card>
+                </div>
+              </>
             ) : null}
 
             {isInitialDataLoading ? (
@@ -2871,11 +3740,15 @@ function App() {
             ) : null}
 
             {hasInitialLoadError ? (
-              <Card eyebrow="Load failed" title="We could not load your live data" className="section-stack">
+              <Card
+                eyebrow={hasInitialLoadCancelled ? 'Sign-in needed' : 'Load failed'}
+                title={hasInitialLoadCancelled ? 'Finish wallet sign-in to load your account' : 'We could not load your live data'}
+                className="section-stack"
+              >
                 <EmptyState
-                  title="Try loading your account again"
+                  title={hasInitialLoadCancelled ? 'Continue wallet sign-in' : 'Try loading your account again'}
                   subtitle={loadError ?? 'Live borrower data could not be loaded from the API.'}
-                  actionLabel="Retry load"
+                  actionLabel={hasInitialLoadCancelled ? 'Continue sign-in' : 'Retry load'}
                   onAction={handleRetryLoad}
                 />
               </Card>
@@ -2963,8 +3836,10 @@ function App() {
                 technicalModeEnabled={technicalModeEnabled}
                 tierBadgeTone={tierBadgeTone}
                 username={username}
+                usernameAttestedOnRollup={profile?.usernameAttestedOnRollup ?? false}
                 usernameSource={profile?.usernameSource}
                 usernameVerified={profile?.usernameVerified ?? false}
+                usernameVerifiedOnL1={profile?.usernameVerifiedOnL1 ?? false}
               />
             ) : null}
 
@@ -2981,12 +3856,22 @@ function App() {
                 eligibilityRows={eligibilityRows}
                 estimatedTotalRepayment={estimatedTotalRepayment}
                 groupedActiveApps={groupedActiveApps}
+                canRunPendingDemoReview={canRunPendingDemoReview}
+                handleCancelPendingRequest={handleCancelPendingRequest}
+                handleDismissWalletRecovery={handleDismissWalletRecovery}
+                handleOpenWalletApproval={handleOpenWalletApproval}
                 handleRequestLoan={handleRequestLoan}
+                handleReviewPendingRequest={handleReviewPendingRequest}
                 handleRetryLoad={handleRetryLoad}
+                handleSelectProfile={handleSelectProfile}
+                isCancellingPendingRequest={Boolean(cancellingRequestId)}
+                isReviewingPendingRequest={Boolean(reviewingPendingRequestId)}
                 isSubmittingRequest={isSubmittingRequest}
                 monthlyPaymentPreview={monthlyPaymentPreview}
                 orderedProfiles={orderedProfiles}
+                pendingRequest={pendingRequest}
                 quickPickAmounts={quickPickAmounts}
+                requestAmountHelper={requestAmountHelper}
                 requestBlockingMessage={requestBlockingMessage}
                 requestQuickApps={requestQuickApps}
                 requests={requests}
@@ -3004,6 +3889,7 @@ function App() {
                 selectedRouteOutcomeCopy={selectedRouteOutcomeCopy}
                 setDraft={setDraft}
                 setSelectedDropItemId={setSelectedDropItemId}
+                showRequestWalletRecovery={showRequestWalletRecovery}
                 updateDraftAmount={updateDraftAmount}
               />
             ) : null}
@@ -3017,11 +3903,17 @@ function App() {
                 checkoutDueLabel={checkoutDueLabel}
                 checkoutMerchantTitle={checkoutMerchantTitle}
                 claimableDropPurchase={claimableDropPurchase}
+                faucet={faucet}
+                faucetAvailabilityLabel={faucetAvailabilityLabel}
+                faucetClaimAmountLabel={faucetClaimAmountLabel}
+                faucetTxUrl={faucetTxUrl ?? buildRpcTxUrl(faucet?.txHash) ?? null}
                 handleBuyViralDrop={handleBuyViralDrop}
+                handleClaimFaucet={handleClaimFaucet}
                 handleClaimCollectible={handleClaimCollectible}
                 handlePayFeesInLend={handlePayFeesInLend}
                 handleRepay={handleRepay}
                 handleRetryLoad={handleRetryLoad}
+                isClaimingFaucet={isClaimingFaucet}
                 isClaimingDropCollectible={isClaimingDropCollectible}
                 isProtocolActionPending={isProtocolActionPending}
                 isRepayGuideOpen={isRepayGuideOpen}
@@ -3036,6 +3928,9 @@ function App() {
                 paidAmount={paidAmount}
                 repayCardEyebrow={repayCardEyebrow}
                 sectionErrors={sectionErrors}
+                showWalletRecovery={showRepayWalletRecovery}
+                handleDismissWalletRecovery={handleDismissWalletRecovery}
+                handleOpenWalletApproval={handleOpenWalletApproval}
                 setIsRepayGuideOpen={setIsRepayGuideOpen}
                 totalFeesDue={totalFeesDue}
                 walletNativeBalanceLabel={walletNativeBalanceLabel}
@@ -3069,6 +3964,7 @@ function App() {
                 interestDiscountPercent={interestDiscountPercent}
                 isApplyingReferral={isApplyingReferral}
                 isProtocolActionPending={isProtocolActionPending}
+                lendLiquidityRoute={lendLiquidityRoute}
                 leaderboardMyRank={effectiveLeaderboardMyRank}
                 leaderboardTab={leaderboardTab}
                 leaderboardTabMeta={leaderboardTabMeta}
@@ -3079,7 +3975,7 @@ function App() {
                 referralCodeInput={referralCodeInput}
                 rewards={rewards}
                 sectionErrors={sectionErrors}
-                showWalletRecovery={showWalletRecovery}
+                showWalletRecovery={showWalletRecovery && walletRecoveryActionKey === 'claim-all'}
                 setInterestDiscountPercent={setInterestDiscountPercent}
                 setLeaderboardTab={setLeaderboardTab}
                 setRedeemPointsAmount={setRedeemPointsAmount}
@@ -3089,6 +3985,7 @@ function App() {
                 stakeAmount={stakeAmount}
                 streakLabel={streakLabel}
                 technicalModeEnabled={technicalModeEnabled}
+                tierVouchers={tierVoucherStates}
                 tierNote={tierNote}
                 tierProgressLabel={tierProgressLabel}
                 tierProgressPercent={tierProgressPercent}
@@ -3108,7 +4005,9 @@ function App() {
                 handleAllocateCampaign={handleAllocateCampaign}
                 handleClaimCampaign={handleClaimCampaign}
                 handleCreateCampaign={handleCreateCampaign}
+                handleDismissWalletRecovery={handleDismissWalletRecovery}
                 handleFinalizeProposal={handleFinalizeProposal}
+                handleOpenWalletApproval={handleOpenWalletApproval}
                 handleProposeGovernance={handleProposeGovernance}
                 handleRegisterMerchant={handleRegisterMerchant}
                 handleRetryLoad={handleRetryLoad}
@@ -3125,6 +4024,9 @@ function App() {
                 setGovernanceDraft={setGovernanceDraft}
                 setMerchantDraft={setMerchantDraft}
                 setSelectedAppProofId={setSelectedAppProofId}
+                showWalletRecovery={
+                  showWalletRecovery && Boolean(walletRecoveryActionKey?.startsWith('campaign-'))
+                }
                 technicalModeEnabled={technicalModeEnabled}
                 uniqueApps={uniqueApps}
                 username={username}
@@ -3132,6 +4034,42 @@ function App() {
             ) : null}
           </motion.section>
         </main>
+
+        {isConnected ? (
+          <footer className="lendpay-footer">
+            <div className="lendpay-footer__brand">
+              <span className="lendpay-footer__name">LendPay</span>
+              <span className="lendpay-footer__tag">Pay later across Initia apps</span>
+            </div>
+            <div className="lendpay-footer__links">
+              <a className="footer-link" href={footerLinks.github} target="_blank" rel="noopener noreferrer">
+                GitHub
+              </a>
+              <a className="footer-link" href={footerLinks.docs} target="_blank" rel="noopener noreferrer">
+                Docs
+              </a>
+              <a className="footer-link" href={footerLinks.discord} target="_blank" rel="noopener noreferrer">
+                Discord
+              </a>
+              <span className="footer-link footer-link--disabled">Telegram</span>
+              <span className="footer-link footer-link--disabled">Instagram</span>
+              <a className="footer-link" href={footerLinks.x} target="_blank" rel="noopener noreferrer">
+                X (Twitter)
+              </a>
+              <a
+                className="footer-link footer-link--accent"
+                href={footerLinks.explorer}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Testnet Explorer ↗
+              </a>
+            </div>
+            <div className="lendpay-footer__meta">
+              <span>Running live on lendpay-4, the LendPay MiniMove rollup on Initia testnet.</span>
+            </div>
+          </footer>
+        ) : null}
 
         {selectedAppProof ? (
           <ProofModal
@@ -3141,6 +4079,14 @@ function App() {
             onToast={showToast}
             registrationTxDetails={registrationTxDetails}
             selectedAppProof={selectedAppProof}
+          />
+        ) : null}
+
+        {txPreview ? (
+          <TxPreviewModal
+            onClose={() => resolveTxPreview(false)}
+            onConfirm={() => resolveTxPreview(true)}
+            preview={txPreview}
           />
         ) : null}
 

@@ -1,0 +1,28 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="900" rx="48" fill="#061415"/>
+  <rect x="36" y="36" width="1128" height="828" rx="36" fill="url(#bg)"/>
+  <circle cx="968" cy="214" r="214" fill="#2DD4BF" fill-opacity="0.16"/>
+  <circle cx="224" cy="738" r="286" fill="#38BDF8" fill-opacity="0.14"/>
+  <rect x="114" y="110" width="972" height="680" rx="34" fill="#0C1E20" stroke="rgba(255,255,255,0.12)"/>
+  <text x="184" y="274" fill="#99F6E4" font-family="Arial, sans-serif" font-size="28" font-weight="700">COLLECTIBLE ACCESS</text>
+  <text x="184" y="394" fill="white" font-family="Arial, sans-serif" font-size="90" font-weight="800">Alpha Circle</text>
+  <text x="184" y="490" fill="#67E8F9" font-family="Arial, sans-serif" font-size="90" font-weight="800">Badge</text>
+  <text x="184" y="560" fill="#CFFAFE" font-family="Arial, sans-serif" font-size="34">High-tier pass with instant unlock if enough LEND stays locked.</text>
+  <rect x="184" y="624" width="244" height="68" rx="18" fill="#ECFEFF"/>
+  <text x="306" y="668" text-anchor="middle" fill="#0F766E" font-family="Arial, sans-serif" font-size="30" font-weight="700">$500.00</text>
+  <g>
+    <circle cx="886" cy="438" r="154" fill="#071E21" stroke="#5EEAD4" stroke-width="12"/>
+    <circle cx="886" cy="438" r="112" fill="url(#badge)"/>
+    <path d="M886 350L909.511 406.489L970 411.75L924 451.011L938.021 510.25L886 478L833.979 510.25L848 451.011L802 411.75L862.489 406.489L886 350Z" fill="#ECFEFF"/>
+  </g>
+  <defs>
+    <linearGradient id="bg" x1="106" y1="78" x2="1088" y2="850" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B2A2D"/>
+      <stop offset="1" stop-color="#071517"/>
+    </linearGradient>
+    <linearGradient id="badge" x1="774" y1="326" x2="998" y2="550" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#14B8A6"/>
+      <stop offset="1" stop-color="#0F766E"/>
+    </linearGradient>
+  </defs>
+</svg>

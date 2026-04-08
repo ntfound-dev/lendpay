@@ -4,7 +4,6 @@ interface TopbarProps {
   agentDetail?: string
   agentLabel?: string
   connected: boolean
-  onConnect: () => void
   onPrimaryAction?: () => void
   onSecondaryAction?: () => void
   pageSubtitle: string
@@ -19,7 +18,6 @@ export function Topbar({
   agentDetail,
   agentLabel,
   connected,
-  onConnect,
   onPrimaryAction,
   onSecondaryAction,
   pageSubtitle,
@@ -60,9 +58,7 @@ export function Topbar({
             ) : null}
             {primaryLabel && onPrimaryAction ? <Button onClick={onPrimaryAction}>{primaryLabel}</Button> : null}
           </>
-        ) : (
-          <Button onClick={onConnect}>Connect wallet</Button>
-        )}
+        ) : null}
       </div>
     </header>
   )

@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { formatCurrency, formatNumber, shortenAddress } from '../../lib/format'
 import type {
+  FaucetState,
   LoanFeeState,
   LoanState,
   ViralDropItemState,
@@ -27,11 +28,19 @@ type RepayPageProps = {
   checkoutDueLabel: string
   checkoutMerchantTitle: string
   claimableDropPurchase: ViralDropPurchaseState | null
+  faucet: FaucetState | null
+  faucetAvailabilityLabel: string
+  faucetClaimAmountLabel: string
+  faucetTxUrl: string | null
   handleBuyViralDrop: (item: ViralDropItemState) => void | Promise<void>
+  handleClaimFaucet: () => void | Promise<void>
   handleClaimCollectible: (purchase: ViralDropPurchaseState) => void | Promise<void>
+  handleDismissWalletRecovery: () => void | Promise<void>
+  handleOpenWalletApproval: () => void | Promise<void>
   handlePayFeesInLend: () => void | Promise<void>
   handleRepay: () => void | Promise<void>
   handleRetryLoad: () => void | Promise<void>
+  isClaimingFaucet: boolean
   isClaimingDropCollectible: boolean
   isProtocolActionPending: (key: string) => boolean
   isRepayGuideOpen: boolean
@@ -46,6 +55,7 @@ type RepayPageProps = {
   paidAmount: number
   repayCardEyebrow: string
   sectionErrors: Partial<Record<string, string>>
+  showWalletRecovery: boolean
   setIsRepayGuideOpen: Dispatch<SetStateAction<boolean>>
   totalFeesDue: number
   walletNativeBalanceLabel: string
@@ -59,11 +69,19 @@ export function RepayPage({
   checkoutDueLabel,
   checkoutMerchantTitle,
   claimableDropPurchase,
+  faucet,
+  faucetAvailabilityLabel,
+  faucetClaimAmountLabel,
+  faucetTxUrl,
   handleBuyViralDrop,
+  handleClaimFaucet,
   handleClaimCollectible,
+  handleDismissWalletRecovery,
+  handleOpenWalletApproval,
   handlePayFeesInLend,
   handleRepay,
   handleRetryLoad,
+  isClaimingFaucet,
   isClaimingDropCollectible,
   isProtocolActionPending,
   isRepayGuideOpen,
@@ -78,6 +96,7 @@ export function RepayPage({
   paidAmount,
   repayCardEyebrow,
   sectionErrors,
+  showWalletRecovery,
   setIsRepayGuideOpen,
   totalFeesDue,
   walletNativeBalanceLabel,
@@ -207,6 +226,17 @@ export function RepayPage({
                 <div className="repayment-card__receipt-note">{latestDropDelivery.detail}</div>
               ) : null}
             </div>
+            {showWalletRecovery ? (
+              <div className="wallet-recovery wallet-recovery--request">
+                <p>Wallet is still loading. Reconnect the Interwoven wallet, then try the repayment again.</p>
+                <div className="wallet-recovery__actions">
+                  <Button onClick={handleOpenWalletApproval}>Reconnect wallet</Button>
+                  <Button variant="secondary" onClick={handleDismissWalletRecovery}>
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </>
         ) : (
           <p className="muted-copy">
@@ -214,6 +244,39 @@ export function RepayPage({
           </p>
         )}
       </Card>
+
+      {faucet?.enabled ? (
+        <Card
+          eyebrow="Testnet faucet"
+          title="Need more LEND for testnet actions?"
+          className="faucet-card section-stack"
+        >
+          <div className="faucet-card__main">
+            <div>
+              <div className="faucet-card__amount">{faucetClaimAmountLabel}</div>
+              <p className="faucet-card__body">
+                This is a testnet flow. Claim faucet funds before repay, reward claims, or other onchain actions if your wallet needs more {faucet.nativeSymbol}.
+              </p>
+              <div className="faucet-card__meta">
+                One claim every {faucet.cooldownHours} hours · {faucetAvailabilityLabel}
+              </div>
+              {faucet.txHash ? (
+                <a
+                  className="faucet-card__link"
+                  href={faucetTxUrl ?? '#'}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Latest faucet tx {shortenAddress(faucet.txHash)}
+                </a>
+              ) : null}
+            </div>
+            <Button onClick={handleClaimFaucet} disabled={isClaimingFaucet || !faucet.canClaim}>
+              {isClaimingFaucet ? 'Sending...' : faucet.canClaim ? 'Claim testnet LEND' : 'Claim available later'}
+            </Button>
+          </div>
+        </Card>
+      ) : null}
 
       {latestDropPurchase ? (
         <Card eyebrow="Unlock progress" title="Receipt now, full collectible later" className="story-card section-stack">

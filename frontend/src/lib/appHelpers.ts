@@ -44,11 +44,23 @@ export const LIMIT_BOOST_COST = 500
 export const INTEREST_DISCOUNT_COST_PER_PERCENT = 300
 export const PREMIUM_CHECK_COST = 200
 export const BADGE_COST = 1000
+export const WALLET_SIGN_IN_CANCELLED_MESSAGE =
+  'Wallet sign-in was canceled. Continue when you are ready.'
 
 export const parseNumericId = (value?: string | null) => Number(value?.replace(/\D/g, '') || 0)
 
+export const sanitizeErrorMessage = (message: string) =>
+  message
+    .replace(/\s*Details:\s*/gi, ' ')
+    .replace(/\s*Version:\s*viem@[^\s]+/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
 export const getErrorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback
+  sanitizeErrorMessage(error instanceof Error ? error.message : fallback)
+
+export const isWalletSignInCancelledMessage = (message?: string | null) =>
+  (message ?? '').toLowerCase().includes('wallet sign-in was canceled')
 
 export const parseMoveAbort = (message: string) => {
   const codeMatch = message.match(/Failed with code (0x[0-9a-f]+)/i)
@@ -92,6 +104,32 @@ export const describeDropItemDelivery = (item: ViralDropItemState) => {
   }
 
   return 'Receipt mints now. Full collectible unlocks after full repayment.'
+}
+
+const normalizeDropSlug = (item: ViralDropItemState) => {
+  const uriSlug = item.uri.split('/').filter(Boolean).pop()?.trim().toLowerCase()
+  if (uriSlug) return uriSlug
+
+  return item.name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+export const getDropItemArtwork = (item: ViralDropItemState) => {
+  const slug = normalizeDropSlug(item)
+
+  switch (slug) {
+    case 'initia-og-pass':
+      return '/drops/initia-og-pass.svg'
+    case 'meme-capsule':
+      return '/drops/meme-capsule.svg'
+    case 'alpha-circle-badge':
+      return '/drops/alpha-circle-badge.svg'
+    default:
+      return null
+  }
 }
 
 export const describePurchaseDelivery = (purchase: ViralDropPurchaseState): PurchaseDeliverySummary => {
@@ -218,9 +256,27 @@ export const formatNativeDisplay = (value?: string | null) => {
 
 export const fetchTxData = async (txHash: string, rpcUrl: string): Promise<TxExplorerState> => {
   const normalizedHash = txHash.replace(/^0x/i, '')
+  const fetchWithTimeout = async (url: string, timeoutMs = 5_000) => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+      return await fetch(url, { signal: controller.signal })
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Transaction lookup timed out.')
+      }
+
+      throw error
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  }
 
   try {
-    const rpcResponse = await fetch(`${rpcUrl.replace(/\/$/, '')}/tx?hash=0x${normalizedHash}&prove=false`)
+    const rpcResponse = await fetchWithTimeout(
+      `${rpcUrl.replace(/\/$/, '')}/tx?hash=0x${normalizedHash}&prove=false`,
+    )
     if (rpcResponse.ok) {
       const rpcRaw = (await rpcResponse.json()) as Record<string, unknown>
       const parsedFromRpc = parseRpcTx(rpcRaw)
@@ -238,7 +294,7 @@ export const fetchTxData = async (txHash: string, rpcUrl: string): Promise<TxExp
     throw new Error('Tx hash is missing.')
   }
 
-  const restResponse = await fetch(restUrl)
+  const restResponse = await fetchWithTimeout(restUrl)
   if (!restResponse.ok) {
     throw new Error(`Tx query failed with ${restResponse.status}`)
   }
@@ -247,18 +303,31 @@ export const fetchTxData = async (txHash: string, rpcUrl: string): Promise<TxExp
   return parseRpcTx(restRaw)
 }
 
-export const dedupeApps = (apps: MerchantState[]) =>
-  apps
-    .filter((app, index, self) => index === self.findIndex((entry) => entry.id === app.id))
-    .filter(
-      (app, index, self) =>
-        index ===
-        self.findIndex((entry) => {
-          const leftName = (entry.name ?? '').trim().toLowerCase()
-          const rightName = (app.name ?? '').trim().toLowerCase()
-          return leftName === rightName && entry.category.toLowerCase() === app.category.toLowerCase()
-        }),
-    )
+export const dedupeApps = (apps: MerchantState[]) => {
+  const seenIds = new Set<string>()
+  const seenNames = new Set<string>()
+  const uniqueApps: MerchantState[] = []
+
+  for (const app of apps) {
+    if (seenIds.has(app.id)) {
+      continue
+    }
+    seenIds.add(app.id)
+
+    const normalizedName = (app.name ?? '').trim().toLowerCase()
+    const normalizedCategory = app.category.trim().toLowerCase()
+    const nameKey = `${normalizedName}::${normalizedCategory}`
+
+    if (seenNames.has(nameKey)) {
+      continue
+    }
+
+    seenNames.add(nameKey)
+    uniqueApps.push(app)
+  }
+
+  return uniqueApps
+}
 
 export const APP_FAMILIES: AppFamily[] = ['NFT', 'Gaming', 'DeFi', 'Utilities']
 

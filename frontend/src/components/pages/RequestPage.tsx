@@ -1,10 +1,13 @@
-import type { Dispatch, SetStateAction } from 'react'
+import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import {
   appCategoryMeta,
+  buildRestTxInfoUrl,
+  buildRpcTxUrl,
   describeDropItemDelivery,
   describeProductCard,
   formatAppLabel,
   formatProfileLabel,
+  getDropItemArtwork,
   parseNumericId,
   productRequirementCopy,
   productTagMeta,
@@ -13,7 +16,7 @@ import {
   type AppFamily,
   type RequestDraft,
 } from '../../lib/appHelpers'
-import { formatCurrency, formatDate, formatNumber } from '../../lib/format'
+import { formatCurrency, formatDate, formatNumber, formatTxHash } from '../../lib/format'
 import type {
   CreditProfileQuote,
   CreditScoreState,
@@ -42,6 +45,7 @@ type GroupedApps = {
 type RequestPageProps = {
   activeLoan: LoanState | null
   activeMerchants: MerchantState[]
+  canRunPendingDemoReview: boolean
   checkoutFormLocked: boolean
   checkoutMerchantReady: boolean
   checkoutSelectionMessage: string
@@ -50,12 +54,21 @@ type RequestPageProps = {
   draft: RequestDraft
   eligibilityRows: EligibilityRow[]
   estimatedTotalRepayment: number | null
+  handleCancelPendingRequest: (request: LoanRequestState) => void | Promise<void>
+  handleDismissWalletRecovery: () => void | Promise<void>
+  handleOpenWalletApproval: () => void | Promise<void>
   handleRequestLoan: () => void | Promise<void>
+  handleReviewPendingRequest: (request: LoanRequestState) => void | Promise<void>
   handleRetryLoad: () => void | Promise<void>
+  handleSelectProfile: (profileId: number) => void | Promise<void>
+  isCancellingPendingRequest: boolean
+  isReviewingPendingRequest: boolean
   isSubmittingRequest: boolean
   monthlyPaymentPreview: number | null
   orderedProfiles: CreditProfileQuote[]
+  pendingRequest: LoanRequestState | null
   quickPickAmounts: number[]
+  requestAmountHelper: string
   requestBlockingMessage: string | null
   requestQuickApps: MerchantState[]
   requests: LoanRequestState[]
@@ -73,6 +86,7 @@ type RequestPageProps = {
   selectedRouteOutcomeCopy: string
   setDraft: Dispatch<SetStateAction<RequestDraft>>
   setSelectedDropItemId: Dispatch<SetStateAction<string>>
+  showRequestWalletRecovery: boolean
   groupedActiveApps: GroupedApps[]
   updateDraftAmount: (value: string | number) => void
 }
@@ -80,6 +94,7 @@ type RequestPageProps = {
 export function RequestPage({
   activeLoan,
   activeMerchants,
+  canRunPendingDemoReview,
   checkoutFormLocked,
   checkoutMerchantReady,
   checkoutSelectionMessage,
@@ -88,13 +103,22 @@ export function RequestPage({
   draft,
   eligibilityRows,
   estimatedTotalRepayment,
+  handleCancelPendingRequest,
+  handleDismissWalletRecovery,
   groupedActiveApps,
+  handleOpenWalletApproval,
   handleRequestLoan,
+  handleReviewPendingRequest,
   handleRetryLoad,
+  handleSelectProfile,
+  isCancellingPendingRequest,
+  isReviewingPendingRequest,
   isSubmittingRequest,
   monthlyPaymentPreview,
   orderedProfiles,
+  pendingRequest,
   quickPickAmounts,
+  requestAmountHelper,
   requestBlockingMessage,
   requestQuickApps,
   requests,
@@ -112,14 +136,71 @@ export function RequestPage({
   selectedRouteOutcomeCopy,
   setDraft,
   setSelectedDropItemId,
+  showRequestWalletRecovery,
   updateDraftAmount,
 }: RequestPageProps) {
+  const requestBuilderRef = useRef<HTMLDivElement | null>(null)
+  const amountInputRef = useRef<HTMLInputElement | null>(null)
+  const lastSelectedMerchantIdRef = useRef<string | null>(null)
+
+  const revealRequestBuilder = () => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.requestAnimationFrame(() => {
+      requestBuilderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      window.setTimeout(() => amountInputRef.current?.focus(), 220)
+    })
+  }
+
+  const handleSelectMerchant = (merchantId: string) => {
+    setDraft((current) =>
+      current.merchantId === merchantId ? current : { ...current, merchantId },
+    )
+
+    if (selectedDropItemId) {
+      setSelectedDropItemId('')
+    }
+
+    if (selectedMerchant?.id === merchantId) {
+      revealRequestBuilder()
+    }
+  }
+
+  useEffect(() => {
+    const nextSelectedMerchantId = selectedMerchant?.id ?? null
+    if (!nextSelectedMerchantId) {
+      lastSelectedMerchantIdRef.current = null
+      return
+    }
+
+    if (lastSelectedMerchantIdRef.current === nextSelectedMerchantId) {
+      return
+    }
+
+    lastSelectedMerchantIdRef.current = nextSelectedMerchantId
+    revealRequestBuilder()
+  }, [selectedMerchant?.id])
+
   const getRejectedReason = (request: LoanRequestState) => {
     if (request.status !== 'rejected') return null
     if (!request.txHash) return 'Rejected — no onchain transaction found'
     if ((score?.score ?? 0) < 600) return 'Rejected — credit score too low'
     return 'Rejected — did not meet approval criteria'
   }
+
+  const getRequestNote = (request: LoanRequestState) => {
+    if (request.status === 'rejected') return getRejectedReason(request)
+    if (request.status === 'cancelled') return 'Cancelled onchain by borrower'
+    return null
+  }
+
+  const getRequestProofUrl = (txHash?: string) => buildRestTxInfoUrl(txHash) ?? buildRpcTxUrl(txHash)
+  const getApprovalProofUrl = (request: LoanRequestState) =>
+    activeLoan?.requestId === request.id
+      ? buildRestTxInfoUrl(activeLoan.txHashApprove) ?? buildRpcTxUrl(activeLoan.txHashApprove)
+      : null
 
   return (
     <div className={`checkout-layout ${checkoutMerchantReady ? '' : 'checkout-layout--single'}`}>
@@ -134,9 +215,7 @@ export function RequestPage({
             <select
               className="checkout-select"
               value={draft.merchantId}
-              onChange={(event) =>
-                setDraft((current) => ({ ...current, merchantId: event.target.value }))
-              }
+              onChange={(event) => handleSelectMerchant(event.target.value)}
               disabled={!activeMerchants.length}
             >
               <option value="">Pick one app</option>
@@ -153,6 +232,8 @@ export function RequestPage({
             <p className="checkout-section__hint">
               {sectionErrors.merchants
                 ? sectionErrors.merchants
+                : selectedMerchant
+                  ? `${selectedMerchantTitle} selected. The request builder is ready below.`
                 : activeMerchants.length
                   ? 'Pick one app here. If you still want to compare options first, open Ecosystem.'
                   : 'Apps appear here as soon as a live route is registered onchain.'}
@@ -168,9 +249,8 @@ export function RequestPage({
                       key={merchant.id}
                       type="button"
                       className={`request-app-card ${selected ? 'request-app-card--selected' : ''}`}
-                      onClick={() =>
-                        setDraft((current) => ({ ...current, merchantId: merchant.id }))
-                      }
+                      onClick={() => handleSelectMerchant(merchant.id)}
+                      aria-pressed={selected}
                     >
                       <div className="request-app-card__top">
                         <strong>{formatAppLabel(merchant)}</strong>
@@ -256,6 +336,11 @@ export function RequestPage({
                           updateDraftAmount(item.price)
                         }}
                       >
+                        {getDropItemArtwork(item) ? (
+                          <div className="drop-item-card__art">
+                            <img src={getDropItemArtwork(item)!} alt={item.name} className="drop-item-card__image" />
+                          </div>
+                        ) : null}
                         <div className="drop-item-card__head">
                           <div>
                             <div className="drop-item-card__title">{item.name}</div>
@@ -299,22 +384,67 @@ export function RequestPage({
 
         {requestBlockingMessage ? (
           <div className="checkout-gate-message checkout-gate-message--warning">
-            {requestBlockingMessage}
+            <div>{requestBlockingMessage}</div>
+            {pendingRequest ? (
+              <div className="card-action-row">
+                <Button
+                  variant="secondary"
+                  onClick={() => handleCancelPendingRequest(pendingRequest)}
+                  disabled={isCancellingPendingRequest}
+                >
+                  {isCancellingPendingRequest ? 'Clearing pending request...' : 'Clear pending request'}
+                </Button>
+                {canRunPendingDemoReview ? (
+                  <Button
+                    onClick={() => handleReviewPendingRequest(pendingRequest)}
+                    disabled={isReviewingPendingRequest || isCancellingPendingRequest}
+                  >
+                    {isReviewingPendingRequest ? 'Running review...' : 'Run review now'}
+                  </Button>
+                ) : null}
+                {getRequestProofUrl(pendingRequest.txHash) ? (
+                  <a
+                    className="checkout-proof-link"
+                    href={getRequestProofUrl(pendingRequest.txHash) ?? '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Request tx {formatTxHash(pendingRequest.txHash!)}
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {showRequestWalletRecovery ? (
+          <div className="wallet-recovery wallet-recovery--request">
+            <p>Wallet is still loading. Reconnect the Interwoven wallet, then try the pending transaction again.</p>
+            <div className="wallet-recovery__actions">
+              <Button onClick={handleOpenWalletApproval}>Reconnect wallet</Button>
+              <Button variant="secondary" onClick={handleDismissWalletRecovery}>
+                Dismiss
+              </Button>
+            </div>
           </div>
         ) : null}
 
         {checkoutMerchantReady ? (
-          <div className={`checkout-form-stack ${checkoutFormLocked ? 'checkout-form-stack--disabled' : ''}`}>
+          <div
+            ref={requestBuilderRef}
+            className={`checkout-form-stack ${checkoutFormLocked ? 'checkout-form-stack--disabled' : ''}`}
+          >
             <Card className="checkout-card">
               <div className="checkout-section checkout-section--tight">
                 <div className="checkout-section__label">Step 2 · Set the request amount</div>
                 <div className="checkout-amount-card">
                   <span className="checkout-amount-card__currency">$</span>
                   <input
+                    ref={amountInputRef}
                     className="checkout-amount-card__input"
                     value={draft.amount}
                     onChange={(event) => updateDraftAmount(event.target.value)}
-                    placeholder="500"
+                    placeholder={checkoutSliderMax >= 1000 ? '1000' : '500'}
                     type="number"
                     min="0"
                     max={checkoutSliderMax}
@@ -344,6 +474,7 @@ export function RequestPage({
                     </button>
                   ))}
                 </div>
+                <p className="muted-copy">{requestAmountHelper}</p>
               </div>
             </Card>
 
@@ -367,9 +498,9 @@ export function RequestPage({
                         <button
                           key={profile.profileId}
                           className={`checkout-product-card ${isSelected ? 'checkout-product-card--selected' : ''} ${isQualified ? '' : 'checkout-product-card--locked'}`}
-                          onClick={() =>
-                            setDraft((current) => ({ ...current, profileId: profile.profileId }))
-                          }
+                          onClick={() => {
+                            void handleSelectProfile(profile.profileId)
+                          }}
                           type="button"
                           disabled={!isQualified || checkoutFormLocked}
                         >
@@ -538,8 +669,32 @@ export function RequestPage({
                       <div className="checkout-history__meta">
                         {formatCurrency(request.amount)} · {request.tenorMonths} month{request.tenorMonths > 1 ? 's' : ''} · {formatDate(request.submittedAt)} · {request.collateralAmount > 0 ? 'LEND locked' : 'No collateral'}
                       </div>
-                      {request.status === 'rejected' ? (
-                        <div className="checkout-history__reason">{getRejectedReason(request)}</div>
+                      {getRequestNote(request) ? (
+                        <div className="checkout-history__reason">{getRequestNote(request)}</div>
+                      ) : null}
+                      {request.txHash ? (
+                        <div className="checkout-history__proofs">
+                          <a
+                            className="checkout-proof-link"
+                            href={getRequestProofUrl(request.txHash) ?? '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Request tx {formatTxHash(request.txHash)}
+                          </a>
+                        </div>
+                      ) : null}
+                      {getApprovalProofUrl(request) ? (
+                        <div className="checkout-history__proofs">
+                          <a
+                            className="checkout-proof-link"
+                            href={getApprovalProofUrl(request) ?? '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Approval tx {formatTxHash(activeLoan?.txHashApprove ?? '')}
+                          </a>
+                        </div>
                       ) : null}
                       {request.status === 'rejected' ? (
                         <div className="card-action-row">
@@ -556,6 +711,25 @@ export function RequestPage({
                           </Button>
                         </div>
                       ) : null}
+                      {request.status === 'pending' ? (
+                        <div className="card-action-row">
+                          <Button
+                            variant="secondary"
+                            onClick={() => handleCancelPendingRequest(request)}
+                            disabled={isCancellingPendingRequest}
+                          >
+                            {isCancellingPendingRequest ? 'Clearing...' : 'Clear pending request'}
+                          </Button>
+                          {canRunPendingDemoReview ? (
+                            <Button
+                              onClick={() => handleReviewPendingRequest(request)}
+                              disabled={isReviewingPendingRequest || isCancellingPendingRequest}
+                            >
+                              {isReviewingPendingRequest ? 'Running review...' : 'Run review now'}
+                            </Button>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                     <Badge
                       tone={
@@ -563,6 +737,8 @@ export function RequestPage({
                           ? 'success'
                           : request.status === 'rejected'
                             ? 'danger'
+                            : request.status === 'cancelled'
+                              ? 'neutral'
                             : 'warning'
                       }
                     >

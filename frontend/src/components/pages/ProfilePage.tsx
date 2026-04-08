@@ -38,7 +38,9 @@ type ProfilePageProps = {
   tierBadgeTone: 'warning' | 'info' | 'neutral'
   username?: string
   usernameSource?: UsernameSource
+  usernameAttestedOnRollup: boolean
   usernameVerified: boolean
+  usernameVerifiedOnL1: boolean
 }
 
 export function ProfilePage({
@@ -54,8 +56,10 @@ export function ProfilePage({
   technicalModeEnabled,
   tierBadgeTone,
   username,
+  usernameAttestedOnRollup,
   usernameSource,
   usernameVerified,
+  usernameVerifiedOnL1,
 }: ProfilePageProps) {
   const avatarLabel =
     (username || 'Z2')
@@ -66,22 +70,31 @@ export function ProfilePage({
   const linkedIdentityLabel = usernameVerified
     ? score?.signals?.username ?? username ?? 'Not available yet'
     : username
-      ? `${username} (preview)`
+      ? username
       : 'Wallet only'
-  const identityBadgeTone =
-    usernameVerified ? 'success' : username ? 'warning' : 'neutral'
+  const identityBadgeTone = usernameVerified ? 'success' : username ? 'info' : 'warning'
   const identityBadgeLabel = usernameVerified
-    ? usernameSource === 'rollup'
-      ? 'Verified on rollup'
-      : 'Verified on Initia'
+    ? usernameAttestedOnRollup && usernameVerifiedOnL1
+      ? 'L1 + rollup verified'
+      : usernameAttestedOnRollup
+        ? 'Verified on rollup'
+        : usernameVerifiedOnL1 || usernameSource === 'initia_l1'
+          ? 'Verified on Initia L1'
+          : 'Verified identity'
     : username
-      ? 'Preview identity'
-      : 'Wallet only'
+      ? 'Linked'
+      : 'Not linked'
   const identitySubline = usernameVerified
-    ? 'Identity verified and ready for Initia app credit.'
+    ? usernameAttestedOnRollup && usernameVerifiedOnL1
+      ? 'Verified on Initia L1 and attested into the LendPay rollup.'
+      : usernameAttestedOnRollup
+        ? 'Identity is attested inside the LendPay rollup and ready for app credit.'
+        : usernameVerifiedOnL1 || usernameSource === 'initia_l1'
+          ? 'Identity is verified on Initia L1 and ready for borrower checks.'
+          : 'Identity verified and ready for Initia app credit.'
     : username
-      ? 'This .init label is only a preview from your wallet address. It is not verified yet.'
-      : 'No verified username found yet. Wallet-only mode is active.'
+      ? 'Identity linked via InterwovenKit wallet.'
+      : 'Connect a wallet with a .init username to strengthen identity checks.'
 
   return (
     <>
@@ -198,6 +211,8 @@ export function ProfilePage({
                 </div>
                 <div className="profile-identity-card__badges">
                   <Badge tone={identityBadgeTone}>{identityBadgeLabel}</Badge>
+                  {usernameVerifiedOnL1 ? <Badge tone="info">Initia L1</Badge> : null}
+                  {usernameAttestedOnRollup ? <Badge tone="success">Rollup attested</Badge> : null}
                   {rewards?.tier ? <Badge tone={tierBadgeTone}>{rewards.tier}</Badge> : null}
                 </div>
                 <div className="profile-identity-card__subline">

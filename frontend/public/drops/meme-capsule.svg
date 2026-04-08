@@ -1,0 +1,27 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="900" rx="48" fill="#140A1F"/>
+  <rect x="36" y="36" width="1128" height="828" rx="36" fill="url(#bg)"/>
+  <circle cx="980" cy="170" r="240" fill="#FB7185" fill-opacity="0.2"/>
+  <circle cx="230" cy="760" r="300" fill="#F59E0B" fill-opacity="0.16"/>
+  <rect x="110" y="110" width="980" height="680" rx="34" fill="#1F1130" stroke="rgba(255,255,255,0.12)"/>
+  <text x="182" y="276" fill="#FDE68A" font-family="Arial, sans-serif" font-size="30" font-weight="700">LIMITED DROP</text>
+  <text x="182" y="396" fill="white" font-family="Arial, sans-serif" font-size="92" font-weight="800">Meme</text>
+  <text x="182" y="492" fill="#FDA4AF" font-family="Arial, sans-serif" font-size="92" font-weight="800">Capsule</text>
+  <text x="182" y="564" fill="#FBCFE8" font-family="Arial, sans-serif" font-size="34">Collect the sealed culture pack and unlock on full repayment.</text>
+  <rect x="182" y="624" width="244" height="68" rx="18" fill="#FFF1F2"/>
+  <text x="304" y="668" text-anchor="middle" fill="#BE123C" font-family="Arial, sans-serif" font-size="30" font-weight="700">$300.00</text>
+  <g>
+    <rect x="734" y="236" width="240" height="412" rx="120" fill="#111827" stroke="#FBCFE8" stroke-width="10"/>
+    <path d="M754 442C754 340.38 836.38 258 938 258H970V442H754Z" fill="#FDE68A"/>
+    <path d="M754 442H970V626H938C836.38 626 754 543.62 754 442Z" fill="#FB7185"/>
+    <circle cx="862" cy="364" r="26" fill="#0F172A"/>
+    <circle cx="918" cy="364" r="26" fill="#0F172A"/>
+    <path d="M838 534C854.667 551.333 875.333 560 900 560C924.667 560 945.333 551.333 962 534" stroke="#0F172A" stroke-width="14" stroke-linecap="round"/>
+  </g>
+  <defs>
+    <linearGradient id="bg" x1="120" y1="84" x2="1066" y2="840" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34123F"/>
+      <stop offset="1" stop-color="#170C22"/>
+    </linearGradient>
+  </defs>
+</svg>

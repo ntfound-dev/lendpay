@@ -4,9 +4,10 @@ interface IdentityCardProps {
   points: number
   tier: string
   username?: string
+  verified?: boolean
 }
 
-export function IdentityCard({ points, tier, username }: IdentityCardProps) {
+export function IdentityCard({ points, tier, username, verified = false }: IdentityCardProps) {
   const identityLabel = username || 'Connect your .init'
   const monogram =
     identityLabel.replace('.init', '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase() || 'LP'
@@ -18,7 +19,7 @@ export function IdentityCard({ points, tier, username }: IdentityCardProps) {
         <div className="identity-card__hero-copy">
           <div className="identity-card__name">{identityLabel}</div>
           <div className="identity-card__badges">
-            <span className="identity-badge identity-badge--verified">Verified</span>
+            {verified ? <span className="identity-badge identity-badge--verified">Verified</span> : null}
             <span className="identity-badge identity-badge--tier">{tier} tier</span>
           </div>
         </div>

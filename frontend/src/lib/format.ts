@@ -171,10 +171,19 @@ export function parseRpcTx(raw: Record<string, unknown>): TxExplorerState {
 
   const hash = getString(txResponse.txhash) || getString(result.hash)
   const height = getNumber(txResponse.height || result.height)
+  const hasExplicitCode =
+    txResponse.code !== undefined &&
+    txResponse.code !== null
+      ? true
+      : txResult.code !== undefined && txResult.code !== null
   const codeValue =
     txResponse.code !== undefined && txResponse.code !== null
       ? getNumber(txResponse.code)
       : getNumber(txResult.code)
+
+  if (!hash || !hasExplicitCode) {
+    throw new Error('Transaction response is missing required fields.')
+  }
 
   return {
     txHash: hash,

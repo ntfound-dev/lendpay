@@ -3,6 +3,7 @@ import { formatRelative } from '../../lib/format'
 
 interface ActivityFeedProps {
   items: ActivityItem[]
+  limit?: number
 }
 
 const toneForItem = (item: ActivityItem) => {
@@ -43,7 +44,7 @@ const collapseConsecutiveItems = (items: ActivityItem[]) =>
     return rows
   }, [])
 
-export function ActivityFeed({ items }: ActivityFeedProps) {
+export function ActivityFeed({ items, limit = 3 }: ActivityFeedProps) {
   if (items.length === 0) {
     return (
       <div className="muted-copy">
@@ -52,7 +53,7 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
     )
   }
 
-  const rows = collapseConsecutiveItems(items).slice(0, 3)
+  const rows = collapseConsecutiveItems(items).slice(0, limit)
 
   return (
     <div className="activity-feed">

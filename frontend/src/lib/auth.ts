@@ -1,5 +1,11 @@
 import { makeSignDoc, type AminoSignResponse, type OfflineAminoSigner } from '@cosmjs/amino'
 
+export type PersonalSignChallengeResponse = {
+  mode: 'personal_sign'
+  message: string
+  signature: string
+}
+
 const toBase64Utf8 = (value: string) => {
   const bytes = new TextEncoder().encode(value)
   let binary = ''
@@ -34,3 +40,12 @@ export const signBackendChallenge = async (
   address: string,
   message: string,
 ): Promise<AminoSignResponse> => signer.signAmino(address, buildChallengeSignDoc(address, message))
+
+export const signBackendChallengeMessage = async (
+  signMessage: (input: { message: string }) => Promise<string>,
+  message: string,
+): Promise<PersonalSignChallengeResponse> => ({
+  mode: 'personal_sign',
+  message,
+  signature: await signMessage({ message }),
+})

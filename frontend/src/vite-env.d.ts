@@ -16,7 +16,6 @@ interface ImportMetaEnv {
   readonly VITE_NATIVE_DENOM?: string
   readonly VITE_NATIVE_SYMBOL?: string
   readonly VITE_PACKAGE_ADDRESS?: string
-  readonly VITE_PREVIEW_OPERATOR_TOKEN?: string
   readonly VITE_REPAY_FUNCTION_NAME?: string
   readonly VITE_REQUEST_COLLATERAL_FUNCTION_NAME?: string
   readonly VITE_REQUEST_FUNCTION_NAME?: string

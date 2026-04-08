@@ -7,11 +7,11 @@ const warnMissingEnvVar = (key: string, value: string | undefined) => {
 }
 
 warnMissingEnvVar('VITE_ENABLE_DEMO_APPROVAL', import.meta.env.VITE_ENABLE_DEMO_APPROVAL)
-warnMissingEnvVar('VITE_PREVIEW_OPERATOR_TOKEN', import.meta.env.VITE_PREVIEW_OPERATOR_TOKEN)
 warnMissingEnvVar(
   'VITE_REQUEST_COLLATERAL_FUNCTION_NAME',
   import.meta.env.VITE_REQUEST_COLLATERAL_FUNCTION_NAME,
 )
+warnMissingEnvVar('VITE_CANCEL_REQUEST_FUNCTION_NAME', import.meta.env.VITE_CANCEL_REQUEST_FUNCTION_NAME)
 
 export const appEnv = {
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:8080',
@@ -31,7 +31,10 @@ export const appEnv = {
   packageAddress:
     import.meta.env.VITE_PACKAGE_ADDRESS?.trim() ||
     '0x5972A1C7118A8977852DC3307621535D5C1CDA63',
-  previewOperatorToken: import.meta.env.VITE_PREVIEW_OPERATOR_TOKEN?.trim(),
+  cancelRequestFunctionName: required(
+    import.meta.env.VITE_CANCEL_REQUEST_FUNCTION_NAME,
+    'cancel_request',
+  ),
   repayFunctionName: required(import.meta.env.VITE_REPAY_FUNCTION_NAME, 'repay_installment'),
   requestCollateralFunctionName: required(
     import.meta.env.VITE_REQUEST_COLLATERAL_FUNCTION_NAME,

@@ -1,4 +1,5 @@
 import type { NavKey } from '../../types/domain'
+import { NAV_ITEMS } from '../../lib/nav'
 
 interface SidebarProps {
   active: NavKey
@@ -8,15 +9,6 @@ interface SidebarProps {
   identityLabel: string
   onChange: (value: NavKey) => void
 }
-
-const navItems: Array<{ key: NavKey; label: string; index: string }> = [
-  { key: 'overview', label: 'Overview', index: '01' },
-  { key: 'analyze', label: 'Profile', index: '02' },
-  { key: 'request', label: 'Request', index: '03' },
-  { key: 'loan', label: 'Repay', index: '04' },
-  { key: 'rewards', label: 'Loyalty Hub', index: '05' },
-  { key: 'admin', label: 'Ecosystem', index: '06' },
-]
 
 export function Sidebar({
   active,
@@ -54,7 +46,7 @@ export function Sidebar({
         </div>
 
         <nav className="sidebar__nav" aria-label="Primary">
-          {navItems.map((item) => (
+          {NAV_ITEMS.map((item) => (
             <button
               key={item.key}
               className={`sidebar__link ${item.key === active ? 'sidebar__link--active' : ''}`}

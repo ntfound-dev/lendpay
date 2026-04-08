@@ -10,6 +10,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export function Button({
   children,
   className = '',
+  type = 'button',
   variant = 'primary',
   wide = false,
   ...props
@@ -19,7 +20,7 @@ export function Button({
     .join(' ')
 
   return (
-    <button className={classes} {...props}>
+    <button type={type} className={classes} {...props}>
       {children}
     </button>
   )

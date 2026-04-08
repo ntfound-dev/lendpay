@@ -1,0 +1,28 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="900" rx="48" fill="#081120"/>
+  <rect x="36" y="36" width="1128" height="828" rx="36" fill="url(#bg)"/>
+  <circle cx="910" cy="200" r="220" fill="#2D7FF9" fill-opacity="0.24"/>
+  <circle cx="260" cy="720" r="280" fill="#34D399" fill-opacity="0.18"/>
+  <rect x="116" y="118" width="968" height="664" rx="32" fill="#091A31" fill-opacity="0.88" stroke="rgba(255,255,255,0.12)"/>
+  <rect x="180" y="184" width="840" height="532" rx="28" fill="url(#card)"/>
+  <rect x="240" y="244" width="152" height="40" rx="20" fill="#E0F2FE"/>
+  <text x="316" y="270" text-anchor="middle" fill="#0C4A6E" font-family="Arial, sans-serif" font-size="20" font-weight="700">VIRAL DROPS</text>
+  <text x="240" y="378" fill="white" font-family="Arial, sans-serif" font-size="84" font-weight="700">Initia</text>
+  <text x="240" y="470" fill="#BFDBFE" font-family="Arial, sans-serif" font-size="84" font-weight="700">OG Pass</text>
+  <text x="240" y="548" fill="#CBD5E1" font-family="Arial, sans-serif" font-size="34">Receipt now. Full collectible after full repayment.</text>
+  <rect x="240" y="612" width="228" height="64" rx="18" fill="#EFF6FF"/>
+  <text x="354" y="653" text-anchor="middle" fill="#1D4ED8" font-family="Arial, sans-serif" font-size="28" font-weight="700">$100.00</text>
+  <circle cx="878" cy="450" r="118" fill="#0F172A" stroke="#93C5FD" stroke-width="8"/>
+  <path d="M878 346L943 384V516L878 554L813 516V384L878 346Z" fill="#60A5FA"/>
+  <path d="M878 372L919 396V444L878 468L837 444V396L878 372Z" fill="#DBEAFE"/>
+  <defs>
+    <linearGradient id="bg" x1="102" y1="78" x2="1084" y2="850" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F2A4A"/>
+      <stop offset="1" stop-color="#0A1528"/>
+    </linearGradient>
+    <linearGradient id="card" x1="180" y1="184" x2="1020" y2="716" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1D4ED8"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+  </defs>
+</svg>

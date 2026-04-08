@@ -95,6 +95,25 @@ export const createRepayInstallmentMessage = ({
     ]),
   )
 
+export const createCancelLoanRequestMessage = ({
+  requestId,
+  moduleAddress,
+  moduleName,
+  sender,
+  functionName,
+}: {
+  requestId: number
+  moduleAddress: string
+  moduleName: string
+  sender: string
+  functionName: string
+}) =>
+  toEncodeObject(
+    new MsgExecute(sender, moduleAddress, moduleName, functionName, [], [
+      bcs.u64().serialize(requestId).toBase64(),
+    ]),
+  )
+
 export const createBuyViralDropMessage = ({
   itemId,
   merchantId,

@@ -67,7 +67,9 @@ type EcosystemPageProps = {
   handleAllocateCampaign: () => void | Promise<void>
   handleClaimCampaign: (campaignId: string) => void | Promise<void>
   handleCreateCampaign: () => void | Promise<void>
+  handleDismissWalletRecovery: () => void | Promise<void>
   handleFinalizeProposal: (proposalId: string) => void | Promise<void>
+  handleOpenWalletApproval: () => void | Promise<void>
   handleProposeGovernance: () => void | Promise<void>
   handleRegisterMerchant: () => void | Promise<void>
   handleRetryLoad: () => void | Promise<void>
@@ -84,6 +86,7 @@ type EcosystemPageProps = {
   setGovernanceDraft: Dispatch<SetStateAction<GovernanceDraft>>
   setMerchantDraft: Dispatch<SetStateAction<MerchantDraft>>
   setSelectedAppProofId: Dispatch<SetStateAction<string | null>>
+  showWalletRecovery: boolean
   technicalModeEnabled: boolean
   uniqueApps: MerchantState[]
   username?: string
@@ -99,7 +102,9 @@ export function EcosystemPage({
   handleAllocateCampaign,
   handleClaimCampaign,
   handleCreateCampaign,
+  handleDismissWalletRecovery,
   handleFinalizeProposal,
+  handleOpenWalletApproval,
   handleProposeGovernance,
   handleRegisterMerchant,
   handleRetryLoad,
@@ -116,6 +121,7 @@ export function EcosystemPage({
   setGovernanceDraft,
   setMerchantDraft,
   setSelectedAppProofId,
+  showWalletRecovery,
   technicalModeEnabled,
   uniqueApps,
   username,
@@ -343,7 +349,9 @@ export function EcosystemPage({
                               isProtocolActionPending(`campaign-${campaign.id}`)
                             }
                           >
-                            {isProtocolActionPending(`campaign-${campaign.id}`) ? 'Claiming...' : 'Claim'}
+                            {isProtocolActionPending(`campaign-${campaign.id}`)
+                              ? 'Claiming...'
+                              : `Claim ${formatNumber(campaign.claimableAmount)} LEND`}
                           </Button>
                         ) : null}
                       </div>
@@ -354,6 +362,17 @@ export function EcosystemPage({
                   </div>
                 )
               })}
+              {showWalletRecovery ? (
+                <div className="wallet-recovery">
+                  <p>Wallet is still loading. Reconnect the Interwoven wallet, then try the campaign claim again.</p>
+                  <div className="wallet-recovery__actions">
+                    <Button onClick={handleOpenWalletApproval}>Reconnect wallet</Button>
+                    <Button variant="secondary" onClick={handleDismissWalletRecovery}>
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : (
             <EmptyState
