@@ -176,6 +176,32 @@ if (originalFetch) {
       })
     }
 
+    if (
+      requestUrl.startsWith('https://registry.testnet.initia.xyz/errors/lendpay/') &&
+      requestUrl.endsWith('.json')
+    ) {
+      return new Response(JSON.stringify({}), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      })
+    }
+
+    if (requestUrl.includes('/cosmos/feegrant/v1beta1/allowance/')) {
+      const response = await originalFetch(input, init)
+      if (response.status === 404 || response.status === 500) {
+        return new Response(JSON.stringify({ allowance: null }), {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+          },
+        })
+      }
+
+      return response
+    }
+
     return originalFetch(input, init)
   }
 }
