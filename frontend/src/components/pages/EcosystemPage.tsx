@@ -195,7 +195,7 @@ export function EcosystemPage({
       ) : null}
 
       <div className="grid--2 section-stack">
-        <Card eyebrow="Apps" title="Apps available with credit" className="story-card">
+        <Card eyebrow="Apps demo" title="Apps available with credit" className="story-card">
           {sectionErrors.merchants ? (
             <EmptyState
               title="Apps unavailable"

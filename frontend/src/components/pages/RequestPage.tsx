@@ -297,7 +297,7 @@ export function RequestPage({
               <div className="app-purpose-card">
                 <div className="app-purpose-card__head">
                   <div>
-                    <div className="checkout-section__label">Selected app</div>
+                    <div className="checkout-section__label">Selected app demo</div>
                     <div className="app-purpose-card__title">{selectedMerchantTitle}</div>
                   </div>
                   <Badge tone="info">{selectedAppMeta.family}</Badge>

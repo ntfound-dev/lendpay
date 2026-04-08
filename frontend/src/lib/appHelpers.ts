@@ -262,8 +262,11 @@ export const getMerchantShowcaseItems = (merchant?: MerchantState | null): Merch
   return []
 }
 
+export const stripMockSuffix = (value?: string | null) =>
+  (value ?? '').replace(/\s*\(mock\)\s*$/i, '').trim()
+
 export const getMerchantShowcaseHint = (merchant?: MerchantState | null, family?: AppFamily) => {
-  const name = merchant?.name?.trim() || 'this app'
+  const name = stripMockSuffix(merchant?.name) || 'this app'
 
   if (family === 'Gaming') {
     return `Pick one of these ${name} items to match the request amount to a real in-game purchase.`
@@ -287,7 +290,7 @@ export const formatMerchantCategory = (value?: string) =>
     : 'Initia app'
 
 export const formatAppLabel = (merchant?: MerchantState | null) =>
-  merchant?.name?.trim() || formatMerchantCategory(merchant?.category)
+  stripMockSuffix(merchant?.name) || formatMerchantCategory(merchant?.category)
 
 export const getAppUpdateDescription = (app: MerchantState) => {
   const category = (app.category ?? '').toLowerCase()
