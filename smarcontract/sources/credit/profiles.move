@@ -144,7 +144,13 @@ module lendpay::profiles {
         let current_lend_holdings = lend_token::total_balance_of(user);
         let tier_limit_multiplier_bps =
             tokenomics::tier_limit_multiplier_bps(current_lend_holdings);
-        let credit_limit_boost_bps = rewards::credit_limit_boost_bps_of(user);
+        let raw_credit_limit_boost_bps = rewards::credit_limit_boost_bps_of(user);
+        let credit_limit_boost_bps =
+            if (raw_credit_limit_boost_bps > config::max_total_credit_limit_boost_bps()) {
+                config::max_total_credit_limit_boost_bps()
+            } else {
+                raw_credit_limit_boost_bps
+            };
         let tier_scaled_max =
             (profile.max_principal_hint * tier_limit_multiplier_bps) / 10_000;
         let boosted_max =

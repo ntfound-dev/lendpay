@@ -165,6 +165,12 @@ module lendpay::rewards {
         config::assert_not_paused();
 
         let user_addr = signer::address_of(user);
+        let boost_increment = config::credit_limit_boost_bps();
+        let max_total_boost_bps = config::max_total_credit_limit_boost_bps();
+        assert!(
+            boost_increment > 0 && boost_increment <= max_total_boost_bps,
+            errors::invalid_policy(),
+        );
         let registry = borrow_global_mut<RewardsRegistry>(@lendpay);
         let account = spend_points_in_registry(
             registry,
@@ -172,7 +178,11 @@ module lendpay::rewards {
             config::credit_limit_boost_cost_points(),
             SPEND_LIMIT_BOOST,
         );
-        account.credit_limit_boost_bps = account.credit_limit_boost_bps + config::credit_limit_boost_bps();
+        assert!(
+            account.credit_limit_boost_bps <= max_total_boost_bps - boost_increment,
+            errors::invalid_policy(),
+        );
+        account.credit_limit_boost_bps = account.credit_limit_boost_bps + boost_increment;
     }
 
     public entry fun spend_points_for_interest_discount(
@@ -181,12 +191,23 @@ module lendpay::rewards {
     ) acquires RewardsRegistry {
         config::assert_not_paused();
         assert!(whole_percent > 0, errors::invalid_amount());
+        assert!(
+            whole_percent <= config::max_interest_discount_purchase_percent(),
+            errors::invalid_policy(),
+        );
 
         let user_addr = signer::address_of(user);
+        let discount_bps = whole_percent * 100;
+        let max_total_discount_bps = config::max_total_interest_discount_bps();
+        assert!(discount_bps <= max_total_discount_bps, errors::invalid_policy());
         let points_cost = whole_percent * config::interest_discount_cost_points_per_percent();
         let registry = borrow_global_mut<RewardsRegistry>(@lendpay);
         let account = spend_points_in_registry(registry, user_addr, points_cost, SPEND_INTEREST_DISCOUNT);
-        account.interest_discount_bps = account.interest_discount_bps + (whole_percent * 100);
+        assert!(
+            account.interest_discount_bps <= max_total_discount_bps - discount_bps,
+            errors::invalid_policy(),
+        );
+        account.interest_discount_bps = account.interest_discount_bps + discount_bps;
     }
 
     public entry fun unlock_premium_credit_check(user: &signer) acquires RewardsRegistry {

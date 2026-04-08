@@ -73,6 +73,24 @@ module lendpay::treasury {
         treasury.total_liquidity_deposited = treasury.total_liquidity_deposited + amount;
     }
 
+    public entry fun withdraw_seized_collateral(
+        admin: &signer,
+        recipient: address,
+        amount: u64,
+    ) acquires Treasury {
+        config::assert_treasury_admin(signer::address_of(admin));
+        assert!(amount > 0, errors::invalid_amount());
+
+        let treasury = borrow_global_mut<Treasury>(@lendpay);
+        assert!(
+            assets::balance_in_store(&treasury.seized_collateral_vault_ref) >= amount,
+            errors::insufficient_lend_balance(),
+        );
+
+        let asset = assets::withdraw_from_store(&treasury.seized_collateral_vault_ref, amount);
+        coin::deposit(recipient, asset);
+    }
+
     public(friend) fun lock_lend_collateral(borrower: &signer, amount: u64) acquires Treasury {
         assert!(amount > 0, errors::invalid_amount());
 

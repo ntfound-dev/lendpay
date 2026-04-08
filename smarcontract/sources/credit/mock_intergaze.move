@@ -289,7 +289,7 @@ module lendpay::mock_intergaze {
             i = i + 1;
         };
 
-        abort errors::request_not_found()
+        abort errors::purchase_not_found()
     }
 
     fun find_purchase_index_ref(store: &MockIntergaze, purchase_id: u64): u64 {

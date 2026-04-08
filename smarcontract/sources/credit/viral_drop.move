@@ -526,7 +526,7 @@ module lendpay::viral_drop {
             i = i + 1;
         };
 
-        abort errors::request_not_found()
+        abort errors::purchase_not_found()
     }
 
     fun find_purchase_index_ref(store: &ViralDrop, purchase_id: u64): u64 {

@@ -38,6 +38,24 @@ module lendpay::credit_flow_tests {
     }
 
     #[test(admin = @lendpay, treasury_admin = @0x2, borrower = @0x3)]
+    #[expected_failure(abort_code = 59, location = lendpay::loan_book)]
+    fun borrower_cannot_open_second_pending_request(
+        admin: signer,
+        treasury_admin: signer,
+        borrower: signer,
+    ) {
+        let loan_asset_metadata = test_support::ensure_loan_asset(&admin);
+        bootstrap::initialize_protocol(
+            &admin,
+            signer::address_of(&treasury_admin),
+            loan_asset_metadata,
+        );
+
+        loan_book::request_loan(&borrower, 500, 3);
+        loan_book::request_loan(&borrower, 250, 1);
+    }
+
+    #[test(admin = @lendpay, treasury_admin = @0x2, borrower = @0x3)]
     fun approval_and_repayment_progression(admin: signer, treasury_admin: signer, borrower: signer) {
         let loan_asset_metadata = test_support::ensure_loan_asset(&admin);
         bootstrap::initialize_protocol(
@@ -80,6 +98,7 @@ module lendpay::credit_flow_tests {
 
         loan_book::request_loan(&borrower, 150, 1);
         rewards::spend_points_for_limit_boost(&borrower);
+        loan_book::cancel_request(&borrower, 1);
 
         let borrower_addr = signer::address_of(&borrower);
         assert!(lend_token::total_balance_of(borrower_addr) == 100, 106);
@@ -90,6 +109,30 @@ module lendpay::credit_flow_tests {
 
         assert!(loan_book::next_request_id() == 3, 109);
         assert!(loan_book::request_profile_id(2) == 2, 110);
+    }
+
+    #[test(admin = @lendpay, treasury_admin = @0x2, borrower = @0x3)]
+    fun apr_discount_respects_minimum_floor(
+        admin: signer,
+        treasury_admin: signer,
+        borrower: signer,
+    ) {
+        let loan_asset_metadata = test_support::ensure_loan_asset(&admin);
+        bootstrap::initialize_protocol(
+            &admin,
+            signer::address_of(&treasury_admin),
+            loan_asset_metadata,
+        );
+
+        config::update_point_spend_policy(&admin, 100, 500, 1, 200, 1_000);
+        test_support::mint_loan_asset(&admin, signer::address_of(&admin), 10_000);
+        treasury::deposit_liquidity(&admin, 10_000);
+
+        loan_book::request_loan(&borrower, 500, 1);
+        rewards::spend_points_for_interest_discount(&borrower, 10);
+        loan_book::approve_request(&admin, 1, 500, 500, 1, 86_400);
+
+        assert!(loan_book::loan_apr_bps(1) == config::minimum_effective_apr_bps(), 111);
     }
 
     #[test(admin = @lendpay, treasury_admin = @0x2, borrower = @0x3)]
@@ -163,6 +206,41 @@ module lendpay::credit_flow_tests {
         assert!(treasury::total_collateral_liquidated() == 750, 123);
         assert!(loan_book::locked_collateral_of(borrower_addr) == 0, 124);
         assert!(lend_token::balance_of(borrower_addr) == 250, 125);
+    }
+
+    #[test(admin = @lendpay, treasury_admin = @0x2, borrower = @0x3)]
+    fun seized_collateral_can_be_withdrawn_by_treasury_admin(
+        admin: signer,
+        treasury_admin: signer,
+        borrower: signer,
+    ) {
+        let loan_asset_metadata = test_support::ensure_loan_asset(&admin);
+        bootstrap::initialize_protocol(
+            &admin,
+            signer::address_of(&treasury_admin),
+            loan_asset_metadata,
+        );
+
+        test_support::mint_loan_asset(&admin, signer::address_of(&admin), 10_000);
+        treasury::deposit_liquidity(&admin, 10_000);
+        lend_token::mint_to_protocol_reserve(&admin, 5_000);
+        campaigns::create_campaign(&admin, 1, 2_000, false, 0);
+        campaigns::allocate_claim(&admin, 1, signer::address_of(&borrower), 1_000);
+        campaigns::claim_campaign(&borrower, 1);
+
+        loan_book::request_collateralized_loan(&borrower, 4, 500, 750, 1);
+        loan_book::approve_request(&admin, 1, 0, 500, 1, 0);
+        loan_book::force_loan_due_for_testing(&admin, 1);
+        loan_book::mark_default(&admin, 1);
+
+        treasury::withdraw_seized_collateral(
+            &treasury_admin,
+            signer::address_of(&treasury_admin),
+            750,
+        );
+
+        assert!(treasury::seized_collateral_balance() == 0, 126);
+        assert!(lend_token::balance_of(signer::address_of(&treasury_admin)) == 750, 127);
     }
 
     #[test(admin = @lendpay, treasury_admin = @0x2, borrower = @0x3)]
@@ -441,5 +519,25 @@ module lendpay::credit_flow_tests {
         assert!(active_referrals == 1, 135);
         assert!(points_earned == 70, 136);
         assert!(rewards::points_balance_of(signer::address_of(&referrer)) == 70, 137);
+    }
+
+    #[test(admin = @lendpay, treasury_admin = @0x2, new_admin = @0x5)]
+    fun admin_key_can_be_rotated(
+        admin: signer,
+        treasury_admin: signer,
+        new_admin: signer,
+    ) {
+        let loan_asset_metadata = test_support::ensure_loan_asset(&admin);
+        bootstrap::initialize_protocol(
+            &admin,
+            signer::address_of(&treasury_admin),
+            loan_asset_metadata,
+        );
+
+        config::update_admin(&admin, signer::address_of(&new_admin));
+        config::set_pause(&new_admin, true);
+
+        assert!(config::admin() == signer::address_of(&new_admin), 152);
+        assert!(config::is_paused(), 153);
     }
 }

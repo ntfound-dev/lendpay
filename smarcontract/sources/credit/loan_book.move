@@ -156,7 +156,6 @@ module lendpay::loan_book {
         collateral_amount: u64,
         tenor_months: u8,
     ) acquires LoanBook {
-        assert_request_terms(amount, tenor_months);
         profiles::assert_collateral_request_allowed(
             signer::address_of(borrower),
             profile_id,
@@ -187,6 +186,8 @@ module lendpay::loan_book {
         let now = timestamp::now_seconds();
         let request_id = {
             let book = borrow_global_mut<LoanBook>(@lendpay);
+            assert!(!has_pending_request_for(book, borrower_addr), errors::active_credit_exists());
+            assert!(!has_active_loan_for(book, borrower_addr), errors::active_credit_exists());
             let request_id = book.next_request_id;
             book.next_request_id = request_id + 1;
             vector::push_back(
@@ -252,15 +253,21 @@ module lendpay::loan_book {
                 request.status = REQUEST_APPROVED;
                 (profile_id, borrower, amount, collateral_amount, tenor_months)
             };
+            assert!(!has_active_loan_for(book, borrower), errors::active_credit_exists());
 
             let holder_apr_discount_bps =
                 tokenomics::tier_apr_discount_bps(lend_token::total_balance_of(borrower));
             let points_apr_discount_bps = rewards::interest_discount_bps_of(borrower);
             let total_apr_discount_bps = holder_apr_discount_bps + points_apr_discount_bps;
-            let effective_apr_bps = if (apr_bps > total_apr_discount_bps) {
+            let discounted_apr_bps = if (apr_bps > total_apr_discount_bps) {
                 apr_bps - total_apr_discount_bps
             } else {
                 0
+            };
+            let effective_apr_bps = if (discounted_apr_bps < config::minimum_effective_apr_bps()) {
+                config::minimum_effective_apr_bps()
+            } else {
+                discounted_apr_bps
             };
 
             treasury::disburse_loan(borrower, amount);
@@ -590,6 +597,18 @@ module lendpay::loan_book {
     }
 
     #[view]
+    public fun has_pending_request_of(user: address): bool acquires LoanBook {
+        let book = borrow_global<LoanBook>(@lendpay);
+        has_pending_request_for(book, user)
+    }
+
+    #[view]
+    public fun has_active_loan_of(user: address): bool acquires LoanBook {
+        let book = borrow_global<LoanBook>(@lendpay);
+        has_active_loan_for(book, user)
+    }
+
+    #[view]
     public fun locked_collateral_of(user: address): u64 acquires LoanBook {
         let book = borrow_global<LoanBook>(@lendpay);
         let total = 0;
@@ -678,5 +697,35 @@ module lendpay::loan_book {
 
     fun find_loan_index_ref(book: &LoanBook, loan_id: u64): u64 {
         find_loan_index(book, loan_id)
+    }
+
+    fun has_pending_request_for(book: &LoanBook, user: address): bool {
+        let len = vector::length(&book.requests);
+        let i = 0;
+
+        while (i < len) {
+            let request = vector::borrow(&book.requests, i);
+            if (request.borrower == user && request.status == REQUEST_PENDING) {
+                return true
+            };
+            i = i + 1;
+        };
+
+        false
+    }
+
+    fun has_active_loan_for(book: &LoanBook, user: address): bool {
+        let len = vector::length(&book.loans);
+        let i = 0;
+
+        while (i < len) {
+            let loan = vector::borrow(&book.loans, i);
+            if (loan.borrower == user && loan.status == LOAN_ACTIVE) {
+                return true
+            };
+            i = i + 1;
+        };
+
+        false
     }
 }

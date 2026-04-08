@@ -108,7 +108,7 @@ module lendpay::merchant_registry {
             i = i + 1;
         };
 
-        abort errors::invalid_policy()
+        abort errors::merchant_not_found()
     }
 
     fun find_merchant_index_ref(registry: &MerchantRegistry, merchant_id: u64): u64 {

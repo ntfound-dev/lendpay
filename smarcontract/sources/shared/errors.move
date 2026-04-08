@@ -57,6 +57,10 @@ module lendpay::errors {
     const E_DELIVERY_NOT_FOUND: u64 = 56;
     const E_COLLECTIBLE_LOCKED: u64 = 57;
     const E_DELIVERY_REGISTRY_NOT_INITIALIZED: u64 = 58;
+    const E_ACTIVE_CREDIT_EXISTS: u64 = 59;
+    const E_MERCHANT_NOT_FOUND: u64 = 60;
+    const E_PURCHASE_NOT_FOUND: u64 = 61;
+    const E_DUPLICATE_CLAIM_ALLOCATION: u64 = 62;
 
     public fun already_initialized(): u64 { E_ALREADY_INITIALIZED }
     public fun not_initialized(): u64 { E_NOT_INITIALIZED }
@@ -116,4 +120,8 @@ module lendpay::errors {
     public fun delivery_not_found(): u64 { E_DELIVERY_NOT_FOUND }
     public fun collectible_locked(): u64 { E_COLLECTIBLE_LOCKED }
     public fun delivery_registry_not_initialized(): u64 { E_DELIVERY_REGISTRY_NOT_INITIALIZED }
+    public fun active_credit_exists(): u64 { E_ACTIVE_CREDIT_EXISTS }
+    public fun merchant_not_found(): u64 { E_MERCHANT_NOT_FOUND }
+    public fun purchase_not_found(): u64 { E_PURCHASE_NOT_FOUND }
+    public fun duplicate_claim_allocation(): u64 { E_DUPLICATE_CLAIM_ALLOCATION }
 }

@@ -111,6 +111,10 @@ module lendpay::campaigns {
         let campaign = vector::borrow(&registry.campaigns, campaign_index);
         assert!(campaign.status == CAMPAIGN_OPEN, errors::invalid_status());
         assert!(
+            !has_unclaimed_allocation(registry, campaign_id, user),
+            errors::duplicate_claim_allocation(),
+        );
+        assert!(
             allocated_amount_for_campaign(registry, campaign_id) + amount <= campaign.total_allocation,
             errors::invalid_policy(),
         );
@@ -266,5 +270,20 @@ module lendpay::campaigns {
         };
 
         abort errors::claim_not_found()
+    }
+
+    fun has_unclaimed_allocation(registry: &CampaignRegistry, campaign_id: u64, user: address): bool {
+        let len = vector::length(&registry.allocations);
+        let i = 0;
+
+        while (i < len) {
+            let allocation = vector::borrow(&registry.allocations, i);
+            if (allocation.campaign_id == campaign_id && allocation.user == user && !allocation.claimed) {
+                return true
+            };
+            i = i + 1;
+        };
+
+        false
     }
 }

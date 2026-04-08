@@ -27,6 +27,10 @@ module lendpay::config {
     const DEFAULT_CREDIT_LIMIT_BOOST_COST_POINTS: u64 = 500;
     const DEFAULT_CREDIT_LIMIT_BOOST_BPS: u64 = 500;
     const DEFAULT_INTEREST_DISCOUNT_COST_POINTS_PER_PERCENT: u64 = 300;
+    const MIN_EFFECTIVE_APR_BPS: u64 = 100;
+    const MAX_TOTAL_CREDIT_LIMIT_BOOST_BPS: u64 = 10_000;
+    const MAX_TOTAL_INTEREST_DISCOUNT_BPS: u64 = 5_000;
+    const MAX_INTEREST_DISCOUNT_PURCHASE_PERCENT: u64 = 10;
     const DEFAULT_PREMIUM_CHECK_COST_POINTS: u64 = 200;
     const DEFAULT_BADGE_COST_POINTS: u64 = 1_000;
     const DEFAULT_GOVERNANCE_PROPOSAL_THRESHOLD_LEND: u64 = 500;
@@ -126,6 +130,11 @@ module lendpay::config {
         borrow_global_mut<Config>(@lendpay).treasury_admin = treasury_admin;
     }
 
+    public entry fun update_admin(admin: &signer, new_admin: address) acquires Config {
+        assert_admin(signer::address_of(admin));
+        borrow_global_mut<Config>(@lendpay).admin = new_admin;
+    }
+
     public entry fun update_fee_policy(
         admin: &signer,
         origination_fee_bps: u64,
@@ -207,6 +216,12 @@ module lendpay::config {
         badge_cost_points: u64,
     ) acquires Config {
         assert_admin(signer::address_of(admin));
+        assert!(
+            credit_limit_boost_bps > 0 &&
+                credit_limit_boost_bps <= MAX_TOTAL_CREDIT_LIMIT_BOOST_BPS &&
+                interest_discount_cost_points_per_percent > 0,
+            errors::invalid_policy(),
+        );
 
         let cfg = borrow_global_mut<Config>(@lendpay);
         cfg.credit_limit_boost_cost_points = credit_limit_boost_cost_points;
@@ -393,6 +408,26 @@ module lendpay::config {
     #[view]
     public fun badge_cost_points(): u64 acquires Config {
         borrow_global<Config>(@lendpay).badge_cost_points
+    }
+
+    #[view]
+    public fun minimum_effective_apr_bps(): u64 {
+        MIN_EFFECTIVE_APR_BPS
+    }
+
+    #[view]
+    public fun max_total_credit_limit_boost_bps(): u64 {
+        MAX_TOTAL_CREDIT_LIMIT_BOOST_BPS
+    }
+
+    #[view]
+    public fun max_total_interest_discount_bps(): u64 {
+        MAX_TOTAL_INTEREST_DISCOUNT_BPS
+    }
+
+    #[view]
+    public fun max_interest_discount_purchase_percent(): u64 {
+        MAX_INTEREST_DISCOUNT_PURCHASE_PERCENT
     }
 
     #[view]
