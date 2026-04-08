@@ -139,11 +139,11 @@ backend_up() {
 }
 
 frontend_up() {
-  curl -fsSI --max-time 2 "http://127.0.0.1:5173" >/dev/null 2>&1
+  curl -fsS --max-time 5 "http://127.0.0.1:5173" >/dev/null 2>&1
 }
 
 docs_up() {
-  curl -fsSI --max-time 2 "http://127.0.0.1:4173" >/dev/null 2>&1
+  curl -fsS --max-time 5 "http://127.0.0.1:4173" >/dev/null 2>&1
 }
 
 postgres_container_id() {
