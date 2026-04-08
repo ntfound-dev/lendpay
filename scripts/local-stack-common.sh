@@ -10,10 +10,14 @@ LOG_DIR="$STACK_DIR/logs"
 ROLLUP_PID_FILE="$PID_DIR/rollup.pid"
 BACKEND_PID_FILE="$PID_DIR/backend.pid"
 FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
+DOCS_PID_FILE="$PID_DIR/docs.pid"
+POSTGRES_COMPOSE_FILE="$ROOT_DIR/docker-compose.local-stack.yml"
+POSTGRES_SERVICE_NAME="postgres"
 
 ROLLUP_LOG_FILE="$LOG_DIR/rollup.log"
 BACKEND_LOG_FILE="$LOG_DIR/backend.log"
 FRONTEND_LOG_FILE="$LOG_DIR/frontend.log"
+DOCS_LOG_FILE="$LOG_DIR/docs.log"
 
 BACKEND_ENV_FILE="$ROOT_DIR/backend/.env"
 FRONTEND_ENV_FILE="$ROOT_DIR/frontend/.env"
@@ -126,6 +130,10 @@ rollup_rest_up() {
   curl -fsS --max-time 2 "http://127.0.0.1:1317/cosmos/base/tendermint/v1beta1/node_info" >/dev/null 2>&1
 }
 
+rollup_up() {
+  rollup_rpc_up && rollup_rest_up
+}
+
 backend_up() {
   curl -fsS --max-time 2 "http://127.0.0.1:8080/api/v1/health" >/dev/null 2>&1
 }
@@ -134,11 +142,32 @@ frontend_up() {
   curl -fsSI --max-time 2 "http://127.0.0.1:5173" >/dev/null 2>&1
 }
 
+docs_up() {
+  curl -fsSI --max-time 2 "http://127.0.0.1:4173" >/dev/null 2>&1
+}
+
+postgres_container_id() {
+  docker compose -f "$POSTGRES_COMPOSE_FILE" ps -q "$POSTGRES_SERVICE_NAME" 2>/dev/null || true
+}
+
+postgres_up() {
+  local container_id=""
+  container_id="$(postgres_container_id)"
+  if [[ -z "$container_id" ]]; then
+    return 1
+  fi
+
+  local health=""
+  health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id" 2>/dev/null || true)"
+  [[ "$health" == "healthy" || "$health" == "running" ]]
+}
+
 wait_for_check() {
   local name="$1"
   local attempts="$2"
   local sleep_seconds="$3"
   local check_fn="$4"
+  local log_file="${5:-}"
   local i=0
 
   while (( i < attempts )); do
@@ -150,7 +179,24 @@ wait_for_check() {
   done
 
   echo "$name did not become ready in time." >&2
+  if [[ -n "$log_file" ]] && [[ -f "$log_file" ]]; then
+    echo "Recent $name log:" >&2
+    tail -n 60 "$log_file" >&2 || true
+  fi
   return 1
+}
+
+restart_if_unhealthy() {
+  local name="$1"
+  local pid_file="$2"
+  local check_fn="$3"
+  local pid=""
+
+  pid="$(pid_status "$pid_file")"
+  if [[ -n "$pid" ]] && ! "$check_fn"; then
+    echo "$name has a stale or unhealthy process (pid $pid). Restarting."
+    stop_detached "$name" "$pid_file"
+  fi
 }
 
 start_detached() {

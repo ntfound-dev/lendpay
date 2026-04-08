@@ -2,7 +2,7 @@
 
 help:
 	@echo "LendPay local stack commands"
-	@echo "  make up      - start rollup, backend, and frontend"
+	@echo "  make up      - start postgres, rollup, backend, frontend, and docs"
 	@echo "  make down    - stop stack started by the local scripts"
 	@echo "  make status  - show stack status"
 	@echo "  make restart - restart the whole stack"
@@ -25,3 +25,4 @@ logs:
 	@echo "Rollup : ./.run/local-stack/logs/rollup.log"
 	@echo "Backend: ./.run/local-stack/logs/backend.log"
 	@echo "Frontend: ./.run/local-stack/logs/frontend.log"
+	@echo "Docs: ./.run/local-stack/logs/docs.log"

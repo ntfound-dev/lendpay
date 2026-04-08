@@ -30,7 +30,15 @@ fi
 
 MINITIAD_DIR="$(dirname "$MINITIAD_PATH")"
 
+if ! postgres_up; then
+  docker compose -f "$POSTGRES_COMPOSE_FILE" up -d "$POSTGRES_SERVICE_NAME"
+  wait_for_check "postgres" 60 1 postgres_up
+else
+  echo "postgres already listening on 55432."
+fi
+
 if ! rollup_rpc_up || ! rollup_rest_up; then
+  restart_if_unhealthy "rollup" "$ROLLUP_PID_FILE" rollup_up
   start_detached \
     "rollup" \
     "$ROOT_DIR" \
@@ -40,13 +48,22 @@ if ! rollup_rpc_up || ! rollup_rest_up; then
     "LD_LIBRARY_PATH=$MINITIAD_DIR:${LD_LIBRARY_PATH:-}" \
     "$MINITIAD_PATH" start --home "$ROLLUP_HOME_PATH"
 
-  wait_for_check "rollup RPC" 30 1 rollup_rpc_up
-  wait_for_check "rollup REST" 30 1 rollup_rest_up
+  wait_for_check "rollup RPC" 45 1 rollup_rpc_up "$ROLLUP_LOG_FILE"
+  wait_for_check "rollup REST" 45 1 rollup_rest_up "$ROLLUP_LOG_FILE"
 else
   echo "rollup already listening on 26657 and 1317."
 fi
 
 if ! backend_up; then
+  restart_if_unhealthy "backend" "$BACKEND_PID_FILE" backend_up
+  (
+    cd "$ROOT_DIR/backend"
+    /usr/bin/env \
+      "PATH=$NODE_BIN_DIR:$PATH" \
+      "MINITIAD_BIN=$MINITIAD_PATH" \
+      "ROLLUP_HOME=$ROLLUP_HOME_PATH" \
+      npm run db:push
+  )
   start_detached \
     "backend" \
     "$ROOT_DIR/backend" \
@@ -58,12 +75,13 @@ if ! backend_up; then
     "ROLLUP_HOME=$ROLLUP_HOME_PATH" \
     ./node_modules/.bin/tsx watch src/server.ts
 
-  wait_for_check "backend" 45 1 backend_up
+  wait_for_check "backend" 60 1 backend_up "$BACKEND_LOG_FILE"
 else
   echo "backend already listening on 8080."
 fi
 
 if ! frontend_up; then
+  restart_if_unhealthy "frontend" "$FRONTEND_PID_FILE" frontend_up
   start_detached \
     "frontend" \
     "$ROOT_DIR/frontend" \
@@ -73,9 +91,25 @@ if ! frontend_up; then
     "PATH=$NODE_BIN_DIR:$PATH" \
     ./node_modules/.bin/vite --host 0.0.0.0
 
-  wait_for_check "frontend" 45 1 frontend_up
+  wait_for_check "frontend" 60 1 frontend_up "$FRONTEND_LOG_FILE"
 else
   echo "frontend already listening on 5173."
+fi
+
+if ! docs_up; then
+  restart_if_unhealthy "docs" "$DOCS_PID_FILE" docs_up
+  start_detached \
+    "docs" \
+    "$ROOT_DIR/docs-site" \
+    "$DOCS_PID_FILE" \
+    "$DOCS_LOG_FILE" \
+    /usr/bin/env \
+    "PATH=$NODE_BIN_DIR:$PATH" \
+    npm run dev
+
+  wait_for_check "docs" 60 1 docs_up "$DOCS_LOG_FILE"
+else
+  echo "docs already listening on 4173."
 fi
 
 cat <<EOF
@@ -84,13 +118,17 @@ Local LendPay stack is up.
 
 - Rollup RPC:  http://127.0.0.1:26657
 - Rollup REST: http://127.0.0.1:1317
+- Postgres:    postgresql://postgres:postgres@127.0.0.1:55432/lendpay_dev
 - Backend API: http://127.0.0.1:8080/api/v1/health
 - Frontend:    http://127.0.0.1:5173
+- Docs:        http://127.0.0.1:4173
 
 Logs:
 - $ROLLUP_LOG_FILE
 - $BACKEND_LOG_FILE
 - $FRONTEND_LOG_FILE
+- $DOCS_LOG_FILE
+- docker compose -f $POSTGRES_COMPOSE_FILE logs $POSTGRES_SERVICE_NAME
 
 Use:
 - ./scripts/local-stack-status.sh

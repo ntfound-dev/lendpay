@@ -1,0 +1,56 @@
+:root {
+  --vp-c-brand-1: #2563eb;
+  --vp-c-brand-2: #1d4ed8;
+  --vp-c-brand-3: #1e40af;
+  --vp-c-brand-soft: rgba(37, 99, 235, 0.14);
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(135deg, #0f172a 0%, #2563eb 55%, #14b8a6 100%);
+  --vp-home-hero-image-background-image:
+    radial-gradient(circle at 30% 30%, rgba(37, 99, 235, 0.26), transparent 42%),
+    radial-gradient(circle at 70% 35%, rgba(20, 184, 166, 0.22), transparent 44%),
+    radial-gradient(circle at 50% 80%, rgba(245, 158, 11, 0.16), transparent 42%);
+  --vp-home-hero-image-filter: blur(58px);
+}
+
+.VPNavBarTitle .title {
+  font-weight: 700;
+}
+
+.VPHero .name {
+  letter-spacing: -0.04em;
+}
+
+.VPHero .text {
+  max-width: 12ch;
+  letter-spacing: -0.03em;
+}
+
+.VPHero .tagline {
+  max-width: 680px;
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.VPFeature {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 20px;
+}
+
+.VPDoc .content-container {
+  max-width: 860px;
+}
+
+.VPDoc h1,
+.VPDoc h2,
+.VPDoc h3 {
+  letter-spacing: -0.03em;
+}
+
+.vp-doc a {
+  font-weight: 600;
+}
+
+.vp-doc table {
+  display: table;
+  width: 100%;
+}

@@ -19,6 +19,7 @@ Docs by layer:
 - frontend technical docs: [frontend/README.md](./frontend/README.md)
 - backend technical docs: [backend/README.md](./backend/README.md)
 - smart contract technical docs: [smarcontract/README.md](./smarcontract/README.md)
+- standalone docs site: [docs-site](./docs-site)
 
 ## What Problem It Solves
 
@@ -79,6 +80,7 @@ make logs
 ## Local URLs
 
 - frontend: `http://127.0.0.1:5173`
+- docs: `http://127.0.0.1:4173`
 - backend: `http://127.0.0.1:8080`
 - rollup RPC: `http://127.0.0.1:26657`
 - rollup REST: `http://127.0.0.1:1317`
@@ -86,13 +88,14 @@ make logs
 ## Local Demo Flow
 
 1. Run `make up`
-2. Open `http://127.0.0.1:5173`
-3. Connect wallet with InterwovenKit
-4. Analyze borrower profile
-5. Choose the live app and request credit
-6. Approve the request through the operator flow
-7. Use the funded balance in the live viral drop
-8. Repay through the live rollup flow
+2. Open docs at `http://127.0.0.1:4173` if you want the product and architecture reference site
+3. Open `http://127.0.0.1:5173`
+4. Connect wallet with InterwovenKit
+5. Analyze borrower profile
+6. Choose the live app and request credit
+7. Approve the request through the operator flow
+8. Use the funded balance in the live viral drop
+9. Repay through the live rollup flow
 
 ## Deployment Evidence
 
