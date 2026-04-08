@@ -65,17 +65,27 @@ export class ConnectOracleClient {
       const data = (await response.json()) as unknown
       return this.buildSnapshotFromApi(baseCurrency, quoteCurrency, data)
     } catch {
-      return this.buildSnapshot(baseCurrency, quoteCurrency, FALLBACK_PRICE)
+      return this.buildSnapshot(baseCurrency, quoteCurrency, FALLBACK_PRICE, 'fallback')
     }
   }
 
-  private buildSnapshot(baseCurrency: string, quoteCurrency: string, price: number): OracleSnapshot {
+  private buildSnapshot(
+    baseCurrency: string,
+    quoteCurrency: string,
+    price: number,
+    mode: 'connect' | 'fallback' = 'connect',
+  ): OracleSnapshot {
+    const sourcePath =
+      mode === 'fallback'
+          ? `fallback://oracle/${baseCurrency}/${quoteCurrency}`
+          : `/connect/oracle/v2/get_price?currency_pair=${baseCurrency}/${quoteCurrency}`
+
     return {
       id: createPrefixedId('oracle'),
       baseCurrency,
       quoteCurrency,
       price,
-      sourcePath: `/connect/oracle/v2/get_price?currency_pair=${baseCurrency}/${quoteCurrency}`,
+      sourcePath,
       fetchedAt: new Date().toISOString(),
     }
   }
@@ -106,6 +116,7 @@ export class ConnectOracleClient {
         baseCurrency,
         quoteCurrency,
         Number.isFinite(normalizedPrice) && normalizedPrice > 0 ? normalizedPrice : FALLBACK_PRICE,
+        'connect',
       ),
       rawPrice,
       decimals: decimalsValue,

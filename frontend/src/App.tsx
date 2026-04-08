@@ -440,7 +440,7 @@ function App() {
       : `${formatTokenAmount(walletNativeBalance, appEnv.nativeDecimals)} ${appEnv.nativeSymbol}`
   const faucetClaimAmountLabel = faucet
     ? `${formatTokenAmount(faucet.claimAmount, appEnv.nativeDecimals)} ${appEnv.nativeSymbol}`
-    : `1 ${appEnv.nativeSymbol}`
+    : `100 ${appEnv.nativeSymbol}`
   const needsTestnetFunds =
     isConnected && hasLoadedBorrowerState && (walletNativeBalance === null || walletNativeBalance <= 0)
   const faucetTxUrl = buildRestTxInfoUrl(faucet?.txHash)

@@ -81,7 +81,7 @@ const buildBreakdown = (signals: CreditScoreSignals): ScoreBreakdownItem[] => [
   {
     label: 'Average balance',
     points: Math.round(signals.balanceStrength + 36),
-    detail: `Wallet balance quality was normalized at ${signals.oraclePrice.toFixed(2)} USD using Connect data.`,
+    detail: `Wallet balance quality was normalized at ${signals.oraclePrice.toFixed(2)} USD using oracle pricing.`,
   },
   {
     label: 'Repayment behavior',

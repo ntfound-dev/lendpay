@@ -31,7 +31,7 @@ const schema = z.object({
   ROLLUP_OPERATOR_MNEMONIC: z.string().optional(),
   ROLLUP_NATIVE_DENOM: z.string().default('ulend'),
   ROLLUP_NATIVE_SYMBOL: z.string().default('LEND'),
-  FAUCET_CLAIM_AMOUNT: z.coerce.number().int().positive().default(1_000_000),
+  FAUCET_CLAIM_AMOUNT: z.coerce.number().int().positive().default(100_000_000),
   FAUCET_COOLDOWN_HOURS: z.coerce.number().int().positive().default(24),
 
   INITIA_L1_REST_URL: z.string().url().default('https://rest.testnet.initia.xyz'),
