@@ -1,6 +1,7 @@
 import { mapScore, serializeJson } from '../../db/mappers.js'
 import { prisma } from '../../db/prisma.js'
 import type { ConnectOracleClient } from '../../integrations/connect/oracle.js'
+import { createPrefixedId } from '../../lib/ids.js'
 import type { AiProviderState } from '../../types/domain.js'
 import type { ActivityService } from '../activity/service.js'
 import { CreditScoringAgent } from './agent.js'
@@ -50,7 +51,7 @@ export class ScoreService {
     const next = await this.agent.analyze(initiaAddress, user, snapshot.price)
     const createdScore = await prisma.creditScore.create({
       data: {
-        id: `score-${Date.now()}`,
+        id: createPrefixedId('score'),
         initiaAddress,
         score: next.score,
         limitUsd: next.limitUsd,

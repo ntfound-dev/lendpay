@@ -1,9 +1,19 @@
 import { env } from '../../config/env.js'
 import { AppError, isRecord } from '../../lib/errors.js'
+import { createPrefixedId } from '../../lib/ids.js'
 import type { OracleSnapshot } from '../../types/domain.js'
 
 const FALLBACK_FEEDS = ['INIT/USD', 'BTC/USD', 'ETH/USD']
 const FALLBACK_PRICE = 0.62
+const asString = (value: unknown) => (typeof value === 'string' ? value : '')
+const asNumber = (value: unknown) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  return 0
+}
 
 export class ConnectOracleClient {
   private feedCache?: { expiresAt: number; feeds: string[] }
@@ -53,9 +63,7 @@ export class ConnectOracleClient {
       }
 
       const data = (await response.json()) as unknown
-      const price = this.extractPrice(data)
-
-      return this.buildSnapshot(baseCurrency, quoteCurrency, Number.isFinite(price) ? price : FALLBACK_PRICE)
+      return this.buildSnapshotFromApi(baseCurrency, quoteCurrency, data)
     } catch {
       return this.buildSnapshot(baseCurrency, quoteCurrency, FALLBACK_PRICE)
     }
@@ -63,7 +71,7 @@ export class ConnectOracleClient {
 
   private buildSnapshot(baseCurrency: string, quoteCurrency: string, price: number): OracleSnapshot {
     return {
-      id: `oracle-${Date.now()}`,
+      id: createPrefixedId('oracle'),
       baseCurrency,
       quoteCurrency,
       price,
@@ -72,13 +80,59 @@ export class ConnectOracleClient {
     }
   }
 
+  private buildSnapshotFromApi(
+    baseCurrency: string,
+    quoteCurrency: string,
+    data: unknown,
+  ): OracleSnapshot {
+    const payload = isRecord(data) ? data : {}
+    const priceNode = isRecord(payload.price) ? payload.price : isRecord(payload.data) ? payload.data : null
+    const rawPrice =
+      asString(priceNode?.price) ||
+      asString(payload.price) ||
+      asString(payload.result) ||
+      undefined
+    const decimalsValue = payload.decimals !== undefined ? asNumber(payload.decimals) : undefined
+    const normalizedPrice =
+      rawPrice && typeof decimalsValue === 'number' && decimalsValue > 0
+        ? Number(rawPrice) / 10 ** decimalsValue
+        : this.extractPrice(data)
+    const blockTimestamp =
+      asString(priceNode?.block_timestamp) || asString(payload.block_timestamp) || undefined
+    const blockHeightValue = asNumber(priceNode?.block_height ?? payload.block_height)
+
+    return {
+      ...this.buildSnapshot(
+        baseCurrency,
+        quoteCurrency,
+        Number.isFinite(normalizedPrice) && normalizedPrice > 0 ? normalizedPrice : FALLBACK_PRICE,
+      ),
+      rawPrice,
+      decimals: decimalsValue,
+      blockTimestamp,
+      blockHeight: blockHeightValue > 0 ? blockHeightValue : undefined,
+    }
+  }
+
   private extractFeeds(data: unknown): string[] {
     if (Array.isArray(data)) {
-      return data.map((entry) => String(entry))
+      return data.map((entry) => String(entry)).filter(Boolean)
     }
 
     if (!isRecord(data)) {
       return []
+    }
+
+    const currencyPairs = data.currency_pairs
+    if (Array.isArray(currencyPairs)) {
+      return currencyPairs
+        .map((entry) => {
+          if (!isRecord(entry)) return ''
+          const base = asString(entry.Base || entry.base)
+          const quote = asString(entry.Quote || entry.quote)
+          return base && quote ? `${base}/${quote}` : ''
+        })
+        .filter(Boolean)
     }
 
     const candidates = ['tickers', 'supported_tickers', 'pairs', 'data']
@@ -87,7 +141,7 @@ export class ConnectOracleClient {
       const value = data[key]
 
       if (Array.isArray(value)) {
-        return value.map((entry) => String(entry))
+        return value.map((entry) => String(entry)).filter(Boolean)
       }
     }
 

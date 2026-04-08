@@ -7,9 +7,15 @@ const schema = z.object({
   PORT: z.coerce.number().int().positive().default(8080),
   APP_ENV: z.enum(['development', 'test', 'production']).default('development'),
   CORS_ORIGIN: z.string().default('*'),
-  DATABASE_URL: z.string().default('file:/tmp/lendpay-dev.db'),
+  DATABASE_URL: z.string().default('postgresql://postgres:postgres@127.0.0.1:55432/lendpay_dev?schema=public'),
   JWT_SECRET: z.string().min(8).default('change-me-now'),
   JWT_TTL_SECONDS: z.coerce.number().int().positive().default(60 * 60 * 24 * 7),
+  RATE_LIMIT_ENABLED: z.coerce.boolean().default(true),
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  RATE_LIMIT_GLOBAL_MAX_REQUESTS: z.coerce.number().int().positive().default(240),
+  RATE_LIMIT_MUTATION_MAX_REQUESTS: z.coerce.number().int().positive().default(60),
+  RATE_LIMIT_AUTH_MAX_REQUESTS: z.coerce.number().int().positive().default(20),
+  RATE_LIMIT_AI_MAX_REQUESTS: z.coerce.number().int().positive().default(10),
   AUTH_ACCEPT_ANY_SIGNATURE: z.coerce.boolean().default(false),
   PREVIEW_OPERATOR_TOKEN: z.string().min(4).default('preview-operator'),
 
@@ -36,6 +42,13 @@ const schema = z.object({
   CONNECT_REST_URL: z.string().url().default('https://rest.testnet.initia.xyz'),
   CONNECT_BASE_CURRENCY: z.string().default('INIT'),
   CONNECT_QUOTE_CURRENCY: z.string().default('USD'),
+  MINIEVM_REST_URL: z
+    .string()
+    .url()
+    .default('https://rest-evm-1.anvil.asia-southeast.initia.xyz'),
+  MINIEVM_CHAIN_ID: z.string().default('evm-1'),
+  MINIEVM_CHAIN_NAME: z.string().default('Initia MiniEVM'),
+  MINIEVM_LOOKUP_DENOM: z.string().optional(),
 
   AI_PROVIDER: z.enum(['heuristic', 'ollama']).default('ollama'),
   OLLAMA_BASE_URL: z.string().url().default('http://127.0.0.1:11434'),
@@ -60,5 +73,9 @@ const schema = z.object({
 
 export type AppEnv = z.infer<typeof schema>
 export const env = schema.parse(process.env)
+
+if (env.APP_ENV === 'production' && env.DATABASE_URL.startsWith('file:')) {
+  throw new Error('SQLite file databases are not supported for production traffic. Move the backend to PostgreSQL before launch.')
+}
 
 process.env.DATABASE_URL = process.env.DATABASE_URL || env.DATABASE_URL

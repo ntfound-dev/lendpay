@@ -2,9 +2,17 @@ import { randomUUID } from 'node:crypto'
 import { prisma } from '../../db/prisma.js'
 import { AppError } from '../../lib/errors.js'
 import {
+  createSessionToken,
+  isExpiredSessionToken,
+  isSignedSessionToken,
+  parseSessionToken,
+} from '../../lib/session-token.js'
+import {
   normalizeAminoSignResponse,
+  normalizePersonalSignResponse,
   verifyAminoChallengeSignature,
   verifyChallengeSignDocShape,
+  verifyPersonalMessageSignature,
 } from '../../lib/auth.js'
 import type { AuthResponse, SessionRecord } from '../../types/domain.js'
 import type { UserService } from '../users/service.js'
@@ -16,7 +24,16 @@ export class AuthService {
   async createChallenge(initiaAddress: string) {
     const id = randomUUID()
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
-    const message = `LendPay login\nAddress: ${initiaAddress}\nNonce: ${id}\nExpires: ${expiresAt}`
+    const message = [
+      'LendPay Login',
+      '',
+      'Sign this message to verify your wallet and start a secure session.',
+      'No gas fee or blockchain transaction will occur.',
+      '',
+      `Address: ${initiaAddress}`,
+      `Nonce: ${id}`,
+      `Expires: ${expiresAt}`,
+    ].join('\n')
 
     await prisma.challenge.create({
       data: {
@@ -47,21 +64,46 @@ export class AuthService {
       throw new AppError(400, 'EXPIRED_CHALLENGE', 'Challenge has expired.')
     }
 
-    const signResponse = normalizeAminoSignResponse(signaturePayload)
+    const personalSignResponse = normalizePersonalSignResponse(signaturePayload)
+    const signResponse = personalSignResponse ? null : normalizeAminoSignResponse(signaturePayload)
 
-    if (!signResponse) {
+    if (!personalSignResponse && !signResponse) {
       throw new AppError(400, 'MISSING_SIGNATURE', 'A signed challenge payload is required.')
     }
 
     if (!env.AUTH_ACCEPT_ANY_SIGNATURE) {
-      if (!verifyChallengeSignDocShape(initiaAddress, challenge.message, signResponse.signed)) {
-        throw new AppError(401, 'INVALID_SIGN_DOC', 'Signed challenge document does not match the issued challenge.')
-      }
+      if (personalSignResponse) {
+        if (personalSignResponse.message !== challenge.message) {
+          throw new AppError(
+            401,
+            'INVALID_SIGN_DOC',
+            'Signed challenge document does not match the issued challenge.',
+          )
+        }
 
-      const valid = await verifyAminoChallengeSignature(initiaAddress, signResponse)
+        const valid = await verifyPersonalMessageSignature(
+          initiaAddress,
+          personalSignResponse.message,
+          personalSignResponse.signature,
+        )
 
-      if (!valid) {
-        throw new AppError(401, 'INVALID_SIGNATURE', 'Signature verification failed.')
+        if (!valid) {
+          throw new AppError(401, 'INVALID_SIGNATURE', 'Signature verification failed.')
+        }
+      } else if (signResponse) {
+        if (!verifyChallengeSignDocShape(initiaAddress, challenge.message, signResponse.signed)) {
+          throw new AppError(
+            401,
+            'INVALID_SIGN_DOC',
+            'Signed challenge document does not match the issued challenge.',
+          )
+        }
+
+        const valid = await verifyAminoChallengeSignature(initiaAddress, signResponse)
+
+        if (!valid) {
+          throw new AppError(401, 'INVALID_SIGNATURE', 'Signature verification failed.')
+        }
       }
     }
 
@@ -83,6 +125,24 @@ export class AuthService {
 
     if (!token) {
       throw new AppError(401, 'UNAUTHORIZED', 'Missing bearer token.')
+    }
+
+    if (isSignedSessionToken(token)) {
+      const parsed = parseSessionToken(token)
+
+      if (!parsed) {
+        throw new AppError(401, 'INVALID_SESSION_TOKEN', 'Session token is invalid.')
+      }
+
+      if (isExpiredSessionToken(parsed)) {
+        throw new AppError(401, 'SESSION_EXPIRED', 'Session expired.')
+      }
+
+      return {
+        expiresAt: new Date(parsed.expiresAt).toISOString(),
+        initiaAddress: parsed.initiaAddress,
+        token: parsed.token,
+      }
     }
 
     const session = await prisma.session.findUnique({
@@ -110,18 +170,25 @@ export class AuthService {
   async refresh(authorizationHeader?: string) {
     const session = await this.requireSession(authorizationHeader)
     const next = await this.createSession(session.initiaAddress)
-    await prisma.session.delete({
-      where: { token: session.token },
-    })
+
+    if (!isSignedSessionToken(session.token)) {
+      await prisma.session.delete({
+        where: { token: session.token },
+      })
+    }
 
     return next
   }
 
   async logout(authorizationHeader?: string) {
     const session = await this.requireSession(authorizationHeader)
-    await prisma.session.delete({
-      where: { token: session.token },
-    })
+
+    if (!isSignedSessionToken(session.token)) {
+      await prisma.session.delete({
+        where: { token: session.token },
+      })
+    }
+
     return { success: true }
   }
 
@@ -138,20 +205,6 @@ export class AuthService {
   }
 
   private async createSession(initiaAddress: string): Promise<SessionRecord> {
-    const session: SessionRecord = {
-      token: randomUUID(),
-      initiaAddress,
-      expiresAt: new Date(Date.now() + env.JWT_TTL_SECONDS * 1000).toISOString(),
-    }
-
-    await prisma.session.create({
-      data: {
-        token: session.token,
-        initiaAddress,
-        expiresAt: new Date(session.expiresAt),
-      },
-    })
-
-    return session
+    return createSessionToken(initiaAddress)
   }
 }

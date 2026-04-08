@@ -5,9 +5,20 @@ import {
   type AminoSignResponse,
   type StdSignDoc,
 } from '@cosmjs/amino'
-import { Secp256k1, Secp256k1Signature, sha256 } from '@cosmjs/crypto'
-import { fromBase64 } from '@cosmjs/encoding'
-import { PublicKey, keccak256 } from '@initia/initia.js'
+import {
+  ExtendedSecp256k1Signature,
+  Secp256k1,
+  Secp256k1Signature,
+  sha256,
+} from '@cosmjs/crypto'
+import { fromBase64, toBase64 } from '@cosmjs/encoding'
+import { EthPublicKey, PublicKey, keccak256 } from '@initia/initia.js'
+
+export type PersonalSignChallengeResponse = {
+  mode: 'personal_sign'
+  message: string
+  signature: string
+}
 
 const toBase64Utf8 = (value: string) => Buffer.from(value, 'utf8').toString('base64')
 
@@ -62,6 +73,53 @@ export const verifyAminoChallengeSignature = async (
   return Secp256k1.verifySignature(parsedSignature, digest, pubkey)
 }
 
+const normalizeRecoveryParam = (value: number) => {
+  if (value >= 35) {
+    return (value - 35) % 2
+  }
+
+  if (value >= 27) {
+    return value - 27
+  }
+
+  return value
+}
+
+const hashPersonalSignMessage = (message: string) => {
+  const messageBytes = Buffer.from(message, 'utf8')
+  const prefix = Buffer.from(`\x19Ethereum Signed Message:\n${messageBytes.length}`, 'utf8')
+  return keccak256(Buffer.concat([prefix, messageBytes]))
+}
+
+export const verifyPersonalMessageSignature = async (
+  address: string,
+  message: string,
+  signatureHex: string,
+) => {
+  const normalizedHex = signatureHex.startsWith('0x') ? signatureHex.slice(2) : signatureHex
+  const signatureBytes = Buffer.from(normalizedHex, 'hex')
+
+  if (signatureBytes.length !== 65) {
+    return false
+  }
+
+  const recovery = normalizeRecoveryParam(signatureBytes[64] ?? -1)
+  if (recovery < 0 || recovery > 3) {
+    return false
+  }
+
+  const signature = new ExtendedSecp256k1Signature(
+    signatureBytes.subarray(0, 32),
+    signatureBytes.subarray(32, 64),
+    recovery,
+  )
+  const digest = hashPersonalSignMessage(message)
+  const recoveredPubkey = Secp256k1.compressPubkey(Secp256k1.recoverPubkey(signature, digest))
+  const derivedAddress = new EthPublicKey(toBase64(recoveredPubkey)).address()
+
+  return derivedAddress === address
+}
+
 export const normalizeAminoSignResponse = (payload: unknown): AminoSignResponse | null => {
   if (typeof payload !== 'object' || payload === null) return null
 
@@ -98,5 +156,21 @@ export const normalizeAminoSignResponse = (payload: unknown): AminoSignResponse 
       },
       signature: signatureRecord.signature,
     },
+  }
+}
+
+export const normalizePersonalSignResponse = (payload: unknown): PersonalSignChallengeResponse | null => {
+  if (typeof payload !== 'object' || payload === null) return null
+
+  const record = payload as Record<string, unknown>
+
+  if (typeof record.message !== 'string' || typeof record.signature !== 'string') {
+    return null
+  }
+
+  return {
+    mode: 'personal_sign',
+    message: record.message,
+    signature: record.signature,
   }
 }

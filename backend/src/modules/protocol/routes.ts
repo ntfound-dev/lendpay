@@ -72,6 +72,11 @@ export const registerProtocolRoutes = async (app: FastifyInstance, deps: AppDeps
     return deps.protocolService.listViralDropPurchases(session.initiaAddress)
   })
 
+  app.get('/api/v1/protocol/liquidity/lend', async (request) => {
+    const session = await deps.authService.requireSession(request.headers.authorization)
+    return deps.protocolService.getLendLiquidityRoute(session.initiaAddress)
+  })
+
   app.post('/api/v1/protocol/campaigns', async (request) => {
     deps.authService.requireOperator(request.headers['x-operator-token'])
     const payload = campaignSchema.parse(request.body)

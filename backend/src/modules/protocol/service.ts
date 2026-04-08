@@ -1,8 +1,11 @@
+import type { ConnectOracleClient } from '../../integrations/connect/oracle.js'
+import type { MiniEvmClient } from '../../integrations/minievm/client.js'
 import type { RollupClient } from '../../integrations/rollup/client.js'
 import type {
   CampaignState,
   CreditProfileQuote,
   GovernanceProposalState,
+  LendLiquidityRouteState,
   MerchantState,
   TxExplorerState,
   ViralDropItemState,
@@ -17,6 +20,8 @@ export class ProtocolService {
   constructor(
     private rollupClient: RollupClient,
     private userService: UserService,
+    private oracleClient: ConnectOracleClient,
+    private miniEvmClient: MiniEvmClient,
   ) {}
 
   async listProfiles(initiaAddress: string): Promise<CreditProfileQuote[]> {
@@ -71,6 +76,58 @@ export class ProtocolService {
   async listViralDropPurchases(initiaAddress: string): Promise<ViralDropPurchaseState[]> {
     await this.userService.ensureUser(initiaAddress)
     return this.rollupClient.listViralDropPurchases(initiaAddress)
+  }
+
+  async getLendLiquidityRoute(initiaAddress: string): Promise<LendLiquidityRouteState> {
+    await this.userService.ensureUser(initiaAddress)
+
+    const assetDenom = env.MINIEVM_LOOKUP_DENOM?.trim() || env.ROLLUP_NATIVE_DENOM
+    const requestedPair = `${env.ROLLUP_NATIVE_SYMBOL}/${env.CONNECT_QUOTE_CURRENCY}`
+    const supportedFeeds = await this.oracleClient.getSupportedFeeds()
+    const pairSupported = supportedFeeds.includes(requestedPair)
+    const resolvedBase = pairSupported ? env.ROLLUP_NATIVE_SYMBOL : env.CONNECT_BASE_CURRENCY
+    const resolvedQuote = env.CONNECT_QUOTE_CURRENCY
+    const resolvedPair = `${resolvedBase}/${resolvedQuote}`
+    const [erc20FactoryAddress, erc20Address, oracleQuote] = await Promise.all([
+      this.miniEvmClient.getErc20FactoryAddress(),
+      this.miniEvmClient.getContractByDenom(assetDenom),
+      this.oracleClient.getPrice(resolvedBase, resolvedQuote),
+    ])
+
+    return {
+      routeMode: erc20Address ? 'live' : 'preview',
+      routeStatus: erc20Address ? 'mapped' : 'mapping_required',
+      walletHandler: 'interwovenkit',
+      transferMethod: 'ibc_hooks',
+      sourceChainId: env.ROLLUP_CHAIN_ID,
+      sourceChainName: 'LendPay Move Rollup',
+      destinationChainId: env.MINIEVM_CHAIN_ID,
+      destinationChainName: env.MINIEVM_CHAIN_NAME,
+      destinationRestUrl: env.MINIEVM_REST_URL,
+      assetSymbol: env.ROLLUP_NATIVE_SYMBOL,
+      assetDenom,
+      erc20FactoryAddress: erc20FactoryAddress ?? undefined,
+      erc20Address: erc20Address ?? undefined,
+      swapSummary: erc20Address
+        ? 'LEND already has a MiniEVM ERC20 mapping, so the asset can move into MiniEVM liquidity before the swap step.'
+        : 'LEND does not have a live MiniEVM ERC20 mapping yet, so the swap route stays in preview until denom conversion is published.',
+      oracleQuote: {
+        requestedPair,
+        resolvedPair,
+        pairMode: pairSupported ? 'direct' : 'reference',
+        pairSupported,
+        pairReason: pairSupported
+          ? undefined
+          : `Connect does not currently expose ${requestedPair}, so this route uses ${resolvedPair} as the official reference quote.`,
+        price: oracleQuote.price,
+        sourcePath: oracleQuote.sourcePath,
+        fetchedAt: oracleQuote.fetchedAt,
+        rawPrice: oracleQuote.rawPrice,
+        decimals: oracleQuote.decimals,
+        blockTimestamp: oracleQuote.blockTimestamp,
+        blockHeight: oracleQuote.blockHeight,
+      },
+    }
   }
 
   async createCampaign(input: {

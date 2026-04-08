@@ -50,7 +50,37 @@ export class RepaymentService {
     private loanService: LoanService,
   ) {}
 
+  private async syncLoanRecordFromOnchain(
+    loanId: string,
+    fallbackCollateralStatus: string,
+    onchainLoan: OnchainLoanSnapshot,
+  ) {
+    return prisma.loan.update({
+      where: { id: loanId },
+      data: {
+        collateralAmount: onchainLoan.collateralAmount,
+        collateralStatus:
+          COLLATERAL_STATUS_MAP[onchainLoan.collateralState as keyof typeof COLLATERAL_STATUS_MAP] ??
+          fallbackCollateralStatus,
+        scheduleJson: serializeJson(scheduleFromOnchainLoan(onchainLoan)),
+        installmentsPaid: onchainLoan.installmentsPaid,
+        status:
+          onchainLoan.status === LOAN_REPAID
+            ? 'repaid'
+            : onchainLoan.status === LOAN_DEFAULTED
+              ? 'defaulted'
+              : 'active',
+      },
+    })
+  }
+
   async repay(initiaAddress: string, loanId: string, txHash?: string) {
+    const persistedLoan = await prisma.loan.findUnique({
+      where: { id: loanId },
+    })
+    const previousInstallmentsPaid = persistedLoan?.installmentsPaid ?? 0
+    const previousStatus = persistedLoan?.status ?? null
+    const numericLoanId = Number.parseInt(loanId, 10)
     const borrowerLoans = await this.loanService.listLoans(initiaAddress)
     const loan = borrowerLoans.find((entry) => entry.id === loanId)
 
@@ -63,6 +93,39 @@ export class RepaymentService {
     }
 
     if (loan.status !== 'active') {
+      if (txHash && Number.isFinite(numericLoanId) && this.rollupClient.canRead() && persistedLoan) {
+        await this.rollupClient.waitForTx(txHash)
+        const onchainLoan = await this.rollupClient.getLoanById(numericLoanId)
+        const repaymentProgressed =
+          onchainLoan.installmentsPaid > previousInstallmentsPaid ||
+          (loan.status === 'repaid' && onchainLoan.status === LOAN_REPAID) ||
+          (previousStatus === 'active' && onchainLoan.status === LOAN_REPAID)
+
+        if (repaymentProgressed) {
+          const updatedLoan = await this.syncLoanRecordFromOnchain(
+            loanId,
+            loan.collateralStatus,
+            onchainLoan,
+          )
+
+          await this.userService.ensureUser(initiaAddress)
+          await this.scoreService.analyze(initiaAddress)
+          await this.activityService.push(initiaAddress, {
+            kind: 'repayment',
+            label: 'Installment paid',
+            detail: `Payment ${onchainLoan.installmentsPaid} was received on time and your account was updated.`,
+          })
+          await this.userService.rewardReferrerForRepayment(initiaAddress)
+
+          return {
+            loan: mapLoan(updatedLoan),
+            repaidInstallment: onchainLoan.installmentsPaid,
+            txHash,
+            mode: 'live' as const,
+          }
+        }
+      }
+
       throw new AppError(400, 'LOAN_NOT_ACTIVE', 'Only active loans can be repaid.')
     }
 
@@ -74,29 +137,15 @@ export class RepaymentService {
     }
 
     const repaymentTxHash = txHash || this.rollupClient.previewTxHash('repay')
-    const numericLoanId = Number.parseInt(loan.id, 10)
 
     if (txHash && Number.isFinite(numericLoanId) && this.rollupClient.canRead()) {
       await this.rollupClient.waitForTx(txHash)
       const onchainLoan = await this.rollupClient.getLoanById(numericLoanId)
-      const updatedLoan = await prisma.loan.update({
-        where: { id: loan.id },
-        data: {
-          collateralAmount: onchainLoan.collateralAmount,
-          collateralStatus:
-            COLLATERAL_STATUS_MAP[
-              onchainLoan.collateralState as keyof typeof COLLATERAL_STATUS_MAP
-            ] ?? loan.collateralStatus,
-          scheduleJson: serializeJson(scheduleFromOnchainLoan(onchainLoan)),
-          installmentsPaid: onchainLoan.installmentsPaid,
-          status:
-            onchainLoan.status === LOAN_REPAID
-              ? 'repaid'
-              : onchainLoan.status === LOAN_DEFAULTED
-                ? 'defaulted'
-                : 'active',
-        },
-      })
+      const updatedLoan = await this.syncLoanRecordFromOnchain(
+        loan.id,
+        loan.collateralStatus,
+        onchainLoan,
+      )
 
       await this.userService.ensureUser(initiaAddress)
       await this.scoreService.analyze(initiaAddress)

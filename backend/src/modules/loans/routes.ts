@@ -46,6 +46,14 @@ export const registerLoanRoutes = async (app: FastifyInstance, deps: AppDeps) =>
     return deps.loanService.approveRequest(id, operator.actorAddress, body.reason)
   })
 
+  app.post('/api/v1/loan-requests/:id/review-demo', async (request) => {
+    const session = await deps.authService.requireSession(request.headers.authorization)
+    const body = approveSchema.parse(request.body)
+    const id = String((request.params as { id: string }).id)
+
+    return deps.loanService.approveOwnPendingRequest(session.initiaAddress, id, body.reason)
+  })
+
   app.get('/api/v1/loans', async (request) => {
     const session = await deps.authService.requireSession(request.headers.authorization)
     return deps.loanService.listLoans(session.initiaAddress)

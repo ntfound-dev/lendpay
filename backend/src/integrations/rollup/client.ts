@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process'
 import { dirname } from 'node:path'
 import { promisify } from 'node:util'
 import { env } from '../../config/env.js'
+import { createPreviewTxHash } from '../../lib/ids.js'
 import { buildKnownAppRoutes } from '../../modules/protocol/apps.js'
 import type {
   CampaignState,
@@ -271,7 +272,7 @@ export class RollupClient {
   }
 
   previewTxHash(prefix: string) {
-    return `0x${prefix}${Date.now().toString(16)}`
+    return createPreviewTxHash(prefix)
   }
 
   addressToHex(address: string) {
@@ -1112,6 +1113,23 @@ export class RollupClient {
       args: [bcs.u64().serialize(input.proposalId).toBase64()],
       cliArgs: [`u64:${input.proposalId}`],
       memo: `Governance finalize ${input.proposalId}`,
+    })
+  }
+
+  async attestUsername(input: { userAddress: string; username: string }) {
+    return this.executeOperatorTx({
+      prefix: 'reputation-attest-username',
+      moduleName: 'reputation',
+      functionName: 'attest_username',
+      args: [
+        this.encodeAddress(input.userAddress),
+        this.encodeBytes(input.username),
+      ],
+      cliArgs: [
+        `address:${input.userAddress}`,
+        this.encodeVectorU8Arg(input.username),
+      ],
+      memo: `Attest username ${input.userAddress}`,
     })
   }
 

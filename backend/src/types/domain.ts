@@ -1,5 +1,5 @@
 export type RiskBand = 'Low' | 'Medium' | 'High'
-export type RequestStatus = 'pending' | 'approved' | 'rejected'
+export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
 export type LoanStatus = 'active' | 'repaid' | 'defaulted'
 export type InstallmentStatus = 'paid' | 'due' | 'upcoming'
 export type ActivityKind = 'score' | 'loan' | 'repayment' | 'identity'
@@ -111,6 +111,8 @@ export interface UserProfile {
   username?: string
   usernameSource?: UsernameSource
   usernameVerified: boolean
+  usernameVerifiedOnL1: boolean
+  usernameAttestedOnRollup: boolean
   referralCode?: string
   referredBy?: string
   referralPointsEarned?: number
@@ -154,6 +156,43 @@ export interface OracleSnapshot {
   price: number
   sourcePath: string
   fetchedAt: string
+  rawPrice?: string
+  decimals?: number
+  blockTimestamp?: string
+  blockHeight?: number
+}
+
+export interface LiquidityOracleQuoteState {
+  requestedPair: string
+  resolvedPair: string
+  pairMode: 'direct' | 'reference'
+  pairSupported: boolean
+  pairReason?: string
+  price: number
+  sourcePath: string
+  fetchedAt: string
+  rawPrice?: string
+  decimals?: number
+  blockTimestamp?: string
+  blockHeight?: number
+}
+
+export interface LendLiquidityRouteState {
+  routeMode: 'live' | 'preview'
+  routeStatus: 'mapped' | 'mapping_required'
+  walletHandler: 'interwovenkit'
+  transferMethod: 'ibc_hooks'
+  sourceChainId: string
+  sourceChainName: string
+  destinationChainId: string
+  destinationChainName: string
+  destinationRestUrl: string
+  assetSymbol: string
+  assetDenom: string
+  erc20FactoryAddress?: string
+  erc20Address?: string
+  swapSummary: string
+  oracleQuote: LiquidityOracleQuoteState
 }
 
 export interface OperatorActionRecord {

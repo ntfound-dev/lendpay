@@ -9,7 +9,9 @@ const challengeSchema = z.object({
 const verifySchema = z.object({
   address: z.string().min(10),
   challengeId: z.string().uuid(),
-  signed: z.unknown(),
+  mode: z.enum(['amino', 'personal_sign']).optional(),
+  message: z.string().optional(),
+  signed: z.unknown().optional(),
   signature: z.unknown(),
 })
 
@@ -21,10 +23,7 @@ export const registerAuthRoutes = async (app: FastifyInstance, deps: AppDeps) =>
 
   app.post('/api/v1/auth/verify', async (request) => {
     const body = verifySchema.parse(request.body)
-    return deps.authService.verify(body.address, body.challengeId, {
-      signed: body.signed,
-      signature: body.signature,
-    })
+    return deps.authService.verify(body.address, body.challengeId, body)
   })
 
   app.post('/api/v1/auth/refresh', async (request) => {

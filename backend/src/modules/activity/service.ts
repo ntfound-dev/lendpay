@@ -1,5 +1,6 @@
 import { mapActivity } from '../../db/mappers.js'
 import { prisma } from '../../db/prisma.js'
+import { createPrefixedId } from '../../lib/ids.js'
 import type { ActivityItem } from '../../types/domain.js'
 
 export class ActivityService {
@@ -18,7 +19,7 @@ export class ActivityService {
     item: Omit<ActivityItem, 'id' | 'timestamp'> & Partial<Pick<ActivityItem, 'id' | 'timestamp'>>,
   ) {
     const next: ActivityItem = {
-      id: item.id ?? `activity-${Date.now()}`,
+      id: item.id ?? createPrefixedId('activity'),
       timestamp: item.timestamp ?? new Date().toISOString(),
       ...item,
     }

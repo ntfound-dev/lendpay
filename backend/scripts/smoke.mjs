@@ -6,9 +6,11 @@ import { pushPrismaSchema } from './db.mjs'
 process.env.APP_ENV = process.env.APP_ENV || 'test'
 process.env.AUTH_ACCEPT_ANY_SIGNATURE = 'false'
 process.env.PREVIEW_OPERATOR_TOKEN = process.env.PREVIEW_OPERATOR_TOKEN || 'preview-operator'
-process.env.DATABASE_URL = process.env.DATABASE_URL || `file:/tmp/lendpay-smoke-${Date.now()}.db`
+process.env.DATABASE_URL =
+  process.env.DATABASE_URL ||
+  `postgresql://postgres:postgres@127.0.0.1:55432/lendpay_dev?schema=smoke_${Date.now()}`
 
-pushPrismaSchema(process.env.DATABASE_URL)
+await pushPrismaSchema(process.env.DATABASE_URL)
 
 const [{ buildApp }, { buildChallengeSignDoc }] = await Promise.all([
   import('../dist/app.js'),
@@ -66,40 +68,17 @@ try {
   expectOk(analyzeResponse.statusCode, analyzeResponse.body, 'analyze')
 
   const score = parseJson(analyzeResponse.body)
-  const requestAmount = Math.min(400, score.limitUsd)
-
-  const requestResponse = await app.inject({
-    method: 'POST',
-    url: '/api/v1/loan-requests',
+  const profilesResponse = await app.inject({
+    method: 'GET',
+    url: '/api/v1/protocol/profiles',
     headers: { authorization: authHeader },
-    payload: {
-      amount: requestAmount,
-      tenorMonths: 3,
-    },
   })
-  expectOk(requestResponse.statusCode, requestResponse.body, 'create request')
+  expectOk(profilesResponse.statusCode, profilesResponse.body, 'list profiles')
 
-  const request = parseJson(requestResponse.body)
-
-  const approveResponse = await app.inject({
-    method: 'POST',
-    url: `/api/v1/loan-requests/${request.id}/approve`,
-    headers: { 'x-operator-token': process.env.PREVIEW_OPERATOR_TOKEN },
-    payload: { reason: 'Smoke approval' },
-  })
-  expectOk(approveResponse.statusCode, approveResponse.body, 'approve request')
-
-  const approval = parseJson(approveResponse.body)
-
-  const repayResponse = await app.inject({
-    method: 'POST',
-    url: `/api/v1/loans/${approval.loan.id}/repay`,
-    headers: { authorization: authHeader },
-    payload: {},
-  })
-  expectOk(repayResponse.statusCode, repayResponse.body, 'repay loan')
-
-  const repay = parseJson(repayResponse.body)
+  const profiles = parseJson(profilesResponse.body)
+  const selectedProfile =
+    profiles.find((profile) => profile.qualified && !profile.requiresCollateral) ||
+    profiles.find((profile) => profile.qualified)
 
   const meResponse = await app.inject({
     method: 'GET',
@@ -109,6 +88,58 @@ try {
   expectOk(meResponse.statusCode, meResponse.body, 'fetch me')
 
   const profile = parseJson(meResponse.body)
+  let requestId = null
+  let loanId = null
+  let repaidInstallment = null
+  let skippedReason = null
+
+  if (selectedProfile) {
+    const requestAmount = Math.max(1, Math.min(400, score.limitUsd, selectedProfile.maxPrincipal))
+    const tenorMonths = Math.max(1, Math.min(3, selectedProfile.maxTenorMonths))
+    const collateralAmount = selectedProfile.requiresCollateral
+      ? Math.ceil((requestAmount * selectedProfile.collateralRatioBps) / 10_000)
+      : undefined
+
+    const requestResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/loan-requests',
+      headers: { authorization: authHeader },
+      payload: {
+        amount: requestAmount,
+        tenorMonths,
+        profileId: selectedProfile.profileId,
+        collateralAmount,
+      },
+    })
+    expectOk(requestResponse.statusCode, requestResponse.body, 'create request')
+
+    const request = parseJson(requestResponse.body)
+    requestId = request.id
+
+    const approveResponse = await app.inject({
+      method: 'POST',
+      url: `/api/v1/loan-requests/${request.id}/approve`,
+      headers: { 'x-operator-token': process.env.PREVIEW_OPERATOR_TOKEN },
+      payload: { reason: 'Smoke approval' },
+    })
+    expectOk(approveResponse.statusCode, approveResponse.body, 'approve request')
+
+    const approval = parseJson(approveResponse.body)
+    loanId = approval.loan.id
+
+    const repayResponse = await app.inject({
+      method: 'POST',
+      url: `/api/v1/loans/${approval.loan.id}/repay`,
+      headers: { authorization: authHeader },
+      payload: {},
+    })
+    expectOk(repayResponse.statusCode, repayResponse.body, 'repay loan')
+
+    const repay = parseJson(repayResponse.body)
+    repaidInstallment = repay.repaidInstallment
+  } else {
+    skippedReason = 'no_qualified_profile'
+  }
 
   console.log(
     JSON.stringify(
@@ -116,9 +147,12 @@ try {
         ok: true,
         address: profile.initiaAddress,
         score: score.score,
-        requestId: request.id,
-        loanId: approval.loan.id,
-        repayInstallment: repay.repaidInstallment,
+        qualifiedProfiles: profiles.filter((entry) => entry.qualified).length,
+        requestId,
+        loanId,
+        repaidInstallment,
+        requestFlowSkipped: skippedReason !== null,
+        skippedReason,
         points: profile.rewards.points,
       },
       null,

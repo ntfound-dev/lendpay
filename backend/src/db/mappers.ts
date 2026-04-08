@@ -63,6 +63,8 @@ export const mapUserProfile = (
     username?: string
     usernameSource?: UsernameSource
     usernameVerified?: boolean
+    usernameVerifiedOnL1?: boolean
+    usernameAttestedOnRollup?: boolean
   },
 ): UserProfile => ({
   id: user.id,
@@ -70,6 +72,8 @@ export const mapUserProfile = (
   username: identity?.username ?? user.username ?? undefined,
   usernameSource: identity?.usernameSource,
   usernameVerified: identity?.usernameVerified ?? false,
+  usernameVerifiedOnL1: identity?.usernameVerifiedOnL1 ?? false,
+  usernameAttestedOnRollup: identity?.usernameAttestedOnRollup ?? false,
   referralCode: user.referralCode ?? undefined,
   referredBy: user.referredBy ?? undefined,
   referralPointsEarned: user.referralPointsEarned,

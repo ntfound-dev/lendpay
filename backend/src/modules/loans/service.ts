@@ -14,6 +14,7 @@ import type { ActivityService } from '../activity/service.js'
 import type { ScoreService } from '../scores/service.js'
 import type { UserService } from '../users/service.js'
 import { env } from '../../config/env.js'
+import { createPrefixedId } from '../../lib/ids.js'
 import { createViralDropApps, dedupeApps, enrichOnchainMerchant } from '../protocol/apps.js'
 
 const addDays = (days: number) => {
@@ -25,6 +26,7 @@ const addDays = (days: number) => {
 const REQUEST_PENDING = 0
 const REQUEST_APPROVED = 1
 const REQUEST_REJECTED = 2
+const REQUEST_CANCELLED = 3
 
 const LOAN_ACTIVE = 10
 const LOAN_REPAID = 11
@@ -38,6 +40,7 @@ const REQUEST_STATUS_MAP: Record<number, LoanRequestState['status']> = {
   [REQUEST_PENDING]: 'pending',
   [REQUEST_APPROVED]: 'approved',
   [REQUEST_REJECTED]: 'rejected',
+  [REQUEST_CANCELLED]: 'cancelled',
 }
 
 const LOAN_STATUS_MAP: Record<number, LoanState['status']> = {
@@ -95,7 +98,23 @@ const scheduleFromOnchainLoan = (loan: OnchainLoanSnapshot): InstallmentState[] 
     }
   })
 
+const BORROWER_MIRROR_CACHE_TTL_MS = 1_500
+
+type BorrowerMirrorState = {
+  requests: LoanRequestState[]
+  loans: LoanState[]
+}
+
 export class LoanService {
+  private borrowerMirrorSyncs = new Map<string, Promise<BorrowerMirrorState>>()
+  private borrowerMirrorCache = new Map<
+    string,
+    {
+      at: number
+      state: BorrowerMirrorState
+    }
+  >()
+
   constructor(
     private rollupClient: RollupClient,
     private userService: UserService,
@@ -103,25 +122,65 @@ export class LoanService {
     private scoreService: ScoreService,
   ) {}
 
+  private getCachedBorrowerMirrors(initiaAddress: string) {
+    const cached = this.borrowerMirrorCache.get(initiaAddress)
+    if (!cached) return null
+
+    if (Date.now() - cached.at > BORROWER_MIRROR_CACHE_TTL_MS) {
+      this.borrowerMirrorCache.delete(initiaAddress)
+      return null
+    }
+
+    return cached.state
+  }
+
+  private cacheBorrowerMirrors(initiaAddress: string, state: BorrowerMirrorState) {
+    this.borrowerMirrorCache.set(initiaAddress, {
+      at: Date.now(),
+      state,
+    })
+    return state
+  }
+
   private async syncBorrowerMirrors(initiaAddress: string) {
+    const cached = this.getCachedBorrowerMirrors(initiaAddress)
+    if (cached) {
+      return cached
+    }
+
+    const inFlight = this.borrowerMirrorSyncs.get(initiaAddress)
+    if (inFlight) {
+      return inFlight
+    }
+
+    const syncPromise = this.runBorrowerMirrorSync(initiaAddress).finally(() => {
+      if (this.borrowerMirrorSyncs.get(initiaAddress) === syncPromise) {
+        this.borrowerMirrorSyncs.delete(initiaAddress)
+      }
+    })
+
+    this.borrowerMirrorSyncs.set(initiaAddress, syncPromise)
+    return syncPromise
+  }
+
+  private async runBorrowerMirrorSync(initiaAddress: string): Promise<BorrowerMirrorState> {
     await this.userService.ensureUser(initiaAddress)
 
-    const [dbRequests, dbLoans] = await Promise.all([
-      prisma.loanRequest.findMany({
+    const dbRequests = await prisma.loanRequest.findMany({
         where: { initiaAddress },
         orderBy: { submittedAt: 'desc' },
-      }),
-      prisma.loan.findMany({
-        where: { initiaAddress },
-        orderBy: { id: 'desc' },
-      }),
-    ])
+      })
+    const dbLoans = await prisma.loan.findMany({
+      where: { initiaAddress },
+      orderBy: { id: 'desc' },
+    })
+    const fallbackState = this.cacheBorrowerMirrors(initiaAddress, {
+      requests: dbRequests.map(mapLoanRequest),
+      loans: dbLoans.map(mapLoan),
+    })
 
     if (!this.rollupClient.canRead()) {
-      return {
-        requests: dbRequests.map(mapLoanRequest),
-        loans: dbLoans.map(mapLoan),
-      }
+      return fallbackState
     }
 
     const [onchainRequests, onchainLoans] = await Promise.all([
@@ -133,136 +192,147 @@ export class LoanService {
     const loanCache = new Map(dbLoans.map((loan) => [loan.id, loan]))
     const syncedRequestIds = new Set<string>()
 
-    const requestWrites = onchainRequests.map((request) => {
-      const requestId = String(request.id)
-      const existing = requestCache.get(requestId)
-      syncedRequestIds.add(requestId)
+    try {
+      const syncedRequests = []
 
-      return prisma.loanRequest.upsert({
-        where: { id: requestId },
-        create: {
-          id: requestId,
-          initiaAddress,
-          amount: request.amount,
-          collateralAmount: request.collateralAmount,
-          merchantId: existing?.merchantId,
-          merchantCategory: existing?.merchantCategory,
-          merchantAddress: existing?.merchantAddress,
-          assetSymbol: existing?.assetSymbol ?? env.ROLLUP_NATIVE_SYMBOL,
-          tenorMonths: request.tenorMonths,
-          submittedAt: new Date(request.createdAtSeconds * 1000),
-          status: REQUEST_STATUS_MAP[request.status] ?? 'pending',
-          txHash: existing?.txHash,
-        },
-        update: {
-          amount: request.amount,
-          collateralAmount: request.collateralAmount,
-          merchantId: existing?.merchantId,
-          merchantCategory: existing?.merchantCategory,
-          merchantAddress: existing?.merchantAddress,
-          assetSymbol: existing?.assetSymbol ?? env.ROLLUP_NATIVE_SYMBOL,
-          tenorMonths: request.tenorMonths,
-          submittedAt: new Date(request.createdAtSeconds * 1000),
-          status: REQUEST_STATUS_MAP[request.status] ?? 'pending',
-          txHash: existing?.txHash,
-        },
+      for (const request of onchainRequests) {
+        const requestId = String(request.id)
+        const existing = requestCache.get(requestId)
+        syncedRequestIds.add(requestId)
+
+        syncedRequests.push(
+          await prisma.loanRequest.upsert({
+            where: { id: requestId },
+            create: {
+              id: requestId,
+              initiaAddress,
+              amount: request.amount,
+              collateralAmount: request.collateralAmount,
+              merchantId: existing?.merchantId,
+              merchantCategory: existing?.merchantCategory,
+              merchantAddress: existing?.merchantAddress,
+              assetSymbol: existing?.assetSymbol ?? env.ROLLUP_NATIVE_SYMBOL,
+              tenorMonths: request.tenorMonths,
+              submittedAt: new Date(request.createdAtSeconds * 1000),
+              status: REQUEST_STATUS_MAP[request.status] ?? 'pending',
+              txHash: existing?.txHash,
+            },
+            update: {
+              amount: request.amount,
+              collateralAmount: request.collateralAmount,
+              merchantId: existing?.merchantId,
+              merchantCategory: existing?.merchantCategory,
+              merchantAddress: existing?.merchantAddress,
+              assetSymbol: existing?.assetSymbol ?? env.ROLLUP_NATIVE_SYMBOL,
+              tenorMonths: request.tenorMonths,
+              submittedAt: new Date(request.createdAtSeconds * 1000),
+              status: REQUEST_STATUS_MAP[request.status] ?? 'pending',
+              txHash: existing?.txHash,
+            },
+          }),
+        )
+      }
+
+      for (const loan of onchainLoans) {
+        const requestId = String(loan.requestId)
+        if (syncedRequestIds.has(requestId)) continue
+
+        const existing = requestCache.get(requestId)
+        syncedRequestIds.add(requestId)
+
+        syncedRequests.push(
+          await prisma.loanRequest.upsert({
+            where: { id: requestId },
+            create: {
+              id: requestId,
+              initiaAddress,
+              amount: loan.amount,
+              collateralAmount: loan.collateralAmount,
+              merchantId: existing?.merchantId,
+              merchantCategory: existing?.merchantCategory,
+              merchantAddress: existing?.merchantAddress,
+              assetSymbol: existing?.assetSymbol ?? env.ROLLUP_NATIVE_SYMBOL,
+              tenorMonths: loan.tenorMonths,
+              submittedAt: new Date(loan.issuedAtSeconds * 1000),
+              status: 'approved',
+              txHash: existing?.txHash,
+            },
+            update: {
+              amount: loan.amount,
+              collateralAmount: loan.collateralAmount,
+              merchantId: existing?.merchantId,
+              merchantCategory: existing?.merchantCategory,
+              merchantAddress: existing?.merchantAddress,
+              assetSymbol: existing?.assetSymbol ?? env.ROLLUP_NATIVE_SYMBOL,
+              tenorMonths: loan.tenorMonths,
+              submittedAt: existing?.submittedAt ?? new Date(loan.issuedAtSeconds * 1000),
+              status: 'approved',
+              txHash: existing?.txHash,
+            },
+          }),
+        )
+      }
+
+      const syncedLoans = []
+
+      for (const loan of onchainLoans) {
+        const loanId = String(loan.id)
+        const existing = loanCache.get(loanId)
+        const linkedRequest = requestCache.get(String(loan.requestId))
+
+        syncedLoans.push(
+          await prisma.loan.upsert({
+            where: { id: loanId },
+            create: {
+              id: loanId,
+              initiaAddress,
+              requestId: String(loan.requestId),
+              principal: loan.amount,
+              collateralAmount: loan.collateralAmount,
+              merchantId: existing?.merchantId ?? linkedRequest?.merchantId,
+              merchantCategory: existing?.merchantCategory ?? linkedRequest?.merchantCategory,
+              merchantAddress: existing?.merchantAddress ?? linkedRequest?.merchantAddress,
+              collateralStatus: COLLATERAL_STATUS_MAP[loan.collateralState] ?? 'none',
+              apr: loan.aprBps / 100,
+              tenorMonths: loan.tenorMonths,
+              installmentsPaid: loan.installmentsPaid,
+              status: LOAN_STATUS_MAP[loan.status] ?? 'active',
+              scheduleJson: serializeJson(scheduleFromOnchainLoan(loan)),
+              txHashApprove: existing?.txHashApprove,
+            },
+            update: {
+              requestId: String(loan.requestId),
+              principal: loan.amount,
+              collateralAmount: loan.collateralAmount,
+              merchantId: existing?.merchantId ?? linkedRequest?.merchantId,
+              merchantCategory: existing?.merchantCategory ?? linkedRequest?.merchantCategory,
+              merchantAddress: existing?.merchantAddress ?? linkedRequest?.merchantAddress,
+              collateralStatus: COLLATERAL_STATUS_MAP[loan.collateralState] ?? 'none',
+              apr: loan.aprBps / 100,
+              tenorMonths: loan.tenorMonths,
+              installmentsPaid: loan.installmentsPaid,
+              status: LOAN_STATUS_MAP[loan.status] ?? 'active',
+              scheduleJson: serializeJson(scheduleFromOnchainLoan(loan)),
+              txHashApprove: existing?.txHashApprove,
+            },
+          }),
+        )
+      }
+
+      return this.cacheBorrowerMirrors(initiaAddress, {
+        requests: syncedRequests
+          .sort((left, right) => right.submittedAt.getTime() - left.submittedAt.getTime())
+          .map(mapLoanRequest),
+        loans: syncedLoans
+          .sort((left, right) => Number(right.id) - Number(left.id))
+          .map(mapLoan),
       })
-    })
-
-    for (const loan of onchainLoans) {
-      const requestId = String(loan.requestId)
-      if (syncedRequestIds.has(requestId)) continue
-
-      const existing = requestCache.get(requestId)
-      syncedRequestIds.add(requestId)
-
-      requestWrites.push(
-        prisma.loanRequest.upsert({
-          where: { id: requestId },
-          create: {
-            id: requestId,
-            initiaAddress,
-            amount: loan.amount,
-            collateralAmount: loan.collateralAmount,
-            merchantId: existing?.merchantId,
-            merchantCategory: existing?.merchantCategory,
-            merchantAddress: existing?.merchantAddress,
-            assetSymbol: existing?.assetSymbol ?? env.ROLLUP_NATIVE_SYMBOL,
-            tenorMonths: loan.tenorMonths,
-            submittedAt: new Date(loan.issuedAtSeconds * 1000),
-            status: 'approved',
-            txHash: existing?.txHash,
-          },
-          update: {
-            amount: loan.amount,
-            collateralAmount: loan.collateralAmount,
-            merchantId: existing?.merchantId,
-            merchantCategory: existing?.merchantCategory,
-            merchantAddress: existing?.merchantAddress,
-            assetSymbol: existing?.assetSymbol ?? env.ROLLUP_NATIVE_SYMBOL,
-            tenorMonths: loan.tenorMonths,
-            submittedAt: existing?.submittedAt ?? new Date(loan.issuedAtSeconds * 1000),
-            status: 'approved',
-            txHash: existing?.txHash,
-          },
-        }),
+    } catch (error) {
+      console.warn(
+        `[LoanService] borrower mirror sync fallback for ${initiaAddress}:`,
+        error instanceof Error ? error.message : error,
       )
-    }
-
-    const loanWrites = onchainLoans.map((loan) => {
-      const loanId = String(loan.id)
-      const existing = loanCache.get(loanId)
-      const linkedRequest = requestCache.get(String(loan.requestId))
-
-      return prisma.loan.upsert({
-        where: { id: loanId },
-        create: {
-          id: loanId,
-          initiaAddress,
-          requestId: String(loan.requestId),
-          principal: loan.amount,
-          collateralAmount: loan.collateralAmount,
-          merchantId: existing?.merchantId ?? linkedRequest?.merchantId,
-          merchantCategory: existing?.merchantCategory ?? linkedRequest?.merchantCategory,
-          merchantAddress: existing?.merchantAddress ?? linkedRequest?.merchantAddress,
-          collateralStatus: COLLATERAL_STATUS_MAP[loan.collateralState] ?? 'none',
-          apr: loan.aprBps / 100,
-          tenorMonths: loan.tenorMonths,
-          installmentsPaid: loan.installmentsPaid,
-          status: LOAN_STATUS_MAP[loan.status] ?? 'active',
-          scheduleJson: serializeJson(scheduleFromOnchainLoan(loan)),
-          txHashApprove: existing?.txHashApprove,
-        },
-        update: {
-          requestId: String(loan.requestId),
-          principal: loan.amount,
-          collateralAmount: loan.collateralAmount,
-          merchantId: existing?.merchantId ?? linkedRequest?.merchantId,
-          merchantCategory: existing?.merchantCategory ?? linkedRequest?.merchantCategory,
-          merchantAddress: existing?.merchantAddress ?? linkedRequest?.merchantAddress,
-          collateralStatus: COLLATERAL_STATUS_MAP[loan.collateralState] ?? 'none',
-          apr: loan.aprBps / 100,
-          tenorMonths: loan.tenorMonths,
-          installmentsPaid: loan.installmentsPaid,
-          status: LOAN_STATUS_MAP[loan.status] ?? 'active',
-          scheduleJson: serializeJson(scheduleFromOnchainLoan(loan)),
-          txHashApprove: existing?.txHashApprove,
-        },
-      })
-    })
-
-    const [syncedRequests, syncedLoans] = await Promise.all([
-      Promise.all(requestWrites),
-      Promise.all(loanWrites),
-    ])
-
-    return {
-      requests: syncedRequests
-        .sort((left, right) => right.submittedAt.getTime() - left.submittedAt.getTime())
-        .map(mapLoanRequest),
-      loans: syncedLoans
-        .sort((left, right) => Number(right.id) - Number(left.id))
-        .map(mapLoan),
+      return fallbackState
     }
   }
 
@@ -395,7 +465,7 @@ export class LoanService {
       )
     }
 
-    let requestId = `request-${initiaAddress.slice(-6)}-${Date.now()}`
+    let requestId = createPrefixedId(`request-${initiaAddress.slice(-6)}`)
     let requestStatus: LoanRequestState['status'] = 'pending'
 
     if (input.txHash && this.rollupClient.canRead()) {
@@ -504,7 +574,7 @@ export class LoanService {
     const loan = await prisma.loan.upsert({
       where: { requestId: request.id },
       create: {
-        id: onchainLoan ? String(onchainLoan.id) : `loan-${Date.now()}`,
+        id: onchainLoan ? String(onchainLoan.id) : createPrefixedId('loan'),
         initiaAddress: borrower.initiaAddress,
         requestId: request.id,
         principal: onchainLoan ? onchainLoan.amount : request.amount,
@@ -551,7 +621,7 @@ export class LoanService {
 
     await prisma.operatorAction.create({
       data: {
-        id: `operator-${Date.now()}`,
+        id: createPrefixedId('operator'),
         actorAddress: operatorAddress,
         actionType: 'approve_request',
         targetType: 'loan_request',
@@ -578,6 +648,38 @@ export class LoanService {
       txHash: broadcast.txHash,
       mode: broadcast.live ? 'live' : 'preview',
     }
+  }
+
+  async approveOwnPendingRequest(
+    initiaAddress: string,
+    requestId: string,
+    reason = 'Borrower demo review',
+  ) {
+    if (!env.PREVIEW_APPROVAL_ENABLED) {
+      throw new AppError(
+        403,
+        'DEMO_REVIEW_DISABLED',
+        'Demo approval is disabled on this backend.',
+      )
+    }
+
+    const request = await prisma.loanRequest.findUnique({
+      where: { id: requestId },
+    })
+
+    if (!request) {
+      throw new AppError(404, 'REQUEST_NOT_FOUND', 'Loan request was not found.')
+    }
+
+    if (request.initiaAddress !== initiaAddress) {
+      throw new AppError(
+        403,
+        'REQUEST_FORBIDDEN',
+        'You can only review your own pending requests.',
+      )
+    }
+
+    return this.approveRequest(requestId, 'preview-operator', reason)
   }
 
   async listLoans(initiaAddress: string) {

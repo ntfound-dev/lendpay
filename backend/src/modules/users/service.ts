@@ -6,6 +6,7 @@ import type {
   FaucetState,
   LeaderboardEntry,
   LeaderboardState,
+  OnchainRewardsSnapshot,
   ReferralEntry,
   ReferralState,
   RewardTier,
@@ -14,6 +15,7 @@ import type {
 import type { UsernameResolution, UsernamesClient } from '../../integrations/l1/usernames.js'
 import type { RollupClient } from '../../integrations/rollup/client.js'
 import { AppError } from '../../lib/errors.js'
+import { createPrefixedId } from '../../lib/ids.js'
 
 const resolveTier = (points: number): RewardTier => {
   if (points >= 10000) return 'Diamond'
@@ -109,6 +111,35 @@ export class UserService {
     private rollupClient: RollupClient,
   ) {}
 
+  private async syncL1UsernameAttestation(
+    initiaAddress: string,
+    l1Username: UsernameResolution,
+    onchain: OnchainRewardsSnapshot | null,
+  ): Promise<OnchainRewardsSnapshot | null> {
+    if (!l1Username.verified || !l1Username.username || !this.rollupClient.canBroadcast()) {
+      return onchain
+    }
+
+    const onchainUsername = onchain?.username?.trim()
+    const verifiedOnRollup = Boolean(onchain?.usernameVerified)
+    const normalizedL1Username = l1Username.username.trim()
+
+    if (verifiedOnRollup && onchainUsername === normalizedL1Username) {
+      return onchain
+    }
+
+    try {
+      await this.rollupClient.attestUsername({
+        userAddress: initiaAddress,
+        username: normalizedL1Username,
+      })
+
+      return (await this.rollupClient.syncRewards(initiaAddress).catch(() => onchain)) ?? onchain
+    } catch {
+      return onchain
+    }
+  }
+
   private resolveIdentity(
     l1Username: UsernameResolution,
     onchain?: {
@@ -119,12 +150,16 @@ export class UserService {
     username?: string
     usernameSource?: UsernameSource
     usernameVerified: boolean
+    usernameVerifiedOnL1: boolean
+    usernameAttestedOnRollup: boolean
   } {
     if (onchain?.username && onchain.usernameVerified) {
       return {
         username: onchain.username,
         usernameSource: 'rollup',
         usernameVerified: true,
+        usernameVerifiedOnL1: l1Username.verified,
+        usernameAttestedOnRollup: true,
       }
     }
 
@@ -132,6 +167,8 @@ export class UserService {
       username: l1Username.username,
       usernameSource: l1Username.source,
       usernameVerified: l1Username.verified,
+      usernameVerifiedOnL1: l1Username.verified,
+      usernameAttestedOnRollup: false,
     }
   }
 
@@ -206,12 +243,13 @@ export class UserService {
   }
 
   async ensureUser(initiaAddress: string) {
-    const onchain = await this.rollupClient.syncRewards(initiaAddress).catch(() => null)
+    let onchain = await this.rollupClient.syncRewards(initiaAddress).catch(() => null)
     const wallet = await this.rollupClient.getWalletSnapshot(initiaAddress).catch(() => ({
       nativeBalance: 0,
       lockedCollateralLend: 0,
     }))
     const resolvedUsername = await this.usernamesClient.resolveNameWithSource(initiaAddress)
+    onchain = await this.syncL1UsernameAttestation(initiaAddress, resolvedUsername, onchain)
     const identity = this.resolveIdentity(resolvedUsername, onchain)
     const username = identity.username
 
@@ -365,7 +403,7 @@ export class UserService {
 
     await prisma.operatorAction.create({
       data: {
-        id: `faucet-${Date.now()}`,
+        id: createPrefixedId('faucet'),
         actorAddress: env.ROLLUP_KEY_NAME || 'faucet-relayer',
         actionType: FAUCET_ACTION_TYPE,
         targetType: FAUCET_TARGET_TYPE,
@@ -491,7 +529,7 @@ export class UserService {
         where: { refereeAddress: initiaAddress },
         update: { referrerAddress: referrer.initiaAddress, status: 'pending' },
         create: {
-          id: `ref-${Date.now()}`,
+          id: createPrefixedId('ref'),
           referrerAddress: referrer.initiaAddress,
           refereeAddress: initiaAddress,
           status: 'pending',
