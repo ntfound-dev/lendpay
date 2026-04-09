@@ -1,3 +1,3 @@
-import { pushPrismaSchema, resolveSchemaDatabaseUrl } from './db.mjs'
+import { pushPrismaSchema, resolveDatabaseUrl } from './db.mjs'
 
-await pushPrismaSchema(resolveSchemaDatabaseUrl())
+await pushPrismaSchema(resolveDatabaseUrl())

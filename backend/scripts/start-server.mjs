@@ -1,4 +1,4 @@
-import { pushPrismaSchema, resolveSchemaDatabaseUrl } from './db.mjs'
+import { pushPrismaSchema, resolveDatabaseUrl } from './db.mjs'
 
 const redactDatabaseUrl = (value) => {
   try {
@@ -12,10 +12,9 @@ const redactDatabaseUrl = (value) => {
   }
 }
 
-const schemaUrl = resolveSchemaDatabaseUrl()
-const schemaSource = process.env.DIRECT_DATABASE_URL?.trim() ? 'DIRECT_DATABASE_URL' : 'DATABASE_URL'
+const schemaUrl = resolveDatabaseUrl()
 
-console.log(`[startup] syncing prisma schema via ${schemaSource}`)
+console.log('[startup] syncing prisma schema via DATABASE_URL')
 console.log(`[startup] schema target: ${redactDatabaseUrl(schemaUrl)}`)
 
 try {

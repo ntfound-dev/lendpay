@@ -10,11 +10,6 @@ export const resolveDatabaseUrl = () => {
   return value && value.length > 0 ? value : DEFAULT_DATABASE_URL
 }
 
-export const resolveSchemaDatabaseUrl = () => {
-  const directValue = process.env.DIRECT_DATABASE_URL?.trim()
-  return directValue && directValue.length > 0 ? directValue : resolveDatabaseUrl()
-}
-
 const resolveSqlitePath = (databaseUrl) => {
   if (!databaseUrl.startsWith('file:')) {
     return null
@@ -84,7 +79,7 @@ const waitForPostgresServer = async (databaseUrl) => {
   )
 }
 
-export const pushPrismaSchema = async (databaseUrl = resolveSchemaDatabaseUrl()) => {
+export const pushPrismaSchema = async (databaseUrl = resolveDatabaseUrl()) => {
   prepareSqliteDatabase(databaseUrl)
 
   if (isPostgresUrl(databaseUrl)) {
