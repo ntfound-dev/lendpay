@@ -15,7 +15,6 @@ import {
   shortenAddress,
 } from '../../lib/format'
 import type {
-  LendLiquidityRouteState,
   LeaderboardEntry,
   ReferralState,
   RewardsState,
@@ -58,7 +57,6 @@ type LoyaltyHubPageProps = {
   interestDiscountPercent: string
   isApplyingReferral: boolean
   isProtocolActionPending: (key: string) => boolean
-  lendLiquidityRoute: LendLiquidityRouteState | null
   leaderboardMyRank?: number
   leaderboardTab: 'borrowers' | 'repayers' | 'referrers' | 'risingStars'
   leaderboardTabMeta: string
@@ -115,7 +113,6 @@ export function LoyaltyHubPage({
   interestDiscountPercent,
   isApplyingReferral,
   isProtocolActionPending,
-  lendLiquidityRoute,
   leaderboardMyRank,
   leaderboardTab,
   leaderboardTabMeta,
@@ -229,126 +226,6 @@ export function LoyaltyHubPage({
           ) : null}
         </Card>
       </div>
-
-      <details className="dev-info-accordion section-stack">
-        <summary className="dev-info-accordion__trigger">
-          <span>Developer info</span>
-          <span className="dev-info-accordion__badge">Technical</span>
-          <span className="dev-info-accordion__chevron">▼</span>
-        </summary>
-        <div className="dev-info-accordion__content">
-          <div className="grid--2">
-            <Card eyebrow="Move LEND" title="MiniEVM route and liquidity status" className="loyalty-panel">
-              {lendLiquidityRoute ? (
-                <>
-                  <div className="summary">
-                    <div className="summary-row">
-                      <span>Route mode</span>
-                      <strong>{lendLiquidityRoute.routeMode === 'live' ? 'Live mapping' : 'Preview only'}</strong>
-                    </div>
-                    <div className="summary-row">
-                      <span>Wallet handler</span>
-                      <strong>InterwovenKit only</strong>
-                    </div>
-                    <div className="summary-row">
-                      <span>Route path</span>
-                      <strong>
-                        {lendLiquidityRoute.sourceChainName} → {lendLiquidityRoute.destinationChainName}
-                      </strong>
-                    </div>
-                    <div className="summary-row">
-                      <span>Cross-VM method</span>
-                      <strong>IBC Hooks</strong>
-                    </div>
-                    <div className="summary-row">
-                      <span>LEND denom lookup</span>
-                      <strong>{lendLiquidityRoute.assetDenom}</strong>
-                    </div>
-                    <div className="summary-row">
-                      <span>MiniEVM ERC20</span>
-                      <strong>
-                        {lendLiquidityRoute.erc20Address
-                          ? shortenAddress(lendLiquidityRoute.erc20Address)
-                          : 'Mapping not published yet'}
-                      </strong>
-                    </div>
-                  </div>
-                  <p className="muted-copy loyalty-panel__lead">{lendLiquidityRoute.swapSummary}</p>
-                  <div className="loyalty-panel__note">
-                    LendPay keeps InterwovenKit as the only wallet approval flow. When cross-VM execution goes live,
-                    the move path will follow official Initia IBC Hooks instead of a custom bridge claim.
-                  </div>
-                  {lendLiquidityRoute.erc20FactoryAddress ? (
-                    <div className="loyalty-panel__hint">
-                      ERC20 factory: {shortenAddress(lendLiquidityRoute.erc20FactoryAddress)}
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <EmptyState
-                  title="MiniEVM route unavailable"
-                  subtitle={
-                    sectionErrors.liquidity ??
-                    'Refresh your account to load the current LEND denom conversion status and liquidity route.'
-                  }
-                  actionLabel="Retry load"
-                  onAction={handleRetryLoad}
-                />
-              )}
-            </Card>
-
-            <Card eyebrow="Swap LEND" title="Official Connect quote" className="loyalty-panel">
-              {lendLiquidityRoute ? (
-                <>
-                  <div className="summary">
-                    <div className="summary-row">
-                      <span>Quote pair</span>
-                      <strong>{lendLiquidityRoute.oracleQuote.resolvedPair}</strong>
-                    </div>
-                    <div className="summary-row">
-                      <span>Quote mode</span>
-                      <strong>
-                        {lendLiquidityRoute.oracleQuote.pairMode === 'direct' ? 'Direct feed' : 'Reference feed'}
-                      </strong>
-                    </div>
-                    <div className="summary-row">
-                      <span>Reference price</span>
-                      <strong>${formatNumber(lendLiquidityRoute.oracleQuote.price)}</strong>
-                    </div>
-                    <div className="summary-row">
-                      <span>Updated</span>
-                      <strong>
-                        {formatDate(
-                          lendLiquidityRoute.oracleQuote.blockTimestamp ??
-                            lendLiquidityRoute.oracleQuote.fetchedAt,
-                        )}
-                      </strong>
-                    </div>
-                  </div>
-                  <p className="muted-copy loyalty-panel__lead">
-                    Use this as the official liquidity reference before sending LEND into MiniEVM swap venues.
-                  </p>
-                  {lendLiquidityRoute.oracleQuote.pairReason ? (
-                    <div className="loyalty-panel__note loyalty-panel__note--warning">
-                      {lendLiquidityRoute.oracleQuote.pairReason}
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <EmptyState
-                  title="Connect quote unavailable"
-                  subtitle={
-                    sectionErrors.liquidity ??
-                    'The official oracle reference appears here after MiniEVM route data loads.'
-                  }
-                  actionLabel="Retry load"
-                  onAction={handleRetryLoad}
-                />
-              )}
-            </Card>
-          </div>
-        </div>
-      </details>
 
       <div className="grid--2 section-stack">
         <Card eyebrow="Referral" title="Your referral code" className="loyalty-panel">

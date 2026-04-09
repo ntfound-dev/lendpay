@@ -1,0 +1,2598 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LendPay Scan</title>
+    <meta
+      name="description"
+      content="LendPay Chain Explorer for lendpay-4. Monitor blocks, transactions, and NFT activity from the local Initia MiniMove chain."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+      :root {
+        --bg: #0e0e0e;
+        --panel: #1a1a1a;
+        --panel-soft: #151515;
+        --panel-elevated: #202020;
+        --border: #2a2a2a;
+        --border-strong: rgba(0, 212, 200, 0.28);
+        --accent: #00d4c8;
+        --accent-soft: rgba(0, 212, 200, 0.12);
+        --accent-muted: rgba(0, 212, 200, 0.18);
+        --success: #26d07c;
+        --danger: #ff6b6b;
+        --warning: #f8c14d;
+        --text: #f4f5f7;
+        --text-muted: #9ca3af;
+        --text-soft: #c8ccd2;
+        --mono: 'IBM Plex Mono', monospace;
+        --sans: 'Inter', sans-serif;
+        --shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+      }
+
+      body {
+        margin: 0;
+        font-family: var(--sans);
+        background:
+          radial-gradient(circle at top right, rgba(0, 212, 200, 0.08), transparent 22%),
+          radial-gradient(circle at bottom left, rgba(0, 212, 200, 0.05), transparent 20%),
+          var(--bg);
+        color: var(--text);
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .app-shell {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 24px 18px 20px;
+        border-right: 1px solid var(--border);
+        background:
+          linear-gradient(180deg, rgba(26, 26, 26, 0.98), rgba(15, 15, 15, 0.98));
+      }
+
+      .sidebar__top {
+        display: grid;
+        gap: 20px;
+      }
+
+      .sidebar__section {
+        display: grid;
+        gap: 10px;
+      }
+
+      .sidebar__label {
+        color: var(--text-muted);
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .sidebar__action {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        padding: 12px 12px 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: transparent;
+        color: var(--text-soft);
+        transition: border-color 160ms ease, color 160ms ease, transform 160ms ease, background 160ms ease;
+      }
+
+      .sidebar__action:hover,
+      .sidebar__action--active {
+        border-color: var(--border-strong);
+        background: rgba(255, 255, 255, 0.02);
+        color: var(--text);
+        transform: translateY(-1px);
+      }
+
+      .sidebar__action small {
+        color: var(--text-muted);
+      }
+
+      .sidebar__saved {
+        display: grid;
+        gap: 10px;
+      }
+
+      .sidebar__saved-empty {
+        padding: 14px;
+        border: 1px dashed var(--border);
+        border-radius: 14px;
+        color: var(--text-muted);
+        font-size: 0.86rem;
+        line-height: 1.6;
+      }
+
+      .saved-account {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #141414;
+        color: var(--text-soft);
+        text-align: left;
+        transition: border-color 160ms ease, transform 160ms ease;
+      }
+
+      .saved-account:hover,
+      .saved-account--active {
+        border-color: var(--border-strong);
+        transform: translateY(-1px);
+      }
+
+      .saved-account__avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 0.78rem;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      .saved-account__copy {
+        min-width: 0;
+      }
+
+      .saved-account__copy strong,
+      .copyable__value,
+      .metric-card__value--mono,
+      .table__mono,
+      .modal__mono,
+      .topbar__wallet,
+      .chain-badge,
+      .sidebar__footer-meta {
+        font-family: var(--mono);
+      }
+
+      .saved-account__copy strong {
+        display: block;
+        color: var(--text);
+        font-size: 0.84rem;
+        font-weight: 600;
+      }
+
+      .saved-account__copy span {
+        display: block;
+        margin-top: 2px;
+        color: var(--text-muted);
+        font-size: 0.74rem;
+      }
+
+      .sidebar__footer {
+        display: grid;
+        gap: 12px;
+      }
+
+      .sidebar__footer-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: #141414;
+        color: var(--text-soft);
+        font-size: 0.8rem;
+      }
+
+      .sidebar__doc {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: fit-content;
+        color: var(--accent);
+        font-size: 0.86rem;
+        font-weight: 600;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 18px 22px 28px;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: auto minmax(260px, 1fr) auto;
+        align-items: center;
+        gap: 18px;
+        padding: 14px 18px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: rgba(26, 26, 26, 0.88);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(14px);
+      }
+
+      .topbar__brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .topbar__brand-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--border);
+        overflow: hidden;
+      }
+
+      .topbar__brand-icon img {
+        width: 24px;
+        height: 24px;
+      }
+
+      .topbar__brand-copy {
+        display: grid;
+        gap: 2px;
+      }
+
+      .topbar__brand-copy span {
+        color: var(--text-muted);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .topbar__brand-copy strong {
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      .topbar__search {
+        position: relative;
+      }
+
+      .topbar__search input,
+      .search-inline input {
+        width: 100%;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: #141414;
+        color: var(--text);
+        padding: 13px 14px;
+        transition: border-color 160ms ease, box-shadow 160ms ease;
+      }
+
+      .topbar__search input:focus,
+      .search-inline input:focus {
+        outline: none;
+        border-color: var(--border-strong);
+        box-shadow: 0 0 0 4px rgba(0, 212, 200, 0.08);
+      }
+
+      .topbar__meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .chain-badge,
+      .toggle-pill,
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0.58rem 0.82rem;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #151515;
+        color: var(--text-soft);
+        font-size: 0.78rem;
+        font-weight: 600;
+      }
+
+      .chain-badge__dot,
+      .status-pill__dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
+      .chain-badge {
+        color: var(--accent);
+        border-color: rgba(0, 212, 200, 0.22);
+      }
+
+      .topbar__wallet {
+        padding: 0.58rem 0.82rem;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #141414;
+        color: var(--text-soft);
+        font-size: 0.78rem;
+        font-weight: 500;
+      }
+
+      .page {
+        margin-top: 18px;
+      }
+
+      .tabs {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+
+      .tab {
+        padding: 0.78rem 1rem;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        transition: border-color 160ms ease, color 160ms ease, background 160ms ease, transform 160ms ease;
+      }
+
+      .tab:hover,
+      .tab--active {
+        background: rgba(255, 255, 255, 0.02);
+        color: var(--text);
+        border-color: var(--border-strong);
+        transform: translateY(-1px);
+      }
+
+      .notice {
+        display: none;
+        margin-bottom: 16px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 107, 107, 0.22);
+        background: rgba(255, 107, 107, 0.08);
+        color: #ffd9d9;
+        line-height: 1.6;
+      }
+
+      .notice--show {
+        display: block;
+      }
+
+      .view {
+        display: none;
+      }
+
+      .view--active {
+        display: block;
+      }
+
+      .page-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+
+      .page-head__copy h1 {
+        margin: 0;
+        font-size: clamp(1.7rem, 3vw, 2.25rem);
+        line-height: 1.08;
+      }
+
+      .page-head__copy p {
+        margin: 10px 0 0;
+        color: var(--text-muted);
+        line-height: 1.65;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      .metric-card,
+      .panel,
+      .table-card,
+      .nft-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+      }
+
+      .metric-card {
+        padding: 16px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .metric-card__top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .metric-card__label {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+
+      .metric-card__jump {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #161616;
+        color: var(--accent);
+        transition: border-color 160ms ease, transform 160ms ease;
+      }
+
+      .metric-card__jump:hover {
+        border-color: var(--border-strong);
+        transform: translateY(-1px);
+      }
+
+      .metric-card__value {
+        font-size: clamp(1.4rem, 2.4vw, 2rem);
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .metric-card__meta {
+        color: var(--text-muted);
+        font-size: 0.86rem;
+      }
+
+      .table-card,
+      .panel,
+      .nft-card {
+        padding: 18px;
+      }
+
+      .table-card__head,
+      .panel__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 14px;
+      }
+
+      .table-card__title,
+      .panel__title {
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      .table-card__meta,
+      .panel__meta {
+        color: var(--text-muted);
+        font-size: 0.84rem;
+      }
+
+      .table-wrap {
+        overflow: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 14px 10px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: middle;
+      }
+
+      th {
+        color: var(--text-muted);
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      tbody tr {
+        transition: background 140ms ease;
+      }
+
+      tbody tr:hover {
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .table__row-button {
+        cursor: pointer;
+      }
+
+      .table__accent {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      .table__secondary {
+        display: block;
+        margin-top: 6px;
+        color: var(--text-muted);
+        font-size: 0.8rem;
+      }
+
+      .table__time {
+        display: grid;
+        gap: 4px;
+      }
+
+      .table__relative {
+        color: var(--text-muted);
+        font-size: 0.78rem;
+      }
+
+      .copyable {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      .copyable__value {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .copyable__button {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--accent);
+        opacity: 0;
+        transition: opacity 140ms ease, background 140ms ease, border-color 140ms ease;
+        flex-shrink: 0;
+      }
+
+      .copyable:hover .copyable__button,
+      .copyable__button:focus-visible {
+        opacity: 1;
+      }
+
+      .copyable__button:hover,
+      .copyable__button:focus-visible {
+        background: var(--accent-soft);
+        border-color: rgba(0, 212, 200, 0.18);
+        outline: none;
+      }
+
+      .copyable__button svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      .proposer {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .proposer__avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 0.78rem;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      .status-pill--confirmed {
+        color: var(--success);
+        border-color: rgba(38, 208, 124, 0.22);
+      }
+
+      .status-pill--failed {
+        color: var(--danger);
+        border-color: rgba(255, 107, 107, 0.22);
+      }
+
+      .search-inline {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .search-inline input {
+        min-width: 0;
+      }
+
+      .search-inline__meta {
+        color: var(--text-muted);
+        font-size: 0.82rem;
+      }
+
+      .empty-state {
+        padding: 34px 24px;
+        border: 1px dashed var(--border);
+        border-radius: 18px;
+        color: var(--text-muted);
+        text-align: center;
+        line-height: 1.7;
+      }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(0, 0, 0, 0.72);
+        backdrop-filter: blur(6px);
+        z-index: 50;
+      }
+
+      .modal-backdrop--show {
+        display: flex;
+      }
+
+      .modal {
+        width: min(100%, 980px);
+        max-height: calc(100vh - 36px);
+        overflow: auto;
+        background: #161616;
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+      }
+
+      .modal__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 20px 20px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .modal__title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .modal__title-row h2 {
+        margin: 0;
+        font-size: 1.2rem;
+      }
+
+      .modal__sub {
+        margin-top: 8px;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+      }
+
+      .modal__close {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: #1d1d1d;
+        color: var(--text);
+        font-size: 1.2rem;
+      }
+
+      .modal__body {
+        padding: 20px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .modal__stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .modal__stat {
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: #1b1b1b;
+      }
+
+      .modal__stat span {
+        color: var(--text-muted);
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .modal__stat strong {
+        display: block;
+        margin-top: 8px;
+        font-size: 1rem;
+      }
+
+      .modal__section {
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: #191919;
+      }
+
+      .modal__section-title {
+        margin: 0 0 14px;
+        font-size: 0.92rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+
+      .modal__rows {
+        display: grid;
+        gap: 12px;
+      }
+
+      .modal__row {
+        display: grid;
+        grid-template-columns: 120px minmax(0, 1fr);
+        gap: 12px;
+        align-items: flex-start;
+      }
+
+      .modal__row-label {
+        color: var(--text-muted);
+        font-size: 0.82rem;
+      }
+
+      .modal__row-value {
+        min-width: 0;
+        color: var(--text-soft);
+      }
+
+      .modal__summary {
+        padding: 16px 18px;
+        border-radius: 18px;
+        border: 1px solid rgba(38, 208, 124, 0.2);
+        background: rgba(38, 208, 124, 0.1);
+        color: #c8ffe8;
+        line-height: 1.7;
+      }
+
+      .modal__hash-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+
+      .modal__actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0.86rem 1rem;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: #1a1a1a;
+        color: var(--text);
+        font-weight: 600;
+        transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+      }
+
+      .button:hover {
+        transform: translateY(-1px);
+        border-color: var(--border-strong);
+      }
+
+      .button--accent {
+        background: var(--accent);
+        color: #071110;
+        border-color: rgba(0, 212, 200, 0.45);
+      }
+
+      .button--accent:hover {
+        transform: translateY(-1px);
+        background: #18ded3;
+      }
+
+      .button--ghost {
+        background: transparent;
+        color: var(--text-soft);
+      }
+
+      .inline-toast {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(0, 212, 200, 0.24);
+        background: rgba(26, 26, 26, 0.96);
+        color: var(--text);
+        box-shadow: var(--shadow);
+        opacity: 0;
+        transform: translateY(10px);
+        pointer-events: none;
+        transition: opacity 160ms ease, transform 160ms ease;
+        z-index: 80;
+      }
+
+      .inline-toast--show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .loading {
+        padding: 22px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: #161616;
+        color: var(--text-muted);
+      }
+
+      .footer-note {
+        color: var(--text-muted);
+        font-size: 0.82rem;
+      }
+
+      @media (max-width: 1100px) {
+        .app-shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--border);
+        }
+      }
+
+      @media (max-width: 860px) {
+        .main {
+          padding-inline: 14px;
+        }
+
+        .topbar {
+          grid-template-columns: 1fr;
+        }
+
+        .page-head,
+        .table-card__head,
+        .panel__head,
+        .modal__hash-row {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .metrics,
+        .modal__stats {
+          grid-template-columns: 1fr;
+        }
+
+        .modal__row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar__top">
+          <div class="sidebar__section">
+            <div class="sidebar__label">Your account</div>
+            <button type="button" class="sidebar__action" data-sidebar-action="account-transactions">
+              <span>Past transactions</span>
+              <small>↗</small>
+            </button>
+            <button type="button" class="sidebar__action" data-sidebar-action="account-details">
+              <span>Your account details</span>
+              <small>↗</small>
+            </button>
+          </div>
+
+          <div class="sidebar__section">
+            <div class="sidebar__label">Developer tools</div>
+            <button type="button" class="sidebar__action" data-sidebar-action="verify-contracts">
+              <span>Verify contracts</span>
+              <small>↗</small>
+            </button>
+          </div>
+
+          <div class="sidebar__section">
+            <div class="sidebar__label">This device</div>
+            <div id="savedAccounts" class="sidebar__saved"></div>
+          </div>
+        </div>
+
+        <div class="sidebar__footer">
+          <div class="sidebar__footer-meta">
+            <span>Live height</span>
+            <strong id="sidebarHeight">...</strong>
+          </div>
+          <a class="sidebar__doc" href="https://github.com/ntfound-dev/lendpay/tree/main/docs-site" target="_blank" rel="noreferrer">
+            View doc ↗
+          </a>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div class="topbar__brand">
+            <div class="topbar__brand-icon">
+              <img src="/favicon.svg" alt="" />
+            </div>
+            <div class="topbar__brand-copy">
+              <span>chain explorer</span>
+              <strong>lendpay scan</strong>
+            </div>
+          </div>
+
+          <form id="globalSearchForm" class="topbar__search">
+            <input
+              id="globalSearchInput"
+              type="search"
+              placeholder="Search tx hash, block height, address..."
+              autocomplete="off"
+            />
+          </form>
+
+          <div class="topbar__meta">
+            <div class="chain-badge">
+              <span class="chain-badge__dot"></span>
+              <span id="chainBadgeText">lendpay-4</span>
+            </div>
+            <div id="walletBadge" class="topbar__wallet">......</div>
+          </div>
+        </header>
+
+        <div class="page">
+          <nav class="tabs">
+            <button class="tab tab--active" type="button" data-tab="overview">Overview</button>
+            <button class="tab" type="button" data-tab="transactions">Transactions</button>
+            <button class="tab" type="button" data-tab="blocks">Blocks</button>
+            <button class="tab" type="button" data-tab="nfts">NFTs</button>
+          </nav>
+
+          <div id="globalNotice" class="notice"></div>
+
+          <section id="view-overview" class="view view--active"></section>
+          <section id="view-transactions" class="view"></section>
+          <section id="view-blocks" class="view"></section>
+          <section id="view-nfts" class="view"></section>
+        </div>
+      </main>
+    </div>
+
+    <div id="modalBackdrop" class="modal-backdrop"></div>
+    <div id="inlineToast" class="inline-toast"></div>
+
+    <script>
+      const API_BASE = `${window.location.origin}/scan-api`
+      const DEFAULT_CHAIN_ID = 'lendpay-4'
+      const DOCS_URL = 'https://github.com/ntfound-dev/lendpay/tree/main/docs-site'
+      const SAVED_ACCOUNTS_KEY = 'lendpay_scan_saved_accounts'
+      const ACTIVE_ACCOUNT_KEY = 'lendpay_scan_active_account'
+      const state = {
+        tab: 'overview',
+        latestBlock: null,
+        previousBlock: null,
+        blocks: [],
+        transactions: [],
+        totalTransactions: 0,
+        nodeInfo: null,
+        network: DEFAULT_CHAIN_ID,
+        currentAccount: null,
+        savedAccounts: loadSavedAccounts(),
+        txFilter: '',
+        nftQuery: '',
+        modal: null,
+        errorMessage: '',
+        lastTxRefreshAt: null,
+        lastBlockRefreshAt: null,
+      }
+
+      const el = {
+        chainBadgeText: document.getElementById('chainBadgeText'),
+        walletBadge: document.getElementById('walletBadge'),
+        sidebarHeight: document.getElementById('sidebarHeight'),
+        savedAccounts: document.getElementById('savedAccounts'),
+        globalNotice: document.getElementById('globalNotice'),
+        globalSearchForm: document.getElementById('globalSearchForm'),
+        globalSearchInput: document.getElementById('globalSearchInput'),
+        viewOverview: document.getElementById('view-overview'),
+        viewTransactions: document.getElementById('view-transactions'),
+        viewBlocks: document.getElementById('view-blocks'),
+        viewNfts: document.getElementById('view-nfts'),
+        modalBackdrop: document.getElementById('modalBackdrop'),
+        inlineToast: document.getElementById('inlineToast'),
+      }
+
+      function loadSavedAccounts() {
+        try {
+          const raw = window.localStorage.getItem(SAVED_ACCOUNTS_KEY)
+          const parsed = raw ? JSON.parse(raw) : []
+          return Array.isArray(parsed) ? parsed.filter((value) => typeof value === 'string') : []
+        } catch {
+          return []
+        }
+      }
+
+      function persistSavedAccounts() {
+        window.localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(state.savedAccounts.slice(0, 6)))
+      }
+
+      function setActiveAccount(address) {
+        state.currentAccount = address || null
+        if (state.currentAccount) {
+          saveAccount(state.currentAccount)
+          window.localStorage.setItem(ACTIVE_ACCOUNT_KEY, state.currentAccount)
+        } else {
+          window.localStorage.removeItem(ACTIVE_ACCOUNT_KEY)
+        }
+        renderAll()
+      }
+
+      function hydrateActiveAccount() {
+        try {
+          const stored = window.localStorage.getItem(ACTIVE_ACCOUNT_KEY)
+          if (stored) {
+            state.currentAccount = stored
+          }
+        } catch {}
+      }
+
+      function saveAccount(address) {
+        if (!address) return
+        state.savedAccounts = [address, ...state.savedAccounts.filter((item) => item !== address)].slice(0, 6)
+        persistSavedAccounts()
+      }
+
+      function truncateMiddle(value, start = 6, end = 6) {
+        if (!value) return '—'
+        if (value.length <= start + end + 3) return value
+        return value.slice(0, start) + '...' + value.slice(-end)
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;')
+      }
+
+      function formatNumber(value) {
+        const numeric = Number(value)
+        if (!Number.isFinite(numeric)) return '—'
+        return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(numeric)
+      }
+
+      function formatAbsoluteTime(value) {
+        if (!value) return '—'
+        const date = new Date(value)
+        if (Number.isNaN(date.getTime())) return '—'
+        return new Intl.DateTimeFormat('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }).format(date)
+      }
+
+      function formatDateOnly(value) {
+        if (!value) return '—'
+        const date = new Date(value)
+        if (Number.isNaN(date.getTime())) return '—'
+        return new Intl.DateTimeFormat('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        }).format(date)
+      }
+
+      function formatRelativeTime(value) {
+        if (!value) return '—'
+        const date = new Date(value)
+        if (Number.isNaN(date.getTime())) return '—'
+        const diffMs = date.getTime() - Date.now()
+        const units = [
+          ['day', 1000 * 60 * 60 * 24],
+          ['hour', 1000 * 60 * 60],
+          ['minute', 1000 * 60],
+          ['second', 1000],
+        ]
+        const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
+
+        for (const [unit, size] of units) {
+          const delta = Math.round(diffMs / size)
+          if (Math.abs(delta) >= 1 || unit === 'second') {
+            return formatter.format(delta, unit)
+          }
+        }
+
+        return 'just now'
+      }
+
+      function formatAmountLabel(amount) {
+        if (!amount) return '—'
+
+        if (Array.isArray(amount)) {
+          const first = amount[0]
+          if (first && typeof first === 'object') {
+            return formatAmountLabel(first)
+          }
+          return String(first)
+        }
+
+        if (typeof amount === 'object') {
+          const numeric = amount.amount ?? amount.value ?? amount.denom_amount
+          const denom = amount.denom ?? amount.symbol ?? ''
+          return [formatNumber(numeric), normalizeDenom(denom)].filter(Boolean).join(' ')
+        }
+
+        if (typeof amount === 'string') {
+          const match = amount.match(/^(\d+)([a-zA-Z][a-zA-Z0-9/_-]*)?$/)
+          if (!match) return amount
+          const denom = match[2] ? normalizeDenom(match[2]) : ''
+          return [formatNumber(match[1]), denom].filter(Boolean).join(' ')
+        }
+
+        return String(amount)
+      }
+
+      function normalizeDenom(value) {
+        if (!value) return ''
+        const trimmed = String(value).trim()
+        if (trimmed.startsWith('u') && trimmed.length > 2) {
+          return trimmed.slice(1).toUpperCase()
+        }
+        return trimmed.toUpperCase()
+      }
+
+      function normalizeFeeLabel(fee) {
+        if (!fee || !Array.isArray(fee.amount) || fee.amount.length === 0) {
+          return '—'
+        }
+
+        return fee.amount
+          .map((item) => [formatNumber(item.amount), normalizeDenom(item.denom)].filter(Boolean).join(' '))
+          .join(', ')
+      }
+
+      function getEventAttributes(events, type) {
+        const matches = Array.isArray(events) ? events.filter((event) => event.type === type) : []
+        return matches.flatMap((event) => Array.isArray(event.attributes) ? event.attributes : [])
+      }
+
+      function getEventValue(events, type, key) {
+        const attributes = getEventAttributes(events, type)
+        const found = attributes.find((attribute) => attribute.key === key)
+        return found ? found.value : ''
+      }
+
+      function getFirstDefined(message, keys) {
+        if (!message || typeof message !== 'object') return ''
+        for (const key of keys) {
+          const value = message[key]
+          if (typeof value === 'string' && value.trim()) return value.trim()
+        }
+        return ''
+      }
+
+      function formatMessageTypeLabel(typeName) {
+        if (!typeName) return 'Message'
+
+        const source = String(typeName)
+        const slashSegment = source.split('/').pop() || source
+        const raw = slashSegment.split('.').pop() || slashSegment
+        const label = raw
+          .replace(/^Msg/, '')
+          .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+          .trim()
+
+        if (source.includes('cosmos.authz') && label === 'Exec') return 'Authz Exec'
+        if (source.includes('initia.move') && label === 'Execute') return 'Move Execute'
+        return label || 'Message'
+      }
+
+      function getNestedMessage(message) {
+        if (!message || typeof message !== 'object') return null
+
+        for (const key of ['msgs', 'messages', 'inner_messages']) {
+          const nested = message[key]
+          if (Array.isArray(nested) && nested.length && nested[0] && typeof nested[0] === 'object') {
+            return nested[0]
+          }
+        }
+
+        return null
+      }
+
+      function getMessageChain(message) {
+        const chain = []
+        let current = message
+
+        while (current && typeof current === 'object') {
+          chain.push(current)
+          const nested = getNestedMessage(current)
+          if (!nested) break
+          current = nested
+        }
+
+        return chain
+      }
+
+      function getMoveEventPayloads(events) {
+        if (!Array.isArray(events)) return []
+
+        return events
+          .filter((event) => event.type === 'move')
+          .map((event) => {
+            const attributes = {}
+            for (const attribute of Array.isArray(event.attributes) ? event.attributes : []) {
+              if (!(attribute.key in attributes)) {
+                attributes[attribute.key] = attribute.value
+              }
+            }
+
+            let data = null
+            if (typeof attributes.data === 'string' && attributes.data.trim()) {
+              try {
+                const parsed = JSON.parse(attributes.data)
+                if (parsed && typeof parsed === 'object') {
+                  data = parsed
+                }
+              } catch {
+                data = null
+              }
+            }
+
+            return {
+              typeTag: attributes.type_tag || '',
+              attributes,
+              data,
+            }
+          })
+      }
+
+      function getMoveEventValue(events, keys) {
+        const payloads = getMoveEventPayloads(events)
+
+        for (const payload of payloads) {
+          for (const key of keys) {
+            const dataValue = payload.data ? payload.data[key] : undefined
+            if (typeof dataValue === 'string' && dataValue.trim()) return dataValue.trim()
+            if (typeof dataValue === 'number') return String(dataValue)
+
+            const attributeValue = payload.attributes[key]
+            if (typeof attributeValue === 'string' && attributeValue.trim()) return attributeValue.trim()
+          }
+        }
+
+        return ''
+      }
+
+      function getMoveEventSummary(events) {
+        const payloads = getMoveEventPayloads(events)
+
+        const loanPayload = payloads.find((payload) => payload.typeTag.endsWith('LoanRequestedEvent'))
+        if (loanPayload) {
+          const data = loanPayload.data || {}
+          const label = data.request_id ? `Loan request #${data.request_id}` : 'Loan request'
+          const amount = data.amount ? `Amount: ${formatAmountLabel(data.amount)}` : ''
+          const tenor = data.tenor_months ? `Tenor: ${formatNumber(data.tenor_months)} months` : ''
+          const borrower = data.borrower ? `Borrower: ${truncateMiddle(data.borrower, 8, 6)}` : ''
+          return [label, amount, tenor, borrower].filter(Boolean).join(' · ')
+        }
+
+        const pointsPayload = payloads.find((payload) => payload.typeTag.endsWith('PointsAwardedEvent'))
+        if (pointsPayload) {
+          const data = pointsPayload.data || {}
+          const points = data.points_delta ? `Points +${formatNumber(data.points_delta)}` : ''
+          const claimable = data.claimable_lend ? `Claimable LEND: ${formatAmountLabel(data.claimable_lend)}` : ''
+          return ['Rewards updated', points, claimable].filter(Boolean).join(' · ')
+        }
+
+        return ''
+      }
+
+      function getMessageAction(message) {
+        const chain = getMessageChain(message)
+        if (!chain.length) return 'Unknown action'
+
+        return chain
+          .map((entry) => {
+            if (entry.module_name || entry.function_name) {
+              const moduleName = entry.module_name || 'move'
+              const functionName = entry.function_name || 'execute'
+              return `${moduleName}::${functionName}`
+            }
+
+            if (entry['@type']) {
+              return formatMessageTypeLabel(entry['@type'])
+            }
+
+            return 'Transaction'
+          })
+          .join(' -> ')
+      }
+
+      function getAmountFromMessage(message) {
+        if (!message || typeof message !== 'object') return ''
+        if (message.amount) return formatAmountLabel(message.amount)
+        if (message.token && message.token.amount) return formatAmountLabel(message.token)
+        return ''
+      }
+
+      function getAmountFromEvents(events) {
+        const transferAmount = getEventValue(events, 'transfer', 'amount')
+        if (transferAmount) return formatAmountLabel(transferAmount.split(',')[0])
+        const coinAmount = getEventValue(events, 'coin_spent', 'amount')
+        if (coinAmount) return formatAmountLabel(coinAmount.split(',')[0])
+        const payloads = getMoveEventPayloads(events)
+        const loanAmount = payloads.find((payload) => payload.typeTag.endsWith('LoanRequestedEvent'))
+        if (loanAmount) {
+          const value = loanAmount.data?.amount || loanAmount.attributes.amount
+          if (value) return formatAmountLabel(value)
+        }
+        const moveAmount = getMoveEventValue(events, ['amount'])
+        if (moveAmount) return formatAmountLabel(moveAmount)
+        const claimableAmount = getMoveEventValue(events, ['claimable_lend'])
+        if (claimableAmount) return formatAmountLabel(claimableAmount)
+        return ''
+      }
+
+      function getTxSummary(tx) {
+        const pieces = []
+        if (tx.eventSummary) pieces.push(tx.eventSummary)
+        if (tx.memo) pieces.push(tx.memo)
+        if (!pieces.length && tx.action) pieces.push(`Executed ${tx.action}`)
+        if (tx.amount && tx.amount !== '—') pieces.push(`Amount: ${tx.amount}`)
+        if (tx.recipient && tx.recipient !== '—') pieces.push(`Recipient: ${tx.recipient}`)
+        return pieces.join(' · ') || 'No memo or summary was provided for this transaction.'
+      }
+
+      function normalizeTx(txResponse, rawTx) {
+        const tx = rawTx || txResponse.tx || {}
+        const body = tx.body || {}
+        const authInfo = tx.auth_info || {}
+        const messages = Array.isArray(body.messages) ? body.messages : []
+        const firstMessage = messages[0] || {}
+        const messageChain = getMessageChain(firstMessage)
+        const primaryMessage = messageChain[messageChain.length - 1] || firstMessage
+        const wrapperMessage = messageChain.length > 1 ? messageChain[0] : null
+        const events = Array.isArray(txResponse.events) ? txResponse.events : []
+        const action = getMessageAction(firstMessage)
+        const sender =
+          getFirstDefined(primaryMessage, ['sender', 'from_address', 'granter', 'authority']) ||
+          getFirstDefined(firstMessage, ['sender', 'from_address', 'granter', 'authority']) ||
+          getEventValue(events, 'message', 'sender') ||
+          getEventValue(events, 'execute', 'sender') ||
+          '—'
+        const recipient =
+          getFirstDefined(primaryMessage, ['recipient', 'to_address', 'receiver', 'merchant_address']) ||
+          getFirstDefined(firstMessage, ['recipient', 'to_address', 'receiver', 'merchant_address']) ||
+          getEventValue(events, 'transfer', 'recipient') ||
+          getEventValue(events, 'coin_received', 'receiver') ||
+          getMoveEventValue(events, ['recipient', 'receiver', 'borrower', 'user', 'owner']) ||
+          '—'
+        const amount = getAmountFromMessage(primaryMessage) || getAmountFromMessage(firstMessage) || getAmountFromEvents(events) || '—'
+        const memo = typeof body.memo === 'string' ? body.memo.trim() : ''
+        const hash = txResponse.txhash || txResponse.hash || ''
+        const height = Number(txResponse.height || 0)
+        const timestamp = txResponse.timestamp || ''
+        const code = Number(txResponse.code || 0)
+        const status = code === 0 ? 'Confirmed' : 'Failed'
+        const fee = normalizeFeeLabel(authInfo.fee || {})
+        const moduleAddress =
+          getFirstDefined(primaryMessage, ['module_address', 'contract', 'contract_address']) ||
+          getEventValue(events, 'execute', 'module_addr') ||
+          '—'
+        const moduleName =
+          getFirstDefined(primaryMessage, ['module_name']) ||
+          getEventValue(events, 'execute', 'module_name') ||
+          '—'
+        const functionName =
+          getFirstDefined(primaryMessage, ['function_name']) ||
+          getEventValue(events, 'execute', 'function_name') ||
+          '—'
+        const wrapperAction = wrapperMessage && wrapperMessage !== primaryMessage ? formatMessageTypeLabel(wrapperMessage['@type']) : ''
+        const grantee = getFirstDefined(firstMessage, ['grantee'])
+        const feePayer =
+          getFirstDefined(authInfo.fee || {}, ['payer', 'granter']) ||
+          getEventValue(events, 'tx', 'fee_payer') ||
+          '—'
+        const vmSender = getEventValue(events, 'execute', 'sender') || getMoveEventValue(events, ['borrower', 'user']) || '—'
+        const eventSummary = getMoveEventSummary(events)
+
+        return {
+          hash,
+          height,
+          timestamp,
+          code,
+          status,
+          action,
+          sender,
+          recipient,
+          amount,
+          memo,
+          fee,
+          gasWanted: Number(txResponse.gas_wanted || 0),
+          gasUsed: Number(txResponse.gas_used || 0),
+          moduleAddress,
+          moduleName,
+          functionName,
+          wrapperAction,
+          grantee,
+          feePayer,
+          vmSender,
+          eventSummary,
+          jsonUrl: `${API_BASE}/cosmos/tx/v1beta1/txs/${hash}`,
+          rawTx: tx,
+          rawResponse: txResponse,
+        }
+      }
+
+      function normalizeBlock(payload) {
+        const block = payload.block || {}
+        const header = block.header || {}
+        const blockId = payload.block_id || {}
+        const txs = Array.isArray(block.data && block.data.txs) ? block.data.txs : []
+        const proposerAddress = header.proposer_address || ''
+
+        return {
+          height: Number(header.height || 0),
+          hash: blockId.hash || '',
+          timestamp: header.time || '',
+          txCount: txs.length,
+          proposerAddress,
+        }
+      }
+
+      function proposerLabel(address) {
+        if (!address) return state.nodeInfo?.default_node_info?.moniker || 'Unknown validator'
+        const moniker = state.nodeInfo?.default_node_info?.moniker
+        return moniker ? `${moniker}` : `Validator ${truncateMiddle(address, 4, 4)}`
+      }
+
+      function proposerAvatar(label) {
+        const clean = label.replace(/[^a-zA-Z0-9]/g, '')
+        return clean ? clean.slice(0, 1).toUpperCase() : 'V'
+      }
+
+      function isLikelyTxHash(query) {
+        return /^[A-Fa-f0-9]{16,}$/.test(query.replace(/^0x/i, ''))
+      }
+
+      function isLikelyAddress(query) {
+        return query.length >= 10 && /[a-zA-Z]/.test(query)
+      }
+
+      async function requestJson(path) {
+        const controller = new AbortController()
+        const timeoutId = window.setTimeout(() => controller.abort(), 8000)
+
+        try {
+          const response = await fetch(path, { signal: controller.signal })
+          if (!response.ok) {
+            throw new Error(`Request failed with ${response.status}`)
+          }
+
+          return await response.json()
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') {
+            throw new Error('Request timed out while waiting for localhost:1317.')
+          }
+
+          if (error instanceof TypeError) {
+            throw new Error(
+              'Could not reach the local explorer proxy at /scan-api. Make sure the LendPay frontend and rollup REST service are running.',
+            )
+          }
+
+          throw error
+        } finally {
+          window.clearTimeout(timeoutId)
+        }
+      }
+
+      function setGlobalError(message) {
+        state.errorMessage = message
+        renderNotice()
+      }
+
+      function clearGlobalError() {
+        if (!state.errorMessage) return
+        state.errorMessage = ''
+        renderNotice()
+      }
+
+      function renderNotice() {
+        if (!state.errorMessage) {
+          el.globalNotice.className = 'notice'
+          el.globalNotice.textContent = ''
+          return
+        }
+
+        el.globalNotice.className = 'notice notice--show'
+        el.globalNotice.textContent = state.errorMessage
+      }
+
+      async function loadNodeInfo() {
+        const data = await requestJson(`${API_BASE}/cosmos/base/tendermint/v1beta1/node_info`)
+        state.nodeInfo = data
+        state.network = data.default_node_info?.network || DEFAULT_CHAIN_ID
+      }
+
+      async function loadTransactions(limit = 20) {
+        const url = new URL(`${API_BASE}/cosmos/tx/v1beta1/txs`)
+        url.searchParams.set('query', 'tx.height>0')
+        url.searchParams.set('order_by', 'ORDER_BY_DESC')
+        url.searchParams.set('pagination.limit', String(limit))
+        url.searchParams.set('pagination.count_total', 'true')
+
+        const payload = await requestJson(url.toString())
+        const txResponses = Array.isArray(payload.tx_responses) ? payload.tx_responses : []
+        const txs = Array.isArray(payload.txs) ? payload.txs : []
+
+        state.transactions = txResponses.map((item, index) => normalizeTx(item, txs[index]))
+        state.totalTransactions = Number(payload.pagination?.total || payload.total || state.transactions.length || 0)
+        state.lastTxRefreshAt = new Date().toISOString()
+
+        if (!state.currentAccount) {
+          const stored = window.localStorage.getItem(ACTIVE_ACCOUNT_KEY)
+          const fallback = stored || state.savedAccounts[0] || state.transactions.find((item) => item.sender !== '—')?.sender
+          if (fallback) {
+            setActiveAccount(fallback)
+          }
+        }
+      }
+
+      async function loadBlocks(limit = 14) {
+        const latestPayload = await requestJson(`${API_BASE}/cosmos/base/tendermint/v1beta1/blocks/latest`)
+        const latestBlock = normalizeBlock(latestPayload)
+        state.latestBlock = latestBlock
+        state.lastBlockRefreshAt = new Date().toISOString()
+
+        const previousHeight = latestBlock.height > 1 ? latestBlock.height - 1 : 0
+        if (previousHeight > 0) {
+          try {
+            const previousPayload = await requestJson(
+              `${API_BASE}/cosmos/base/tendermint/v1beta1/blocks/${previousHeight}`,
+            )
+            state.previousBlock = normalizeBlock(previousPayload)
+          } catch {
+            state.previousBlock = null
+          }
+        }
+
+        const heights = Array.from({ length: limit }, (_, index) => latestBlock.height - index).filter(
+          (height) => height > 0,
+        )
+
+        const blockPayloads = await Promise.all(
+          heights.map((height) =>
+            height === latestBlock.height
+              ? Promise.resolve(latestPayload)
+              : requestJson(`${API_BASE}/cosmos/base/tendermint/v1beta1/blocks/${height}`).catch(() => null),
+          ),
+        )
+
+        state.blocks = blockPayloads.filter(Boolean).map((payload) => normalizeBlock(payload))
+      }
+
+      async function refreshBootstrap() {
+        try {
+          await Promise.all([loadNodeInfo(), loadTransactions(20), loadBlocks(14)])
+          clearGlobalError()
+          renderAll()
+        } catch (error) {
+          setGlobalError(error.message || 'Explorer data could not be loaded.')
+          renderAll()
+        }
+      }
+
+      async function refreshTransactionsOnly() {
+        try {
+          await loadTransactions(20)
+          clearGlobalError()
+          renderAll()
+        } catch (error) {
+          setGlobalError(error.message || 'Transactions could not be refreshed.')
+          renderAll()
+        }
+      }
+
+      async function refreshBlocksOnly() {
+        try {
+          await loadBlocks(14)
+          clearGlobalError()
+          renderAll()
+        } catch (error) {
+          setGlobalError(error.message || 'Blocks could not be refreshed.')
+          renderAll()
+        }
+      }
+
+      async function fetchTxDetail(hash) {
+        const normalizedHash = hash.replace(/^0x/i, '')
+        const payload = await requestJson(`${API_BASE}/cosmos/tx/v1beta1/txs/${normalizedHash}`)
+        return normalizeTx(payload.tx_response || {}, payload.tx || {})
+      }
+
+      async function fetchBlockDetail(height) {
+        const payload = await requestJson(`${API_BASE}/cosmos/base/tendermint/v1beta1/blocks/${height}`)
+        return normalizeBlock(payload)
+      }
+
+      function blockTimeLabel() {
+        if (!state.latestBlock || !state.previousBlock) return '—'
+        const latest = new Date(state.latestBlock.timestamp).getTime()
+        const previous = new Date(state.previousBlock.timestamp).getTime()
+        if (!Number.isFinite(latest) || !Number.isFinite(previous)) return '—'
+        const seconds = Math.max(0, Math.round((latest - previous) / 1000))
+        return `${seconds}s`
+      }
+
+      function createCopyableMarkup(value, options = {}) {
+        const safeValue = escapeHtml(value || '—')
+        const displayValue = escapeHtml(options.display || truncateMiddle(value || '—', options.start || 6, options.end || 6))
+        const extraClass = options.className ? ` ${options.className}` : ''
+        const copyDisabled = !value || value === '—'
+
+        return `
+          <span class="copyable${extraClass}">
+            <span class="copyable__value">${displayValue}</span>
+            <button
+              type="button"
+              class="copyable__button"
+              data-copy="${safeValue}"
+              ${copyDisabled ? 'disabled' : ''}
+              aria-label="Copy value"
+              title="Copy"
+            >
+              ${copyIcon()}
+            </button>
+          </span>
+        `
+      }
+
+      function copyIcon() {
+        return `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="9" y="9" width="10" height="10" rx="2"></rect>
+            <path d="M15 9V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path>
+          </svg>
+        `
+      }
+
+      function renderSidebar() {
+        el.savedAccounts.innerHTML = state.savedAccounts.length
+          ? state.savedAccounts
+              .map((address) => {
+                const activeClass = address === state.currentAccount ? ' saved-account--active' : ''
+                return `
+                  <button type="button" class="saved-account${activeClass}" data-saved-account="${escapeHtml(address)}">
+                    <span class="saved-account__avatar">${escapeHtml(address.slice(0, 1).toUpperCase())}</span>
+                    <span class="saved-account__copy">
+                      <strong>${escapeHtml(truncateMiddle(address, 6, 6))}</strong>
+                      <span>Saved locally</span>
+                    </span>
+                  </button>
+                `
+              })
+              .join('')
+          : `<div class="sidebar__saved-empty">Saved accounts appear here after you search or open a transaction sender.</div>`
+
+        el.sidebarHeight.textContent = state.latestBlock ? `#${formatNumber(state.latestBlock.height)}` : '...'
+      }
+
+      function renderTopbar() {
+        el.chainBadgeText.textContent = state.network || DEFAULT_CHAIN_ID
+        el.walletBadge.textContent = state.currentAccount
+          ? truncateMiddle(state.currentAccount, 6, 6)
+          : 'No wallet selected'
+      }
+
+      function getFilteredTransactions() {
+        const search = state.txFilter.trim().toLowerCase()
+        if (!search) return state.transactions
+
+        return state.transactions.filter((tx) =>
+          [tx.hash, tx.sender, tx.recipient, tx.action, tx.amount].some((value) =>
+            String(value || '').toLowerCase().includes(search),
+          ),
+        )
+      }
+
+      function overviewMetricsMarkup() {
+        return `
+          <div class="metrics">
+            <div class="metric-card">
+              <div class="metric-card__top">
+                <span class="metric-card__label">Total Transactions</span>
+                <button class="metric-card__jump" type="button" data-jump="transactions" aria-label="Open transactions">
+                  ↗
+                </button>
+              </div>
+              <div class="metric-card__value metric-card__value--mono">${formatNumber(state.totalTransactions)}</div>
+              <div class="metric-card__meta">Live count from the local tx index.</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-card__top">
+                <span class="metric-card__label">Latest Block Height</span>
+                <button class="metric-card__jump" type="button" data-jump="blocks" aria-label="Open blocks">
+                  ↗
+                </button>
+              </div>
+              <div class="metric-card__value metric-card__value--mono">${state.latestBlock ? `#${formatNumber(state.latestBlock.height)}` : '—'}</div>
+              <div class="metric-card__meta">${state.latestBlock ? formatAbsoluteTime(state.latestBlock.timestamp) : 'Waiting for chain data.'}</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-card__top">
+                <span class="metric-card__label">Block Time</span>
+                <button class="metric-card__jump" type="button" data-jump="blocks" aria-label="Open blocks">
+                  ↗
+                </button>
+              </div>
+              <div class="metric-card__value metric-card__value--mono">${blockTimeLabel()}</div>
+              <div class="metric-card__meta">Difference between the latest two indexed blocks.</div>
+            </div>
+          </div>
+        `
+      }
+
+      function transactionsTableMarkup(rows, options = {}) {
+        if (!rows.length) {
+          return `<div class="empty-state">No transactions available right now.</div>`
+        }
+
+        return `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>TX Hash</th>
+                  <th>Action</th>
+                  <th>Sender</th>
+                  <th>Amount</th>
+                  <th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows
+                  .map(
+                    (tx) => `
+                      <tr class="table__row-button" data-open-tx="${escapeHtml(tx.hash)}">
+                        <td>
+                          <span class="table__accent">
+                            ${createCopyableMarkup(tx.hash, { className: ' table__mono' })}
+                          </span>
+                        </td>
+                        <td>
+                          <span>${escapeHtml(tx.action)}</span>
+                          <span class="table__secondary">${tx.status}</span>
+                        </td>
+                        <td>${createCopyableMarkup(tx.sender, { className: ' table__mono' })}</td>
+                        <td class="table__mono">${escapeHtml(tx.amount)}</td>
+                        <td>
+                          <div class="table__time">
+                            <span>${formatAbsoluteTime(tx.timestamp)}</span>
+                            <span class="table__relative">${formatRelativeTime(tx.timestamp)}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    `,
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+          ${
+            options.footer
+              ? `<div class="footer-note" style="margin-top: 12px;">${escapeHtml(options.footer)}</div>`
+              : ''
+          }
+        `
+      }
+
+      function blocksTableMarkup(rows) {
+        if (!rows.length) {
+          return `<div class="empty-state">No blocks available right now.</div>`
+        }
+
+        return `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Block Height</th>
+                  <th>Block Hash</th>
+                  <th>Proposed by</th>
+                  <th>Txs</th>
+                  <th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows
+                  .map((block) => {
+                    const label = proposerLabel(block.proposerAddress)
+                    return `
+                      <tr>
+                        <td>
+                          <button type="button" class="button button--ghost table__accent table__mono" data-open-block="${block.height}">
+                            #${formatNumber(block.height)}
+                          </button>
+                        </td>
+                        <td>${createCopyableMarkup(block.hash, { className: ' table__mono' })}</td>
+                        <td>
+                          <span class="proposer">
+                            <span class="proposer__avatar">${escapeHtml(proposerAvatar(label))}</span>
+                            <span>${escapeHtml(label)}</span>
+                          </span>
+                        </td>
+                        <td class="table__mono">${formatNumber(block.txCount)}</td>
+                        <td>
+                          <div class="table__time">
+                            <span>${formatAbsoluteTime(block.timestamp)}</span>
+                            <span class="table__relative">${formatRelativeTime(block.timestamp)}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                  })
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+        `
+      }
+
+      function renderOverview() {
+        el.viewOverview.innerHTML = `
+          <div class="page-head">
+            <div class="page-head__copy">
+              <h1>LendPay Overview</h1>
+              <p>Live chain health, latest activity, and recent execution from the local lendpay-4 explorer surface.</p>
+            </div>
+          </div>
+
+          ${overviewMetricsMarkup()}
+
+          <section class="table-card">
+            <div class="table-card__head">
+              <div>
+                <div class="table-card__title">Recent Transactions</div>
+                <div class="table-card__meta">Latest confirmed transactions from the local tx API.</div>
+              </div>
+            </div>
+            ${transactionsTableMarkup(state.transactions.slice(0, 8))}
+          </section>
+        `
+      }
+
+      function renderTransactions() {
+        const rows = getFilteredTransactions()
+        const filterMeta = state.txFilter
+          ? `Showing ${rows.length} result(s) matching “${state.txFilter}”. Auto-refresh every 10 seconds.`
+          : `Showing the latest ${state.transactions.length} transactions. Auto-refresh every 10 seconds.`
+
+        el.viewTransactions.innerHTML = `
+          <div class="page-head">
+            <div class="page-head__copy">
+              <h1>Transactions</h1>
+              <p>Every indexed transaction sorted by recency from the local Cosmos transaction endpoint.</p>
+            </div>
+            <div class="toggle-pill">
+              <span class="chain-badge__dot"></span>
+              Cosmos
+            </div>
+          </div>
+
+          <section class="table-card">
+            <div class="table-card__head">
+              <div>
+                <div class="table-card__title">All Transactions</div>
+                <div class="table-card__meta">${escapeHtml(filterMeta)}</div>
+              </div>
+              <div class="search-inline" style="width: min(100%, 360px);">
+                <input id="txFilterInput" type="search" value="${escapeHtml(state.txFilter)}" placeholder="Filter by hash, action, sender, address..." />
+              </div>
+            </div>
+            ${transactionsTableMarkup(rows, {
+              footer: state.lastTxRefreshAt ? `Last refreshed ${formatRelativeTime(state.lastTxRefreshAt)}.` : '',
+            })}
+          </section>
+        `
+      }
+
+      function renderBlocks() {
+        el.viewBlocks.innerHTML = `
+          <div class="page-head">
+            <div class="page-head__copy">
+              <h1>Blocks</h1>
+              <p>All blocks sorted by recency, refreshed from the local Tendermint REST API every 6 seconds.</p>
+            </div>
+          </div>
+
+          <section class="table-card">
+            <div class="table-card__head">
+              <div>
+                <div class="table-card__title">All blocks sorted by recency</div>
+                <div class="table-card__meta">${
+                  state.lastBlockRefreshAt ? `Last refreshed ${formatRelativeTime(state.lastBlockRefreshAt)}.` : 'Waiting for block data.'
+                }</div>
+              </div>
+            </div>
+            ${blocksTableMarkup(state.blocks)}
+          </section>
+        `
+      }
+
+      function renderNfts() {
+        const queryLabel = state.nftQuery ? `No NFT data matched “${state.nftQuery}”.` : 'No NFT data available.'
+
+        el.viewNfts.innerHTML = `
+          <div class="page-head">
+            <div class="page-head__copy">
+              <h1>NFTs</h1>
+              <p>Search by collection name or VM address. This surface stays empty until an NFT indexer is connected.</p>
+            </div>
+          </div>
+
+          <section class="nft-card">
+            <div class="search-inline" style="margin-bottom: 14px;">
+              <input id="nftSearchInput" type="search" value="${escapeHtml(state.nftQuery)}" placeholder="Search with collection name or VM address" />
+            </div>
+            <div class="empty-state">${escapeHtml(queryLabel)} Add an NFT endpoint later to hydrate this page.</div>
+          </section>
+        `
+      }
+
+      function syncExplorerUrl() {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('tx')
+        url.searchParams.delete('block')
+
+        if (state.modal && state.modal.type === 'tx' && state.modal.payload.hash) {
+          url.searchParams.set('tx', state.modal.payload.hash)
+        }
+
+        if (state.modal && state.modal.type === 'block' && state.modal.payload.height) {
+          url.searchParams.set('block', String(state.modal.payload.height))
+        }
+
+        window.history.replaceState({}, '', url.toString())
+      }
+
+      function renderModal() {
+        syncExplorerUrl()
+
+        if (!state.modal) {
+          el.modalBackdrop.className = 'modal-backdrop'
+          el.modalBackdrop.innerHTML = ''
+          return
+        }
+
+        el.modalBackdrop.className = 'modal-backdrop modal-backdrop--show'
+
+        if (state.modal.type === 'tx') {
+          const tx = state.modal.payload
+          const statusClass = tx.code === 0 ? 'status-pill--confirmed' : 'status-pill--failed'
+          const summary = getTxSummary(tx)
+          const extraRows = [
+            tx.wrapperAction
+              ? `
+                    <div class="modal__row">
+                      <div class="modal__row-label">Wrapper</div>
+                      <div class="modal__row-value">${createCopyableMarkup(tx.wrapperAction, { display: tx.wrapperAction, className: ' modal__mono' })}</div>
+                    </div>
+                `
+              : '',
+            tx.grantee && tx.grantee !== '—'
+              ? `
+                    <div class="modal__row">
+                      <div class="modal__row-label">Grantee</div>
+                      <div class="modal__row-value">${createCopyableMarkup(tx.grantee, { display: truncateMiddle(tx.grantee, 10, 8), className: ' modal__mono' })}</div>
+                    </div>
+                `
+              : '',
+            tx.feePayer && tx.feePayer !== '—'
+              ? `
+                    <div class="modal__row">
+                      <div class="modal__row-label">Fee payer</div>
+                      <div class="modal__row-value">${createCopyableMarkup(tx.feePayer, { display: truncateMiddle(tx.feePayer, 10, 8), className: ' modal__mono' })}</div>
+                    </div>
+                `
+              : '',
+            tx.vmSender && tx.vmSender !== '—' && tx.vmSender !== tx.sender
+              ? `
+                    <div class="modal__row">
+                      <div class="modal__row-label">VM sender</div>
+                      <div class="modal__row-value">${createCopyableMarkup(tx.vmSender, { display: truncateMiddle(tx.vmSender, 10, 8), className: ' modal__mono' })}</div>
+                    </div>
+                `
+              : '',
+          ].join('')
+          const proofText = [
+            'Transaction Proof',
+            `Chain: ${state.network}`,
+            `Status: ${tx.status}`,
+            `Block: #${tx.height}`,
+            `Gas: ${formatNumber(tx.gasUsed)} / ${formatNumber(tx.gasWanted)}`,
+            `Fee: ${tx.fee}`,
+            `Package: ${tx.moduleAddress}`,
+            `Module: ${tx.moduleName}`,
+            `Function: ${tx.functionName}`,
+            tx.wrapperAction ? `Wrapper: ${tx.wrapperAction}` : '',
+            tx.grantee && tx.grantee !== '—' ? `Grantee: ${tx.grantee}` : '',
+            tx.feePayer && tx.feePayer !== '—' ? `Fee payer: ${tx.feePayer}` : '',
+            tx.vmSender && tx.vmSender !== '—' ? `VM sender: ${tx.vmSender}` : '',
+            `Sender: ${tx.sender}`,
+            `Recipient: ${tx.recipient}`,
+            `Hash: ${tx.hash}`,
+            `Summary: ${summary}`,
+          ]
+            .filter(Boolean)
+            .join('\n')
+
+          el.modalBackdrop.innerHTML = `
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+              <div class="modal__header">
+                <div>
+                  <div class="modal__title-row">
+                    <h2 id="modalTitle">Transaction Proof</h2>
+                    <span class="chain-badge"><span class="chain-badge__dot"></span>${escapeHtml(state.network)}</span>
+                    <span class="status-pill ${statusClass}"><span class="status-pill__dot"></span>${escapeHtml(tx.status)}</span>
+                  </div>
+                  <div class="modal__sub">Full transaction proof from the local lendpay-4 REST endpoint.</div>
+                </div>
+                <button type="button" class="modal__close" data-close-modal aria-label="Close">×</button>
+              </div>
+
+              <div class="modal__body">
+                <div class="modal__stats">
+                  <div class="modal__stat"><span>Chain</span><strong class="modal__mono">${escapeHtml(state.network)}</strong></div>
+                  <div class="modal__stat"><span>Block</span><strong class="modal__mono">#${formatNumber(tx.height)}</strong></div>
+                  <div class="modal__stat"><span>Gas</span><strong class="modal__mono">${formatNumber(tx.gasUsed)} / ${formatNumber(tx.gasWanted)}</strong></div>
+                  <div class="modal__stat"><span>Fee</span><strong class="modal__mono">${escapeHtml(tx.fee)}</strong></div>
+                </div>
+
+                <section class="modal__section">
+                  <h3 class="modal__section-title">Contract Info</h3>
+                  <div class="modal__rows">
+                    <div class="modal__row">
+                      <div class="modal__row-label">Package</div>
+                      <div class="modal__row-value">${createCopyableMarkup(tx.moduleAddress, { display: truncateMiddle(tx.moduleAddress, 10, 8), className: ' modal__mono' })}</div>
+                    </div>
+                    <div class="modal__row">
+                      <div class="modal__row-label">Module</div>
+                      <div class="modal__row-value">${createCopyableMarkup(tx.moduleName, { display: tx.moduleName, className: ' modal__mono' })}</div>
+                    </div>
+                    <div class="modal__row">
+                      <div class="modal__row-label">Function</div>
+                      <div class="modal__row-value">${createCopyableMarkup(tx.functionName, { display: tx.functionName, className: ' modal__mono' })}</div>
+                    </div>
+                    <div class="modal__row">
+                      <div class="modal__row-label">Sender</div>
+                      <div class="modal__row-value">${createCopyableMarkup(tx.sender, { display: truncateMiddle(tx.sender, 10, 8), className: ' modal__mono' })}</div>
+                    </div>
+                    <div class="modal__row">
+                      <div class="modal__row-label">Recipient</div>
+                      <div class="modal__row-value">${createCopyableMarkup(tx.recipient, { display: truncateMiddle(tx.recipient, 10, 8), className: ' modal__mono' })}</div>
+                    </div>
+                    ${extraRows}
+                  </div>
+                </section>
+
+                <div class="modal__summary">${escapeHtml(summary)}</div>
+
+                <section class="modal__section">
+                  <h3 class="modal__section-title">TX Hash</h3>
+                  <div class="modal__hash-row">
+                    <div>${createCopyableMarkup(tx.hash, { display: truncateMiddle(tx.hash, 8, 8), className: ' modal__mono' })}</div>
+                    <div class="modal__actions">
+                      <a class="button button--ghost" href="${escapeHtml(tx.jsonUrl)}" target="_blank" rel="noreferrer">Open tx JSON ↗</a>
+                    </div>
+                  </div>
+                </section>
+
+                <div class="modal__actions">
+                  <button type="button" class="button button--accent" data-copy-all="${escapeHtml(proofText)}">Copy all proof details</button>
+                </div>
+              </div>
+            </div>
+          `
+          return
+        }
+
+        if (state.modal.type === 'block') {
+          const block = state.modal.payload
+          const label = proposerLabel(block.proposerAddress)
+          el.modalBackdrop.innerHTML = `
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="blockModalTitle">
+              <div class="modal__header">
+                <div>
+                  <div class="modal__title-row">
+                    <h2 id="blockModalTitle">Block Detail</h2>
+                    <span class="chain-badge"><span class="chain-badge__dot"></span>${escapeHtml(state.network)}</span>
+                  </div>
+                  <div class="modal__sub">Block metadata from the local Tendermint REST endpoint.</div>
+                </div>
+                <button type="button" class="modal__close" data-close-modal aria-label="Close">×</button>
+              </div>
+              <div class="modal__body">
+                <div class="modal__stats">
+                  <div class="modal__stat"><span>Height</span><strong class="modal__mono">#${formatNumber(block.height)}</strong></div>
+                  <div class="modal__stat"><span>Hash</span><strong class="modal__mono">${escapeHtml(truncateMiddle(block.hash, 8, 8))}</strong></div>
+                  <div class="modal__stat"><span>Txs</span><strong class="modal__mono">${formatNumber(block.txCount)}</strong></div>
+                  <div class="modal__stat"><span>Time</span><strong>${escapeHtml(formatDateOnly(block.timestamp))}</strong></div>
+                </div>
+                <section class="modal__section">
+                  <h3 class="modal__section-title">Block Info</h3>
+                  <div class="modal__rows">
+                    <div class="modal__row">
+                      <div class="modal__row-label">Block hash</div>
+                      <div class="modal__row-value">${createCopyableMarkup(block.hash, { display: truncateMiddle(block.hash, 10, 8), className: ' modal__mono' })}</div>
+                    </div>
+                    <div class="modal__row">
+                      <div class="modal__row-label">Proposed by</div>
+                      <div class="modal__row-value">
+                        <span class="proposer">
+                          <span class="proposer__avatar">${escapeHtml(proposerAvatar(label))}</span>
+                          <span>${escapeHtml(label)}</span>
+                        </span>
+                      </div>
+                    </div>
+                    <div class="modal__row">
+                      <div class="modal__row-label">Proposer address</div>
+                      <div class="modal__row-value">${createCopyableMarkup(block.proposerAddress, { display: truncateMiddle(block.proposerAddress, 10, 8), className: ' modal__mono' })}</div>
+                    </div>
+                    <div class="modal__row">
+                      <div class="modal__row-label">Timestamp</div>
+                      <div class="modal__row-value">${escapeHtml(formatAbsoluteTime(block.timestamp))} <span class="table__relative">(${escapeHtml(formatRelativeTime(block.timestamp))})</span></div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          `
+        }
+
+        if (state.modal.type === 'account') {
+          const account = state.modal.payload
+          const relatedTxs = state.transactions.filter(
+            (tx) => tx.sender === account || tx.recipient === account,
+          )
+          const lastSeen = relatedTxs[0]?.timestamp || ''
+          el.modalBackdrop.innerHTML = `
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="accountModalTitle">
+              <div class="modal__header">
+                <div>
+                  <div class="modal__title-row">
+                    <h2 id="accountModalTitle">Your Account Details</h2>
+                    <span class="chain-badge"><span class="chain-badge__dot"></span>${escapeHtml(state.network)}</span>
+                  </div>
+                  <div class="modal__sub">Device-saved account activity from the current local transaction index.</div>
+                </div>
+                <button type="button" class="modal__close" data-close-modal aria-label="Close">×</button>
+              </div>
+              <div class="modal__body">
+                <div class="modal__stats">
+                  <div class="modal__stat"><span>Address</span><strong class="modal__mono">${escapeHtml(truncateMiddle(account, 8, 8))}</strong></div>
+                  <div class="modal__stat"><span>Tx count</span><strong class="modal__mono">${formatNumber(relatedTxs.length)}</strong></div>
+                  <div class="modal__stat"><span>Latest seen</span><strong>${escapeHtml(lastSeen ? formatDateOnly(lastSeen) : '—')}</strong></div>
+                  <div class="modal__stat"><span>Network</span><strong class="modal__mono">${escapeHtml(state.network)}</strong></div>
+                </div>
+                <section class="modal__section">
+                  <h3 class="modal__section-title">Address</h3>
+                  <div class="modal__hash-row">
+                    <div>${createCopyableMarkup(account, { display: account, className: ' modal__mono' })}</div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          `
+        }
+
+        if (state.modal.type === 'contracts') {
+          const contractRows = Array.from(
+            new Map(
+              state.transactions
+                .filter((tx) => tx.moduleAddress && tx.moduleAddress !== '—')
+                .map((tx) => [`${tx.moduleAddress}:${tx.moduleName}:${tx.functionName}`, tx]),
+            ).values(),
+          ).slice(0, 8)
+
+          el.modalBackdrop.innerHTML = `
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="contractsModalTitle">
+              <div class="modal__header">
+                <div>
+                  <div class="modal__title-row">
+                    <h2 id="contractsModalTitle">Verify Contracts</h2>
+                    <span class="chain-badge"><span class="chain-badge__dot"></span>${escapeHtml(state.network)}</span>
+                  </div>
+                  <div class="modal__sub">Recent package and module calls observed from the local tx feed.</div>
+                </div>
+                <button type="button" class="modal__close" data-close-modal aria-label="Close">×</button>
+              </div>
+              <div class="modal__body">
+                <div class="modal__summary">No dedicated contract verifier endpoint is configured yet. This panel shows recent package, module, and function activity so developers can verify call surfaces manually.</div>
+                <section class="modal__section">
+                  <h3 class="modal__section-title">Recent contract calls</h3>
+                  <div class="modal__rows">
+                    ${
+                      contractRows.length
+                        ? contractRows
+                            .map(
+                              (tx) => `
+                                <div class="modal__row">
+                                  <div class="modal__row-label">${escapeHtml(tx.action)}</div>
+                                  <div class="modal__row-value">
+                                    ${createCopyableMarkup(tx.moduleAddress, { display: `${truncateMiddle(tx.moduleAddress, 10, 8)} · ${tx.moduleName}::${tx.functionName}`, className: ' modal__mono' })}
+                                  </div>
+                                </div>
+                              `,
+                            )
+                            .join('')
+                        : '<div class="empty-state">No contract calls are available yet.</div>'
+                    }
+                  </div>
+                </section>
+                <div class="modal__actions">
+                  <a class="button button--ghost" href="${escapeHtml(DOCS_URL)}" target="_blank" rel="noreferrer">Open docs ↗</a>
+                </div>
+              </div>
+            </div>
+          `
+        }
+      }
+
+      function renderAll() {
+        renderSidebar()
+        renderTopbar()
+        renderOverview()
+        renderTransactions()
+        renderBlocks()
+        renderNfts()
+        renderTabs()
+        renderModal()
+        bindDynamicInputs()
+      }
+
+      function renderTabs() {
+        document.querySelectorAll('.tab').forEach((tabButton) => {
+          tabButton.classList.toggle('tab--active', tabButton.dataset.tab === state.tab)
+        })
+
+        document.querySelectorAll('.view').forEach((view) => {
+          view.classList.toggle('view--active', view.id === `view-${state.tab}`)
+        })
+      }
+
+      function bindDynamicInputs() {
+        const txFilterInput = document.getElementById('txFilterInput')
+        if (txFilterInput) {
+          txFilterInput.addEventListener('input', (event) => {
+            state.txFilter = event.target.value
+            renderTransactions()
+          })
+        }
+
+        const nftSearchInput = document.getElementById('nftSearchInput')
+        if (nftSearchInput) {
+          nftSearchInput.addEventListener('input', (event) => {
+            state.nftQuery = event.target.value
+            renderNfts()
+          })
+        }
+      }
+
+      function showToast(message) {
+        el.inlineToast.textContent = message
+        el.inlineToast.classList.add('inline-toast--show')
+        window.clearTimeout(showToast.timer)
+        showToast.timer = window.setTimeout(() => {
+          el.inlineToast.classList.remove('inline-toast--show')
+        }, 1800)
+      }
+
+      async function copyText(value) {
+        if (!value || value === '—') return
+
+        try {
+          await navigator.clipboard.writeText(value)
+          showToast('Copied to clipboard')
+        } catch {
+          showToast('Copy failed')
+        }
+      }
+
+      async function handleSearch(query) {
+        const value = query.trim()
+        if (!value) return
+
+        if (/^\d+$/.test(value)) {
+          state.tab = 'blocks'
+          renderTabs()
+          try {
+            const block = await fetchBlockDetail(value)
+            state.modal = { type: 'block', payload: block }
+            renderModal()
+          } catch (error) {
+            setGlobalError(error.message || 'Block lookup failed.')
+          }
+          return
+        }
+
+        if (isLikelyTxHash(value)) {
+          try {
+            const tx = await fetchTxDetail(value)
+            if (tx.sender && tx.sender !== '—') {
+              saveAccount(tx.sender)
+            }
+            state.modal = { type: 'tx', payload: tx }
+            renderSidebar()
+            renderModal()
+            clearGlobalError()
+            return
+          } catch {
+            // Fall through to address/filter mode.
+          }
+        }
+
+        if (isLikelyAddress(value)) {
+          setActiveAccount(value)
+          state.txFilter = value
+          state.tab = 'transactions'
+          renderAll()
+          return
+        }
+
+        state.txFilter = value
+        state.tab = 'transactions'
+        renderAll()
+      }
+
+      async function openDeepLinkFromUrl() {
+        const url = new URL(window.location.href)
+        const txHash = url.searchParams.get('tx')
+        const blockHeight = url.searchParams.get('block')
+
+        if (txHash && isLikelyTxHash(txHash)) {
+          try {
+            const tx = await fetchTxDetail(txHash)
+            if (tx.sender && tx.sender !== '—') {
+              saveAccount(tx.sender)
+            }
+            state.tab = 'transactions'
+            state.modal = { type: 'tx', payload: tx }
+            renderAll()
+            clearGlobalError()
+            return
+          } catch (error) {
+            setGlobalError(error.message || 'Transaction deep link could not be loaded.')
+            return
+          }
+        }
+
+        if (blockHeight && /^\d+$/.test(blockHeight)) {
+          try {
+            const block = await fetchBlockDetail(blockHeight)
+            state.tab = 'blocks'
+            state.modal = { type: 'block', payload: block }
+            renderAll()
+            clearGlobalError()
+          } catch (error) {
+            setGlobalError(error.message || 'Block deep link could not be loaded.')
+          }
+        }
+      }
+
+      function bindStaticEvents() {
+        document.querySelectorAll('.tab').forEach((tabButton) => {
+          tabButton.addEventListener('click', () => {
+            state.tab = tabButton.dataset.tab
+            renderTabs()
+          })
+        })
+
+        el.globalSearchForm.addEventListener('submit', (event) => {
+          event.preventDefault()
+          void handleSearch(el.globalSearchInput.value)
+        })
+
+        document.body.addEventListener('click', async (event) => {
+          const target = event.target.closest('[data-copy], [data-copy-all], [data-open-tx], [data-open-block], [data-jump], [data-saved-account], [data-close-modal], [data-sidebar-action]')
+          if (!target) return
+
+          if (target.dataset.copy) {
+            await copyText(target.dataset.copy)
+            return
+          }
+
+          if (target.dataset.copyAll) {
+            await copyText(target.dataset.copyAll)
+            return
+          }
+
+          if (target.dataset.openTx) {
+            try {
+              const tx = await fetchTxDetail(target.dataset.openTx)
+              if (tx.sender && tx.sender !== '—') {
+                saveAccount(tx.sender)
+                renderSidebar()
+              }
+              state.modal = { type: 'tx', payload: tx }
+              renderModal()
+              clearGlobalError()
+            } catch (error) {
+              setGlobalError(error.message || 'Transaction detail could not be loaded.')
+            }
+            return
+          }
+
+          if (target.dataset.openBlock) {
+            try {
+              const block = await fetchBlockDetail(target.dataset.openBlock)
+              state.modal = { type: 'block', payload: block }
+              renderModal()
+              clearGlobalError()
+            } catch (error) {
+              setGlobalError(error.message || 'Block detail could not be loaded.')
+            }
+            return
+          }
+
+          if (target.dataset.jump) {
+            state.tab = target.dataset.jump
+            renderTabs()
+            return
+          }
+
+          if (target.dataset.savedAccount) {
+            state.txFilter = target.dataset.savedAccount
+            setActiveAccount(target.dataset.savedAccount)
+            state.tab = 'transactions'
+            renderAll()
+            return
+          }
+
+          if (target.dataset.closeModal) {
+            state.modal = null
+            renderModal()
+            return
+          }
+
+          if (target.dataset.sidebarAction === 'account-transactions') {
+            if (state.currentAccount) {
+              state.txFilter = state.currentAccount
+            }
+            state.tab = 'transactions'
+            renderAll()
+            return
+          }
+
+          if (target.dataset.sidebarAction === 'account-details') {
+            state.modal = { type: 'account', payload: state.currentAccount || state.savedAccounts[0] || 'No account saved yet' }
+            renderModal()
+            return
+          }
+
+          if (target.dataset.sidebarAction === 'verify-contracts') {
+            state.modal = { type: 'contracts', payload: true }
+            renderModal()
+          }
+        })
+
+        el.modalBackdrop.addEventListener('click', (event) => {
+          if (event.target === el.modalBackdrop) {
+            state.modal = null
+            renderModal()
+          }
+        })
+
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && state.modal) {
+            state.modal = null
+            renderModal()
+          }
+        })
+      }
+
+      function initAutoRefresh() {
+        window.setInterval(() => {
+          void refreshTransactionsOnly()
+        }, 10_000)
+
+        window.setInterval(() => {
+          void refreshBlocksOnly()
+        }, 6_000)
+      }
+
+      hydrateActiveAccount()
+      bindStaticEvents()
+      renderAll()
+      void refreshBootstrap()
+      void openDeepLinkFromUrl()
+      initAutoRefresh()
+    </script>
+  </body>
+</html>

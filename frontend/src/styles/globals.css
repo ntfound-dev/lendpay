@@ -2761,10 +2761,29 @@ body::after {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+  gap: 10px;
+  align-items: center;
 }
 
 .sidebar__brand-copy {
   gap: 3px;
+}
+
+.sidebar__brandmark {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  flex: 0 0 40px;
+}
+
+.sidebar__brandmark::after {
+  inset: -4px;
+  border-radius: 14px;
+}
+
+.sidebar__brandmark-svg {
+  width: 26px;
+  height: 26px;
 }
 
 .sidebar__brand {
@@ -3348,6 +3367,29 @@ body::after {
 }
 
 .lendpay-footer__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lendpay-footer__brandmark {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(8, 17, 28, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.lendpay-footer__brandmark img {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.lendpay-footer__brand-copy {
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -4964,6 +5006,296 @@ body::after {
   color: #64748b;
   font-size: 0.84rem;
   line-height: 1.5;
+}
+
+.bridge-card {
+  max-width: 480px;
+  margin-inline: auto;
+  padding: 24px;
+  color: #0f172a;
+  background: linear-gradient(180deg, rgba(251, 251, 250, 0.98), rgba(244, 247, 245, 0.98));
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+  backdrop-filter: none;
+}
+
+.bridge-card::before,
+.bridge-card::after {
+  display: none;
+}
+
+.bridge-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(13, 148, 136, 0.28);
+  box-shadow: 0 28px 68px rgba(15, 23, 42, 0.16);
+}
+
+.bridge-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.bridge-card__headline {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.bridge-card__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  color: #0f766e;
+  background: rgba(13, 148, 136, 0.12);
+  border: 1px solid rgba(13, 148, 136, 0.18);
+  flex-shrink: 0;
+}
+
+.bridge-card__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.bridge-card__kicker {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.bridge-card__title {
+  margin: 6px 0 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.bridge-card__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.68);
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bridge-card__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.bridge-card__status--active {
+  color: #0f766e;
+  border-color: rgba(13, 148, 136, 0.22);
+  background: rgba(240, 253, 250, 0.92);
+}
+
+.bridge-card__status--pending {
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.18);
+  background: rgba(255, 251, 235, 0.92);
+}
+
+.bridge-card__route {
+  margin: 14px 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.bridge-card__divider {
+  height: 1px;
+  margin: 18px 0 20px;
+  background: rgba(148, 163, 184, 0.24);
+}
+
+.bridge-card__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.bridge-card__field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bridge-card__label {
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.bridge-card__input-shell {
+  position: relative;
+}
+
+.bridge-card__input {
+  width: 100%;
+  min-width: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  padding: 14px 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.bridge-card__input:focus {
+  outline: none;
+  transform: translateY(-1px);
+  border-color: rgba(13, 148, 136, 0.48);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 0 0 4px rgba(13, 148, 136, 0.12);
+}
+
+.bridge-card__input--mono {
+  font-family: 'IBM Plex Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.bridge-card__input--copyable {
+  padding-right: 52px;
+}
+
+.bridge-card__input::-webkit-outer-spin-button,
+.bridge-card__input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.bridge-card__copy {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #0f766e;
+  transform: translateY(-50%);
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.bridge-card__copy:hover {
+  background: rgba(13, 148, 136, 0.1);
+  transform: translateY(-50%) scale(1.04);
+}
+
+.bridge-card__copy svg {
+  width: 16px;
+  height: 16px;
+}
+
+.bridge-card__copy--copied {
+  background: rgba(13, 148, 136, 0.12);
+  color: #0f766e;
+}
+
+.bridge-card__output {
+  margin-top: 18px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(13, 148, 136, 0.14);
+  background:
+    linear-gradient(180deg, rgba(240, 253, 250, 0.96), rgba(248, 250, 252, 0.96));
+}
+
+.bridge-card__output-label {
+  display: block;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.bridge-card__output-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 8px;
+  color: #0f172a;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.bridge-card__output-value span {
+  color: #475569;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.bridge-card__actions {
+  margin-top: 18px;
+}
+
+.bridge-card__cta.button--primary {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #f8fffd;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 14px 28px rgba(15, 118, 110, 0.2);
+}
+
+.bridge-card__cta.button--primary::after {
+  display: none;
+}
+
+.bridge-card__cta.button:hover {
+  transform: scale(1.01);
+  box-shadow: 0 18px 34px rgba(15, 118, 110, 0.22);
+}
+
+.bridge-card__cta.button:disabled:hover {
+  transform: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 14px 28px rgba(15, 118, 110, 0.2);
+}
+
+.bridge-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.bridge-card__mono {
+  font-family: 'IBM Plex Mono', monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 .app-family-grid {
@@ -6694,6 +7026,25 @@ details[open] .dev-info-accordion__chevron {
 
   .protocol-status-grid {
     grid-template-columns: 1fr;
+  }
+
+  .bridge-card {
+    padding: 20px;
+  }
+
+  .bridge-card__header,
+  .bridge-card__output-value {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .bridge-card__fields {
+    grid-template-columns: 1fr;
+  }
+
+  .bridge-card__footer {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .loyalty-sections {

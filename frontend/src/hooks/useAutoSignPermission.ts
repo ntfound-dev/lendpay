@@ -160,11 +160,7 @@ export function useAutoSignPermission({
     )
   }
 
-  const ensureAutoSignPermission = async (messages: EncodeObject[]) => {
-    if (!supportsConfiguredAutoSignMessages(messages)) {
-      return false
-    }
-
+  const requestAutoSignPermission = async () => {
     if (
       autoSignEnabledByChainRef.current[chainId] ||
       getKnownAutoSignExpiry(chainId) > Date.now()
@@ -253,5 +249,29 @@ export function useAutoSignPermission({
     return isReady
   }
 
-  return { ensureAutoSignPermission }
+  const ensureAutoSignPermission = async (messages: EncodeObject[]) => {
+    if (!supportsConfiguredAutoSignMessages(messages)) {
+      return false
+    }
+
+    return requestAutoSignPermission()
+  }
+
+  const activeAutoSignExpiry = Math.max(
+    autoSign.expiredAtByChain[chainId] instanceof Date
+      ? autoSign.expiredAtByChain[chainId]!.getTime()
+      : 0,
+    readStoredAutoSignExpiry(initiaAddress, chainId) ?? 0,
+  )
+  const autoSignSessionExpiresAt =
+    activeAutoSignExpiry > Date.now() ? new Date(activeAutoSignExpiry) : null
+  const hasActiveAutoSignPermission =
+    Boolean(autoSign.isEnabledByChain[chainId]) || autoSignSessionExpiresAt !== null
+
+  return {
+    autoSignSessionExpiresAt,
+    enableAutoSignPermission: requestAutoSignPermission,
+    ensureAutoSignPermission,
+    hasActiveAutoSignPermission,
+  }
 }

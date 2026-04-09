@@ -12,6 +12,7 @@ import {
   createClaimCampaignMessage,
   createClaimLendMessage,
   createClaimViralDropCollectibleMessage,
+  createOpenBridgeIntentMessage,
   createRepayInstallmentMessage,
   createRequestCollateralizedLoanMessage,
   createRequestLoanMessage,
@@ -238,6 +239,7 @@ function App() {
     initiaAddress,
     isOpen: isInterwovenOpen,
     offlineSigner,
+    openBridge,
     openConnect,
     requestTxBlock,
     submitTxBlock,
@@ -276,6 +278,8 @@ function App() {
   const [toast, setToast] = useState<ToastState | null>(null)
   const showToast = (nextToast: ToastState) => setToast(nextToast)
   const [username, setUsername] = useState<string | undefined>(walletUsername ?? undefined)
+  const [bridgeAmount, setBridgeAmount] = useState('')
+  const [bridgeRecipient, setBridgeRecipient] = useState('')
   const [stakeAmount, setStakeAmount] = useState('')
   const [unstakeAmount, setUnstakeAmount] = useState('')
   const [redeemPointsAmount, setRedeemPointsAmount] = useState('')
@@ -303,6 +307,7 @@ function App() {
   const [showWalletRecovery, setShowWalletRecovery] = useState(false)
   const [walletRecoveryActionKey, setWalletRecoveryActionKey] = useState<string | null>(null)
   const borrowerSyncCacheRef = useRef<Map<string, { at: number; data: unknown }>>(new Map())
+  const bridgeRecipientSeedRef = useRef<string | null>(null)
   const hasUserSelectedProfileRef = useRef(false)
   const requestTxBlockRef = useRef(requestTxBlock)
   const submitTxBlockRef = useRef(submitTxBlock)
@@ -346,7 +351,12 @@ function App() {
     chainId: appEnv.appchainId,
     initiaAddress,
   })
-  const { ensureAutoSignPermission } = useAutoSignPermission({
+  const {
+    autoSignSessionExpiresAt,
+    enableAutoSignPermission,
+    ensureAutoSignPermission,
+    hasActiveAutoSignPermission,
+  } = useAutoSignPermission({
     autoSign,
     chainId: appEnv.appchainId,
     confirmWalletAction,
@@ -1213,6 +1223,17 @@ function App() {
     return syncBorrowerState(token)
   }
 
+  useEffect(() => {
+    if (!initiaAddress) {
+      return
+    }
+
+    setBridgeRecipient((current) =>
+      !current || current === bridgeRecipientSeedRef.current ? initiaAddress : current,
+    )
+    bridgeRecipientSeedRef.current = initiaAddress
+  }, [initiaAddress])
+
   const loadBorrowerState = async (signal?: AbortSignal) => {
     if (signal?.aborted) {
       return
@@ -1291,6 +1312,221 @@ function App() {
 
   const openPreferredWalletConnect = async () => {
     openConnect()
+  }
+
+  const handleEnableAutoSignSession = async () => {
+    if (!isConnected) {
+      await openPreferredWalletConnect()
+      return
+    }
+
+    try {
+      await enableAutoSignPermission()
+    } catch (error) {
+      if (isTransactionPreviewCancelled(error) || isUserRejectedWalletError(error)) {
+        return
+      }
+
+      showToast({
+        tone: 'warning',
+        title: 'Auto-sign unavailable',
+        message: getErrorMessage(error, 'Wallet auto-sign setup could not be completed right now.'),
+      })
+    }
+  }
+
+  const handleShowAutoSignSessionInfo = () => {
+    showToast({
+      tone: 'info',
+      title: 'Auto-sign session active',
+      message: autoSignSessionExpiresAt
+        ? `Supported Move actions can reuse the temporary wallet session until it expires on ${formatDate(autoSignSessionExpiresAt.toISOString())}.`
+        : 'Supported Move actions can reuse the temporary wallet session until the wallet expires it.',
+    })
+  }
+
+  const openConfiguredLendBridge = ({
+    announceIntentTxHash,
+    recipient,
+    route,
+  }: {
+    announceIntentTxHash?: string
+    recipient: string
+    route: LendLiquidityRouteState
+  }) => {
+    openBridge({
+      srcChainId: route.sourceChainId,
+      srcDenom: route.assetDenom,
+      dstChainId: route.destinationChainId,
+      dstDenom: route.destinationDenom || route.assetDenom,
+      recipient,
+    })
+
+    const bridgeStepLabel = route.liquidityVenue
+      ? `Continue in Interwoven Bridge, then move to ${route.liquidityVenue}${route.poolReference ? ` (${route.poolReference})` : ''} for the sell step.`
+      : 'Continue in Interwoven Bridge, then swap or sell in the destination venue.'
+
+    showToast({
+      tone: announceIntentTxHash ? 'success' : 'info',
+      title: announceIntentTxHash ? 'Bridge intent recorded' : 'Bridge opened',
+      message: announceIntentTxHash
+        ? `${formatTxHash(announceIntentTxHash)} recorded onchain. ${bridgeStepLabel}`
+        : bridgeStepLabel,
+    })
+  }
+
+  const handleOpenLendBridge = async () => {
+    if (!lendLiquidityRoute) {
+      showToast({
+        tone: 'warning',
+        title: 'Bridge route unavailable',
+        message: 'Refresh your account first so LendPay can load the current LEND route.',
+      })
+      return
+    }
+
+    if (lendLiquidityRoute.routeMode !== 'live') {
+      showToast({
+        tone: 'info',
+        title: 'Bridge not live yet',
+        message:
+          'LEND still needs its published MiniEVM token mapping before Interwoven Bridge can open this transfer path.',
+      })
+      return
+    }
+
+    if (!isConnected) {
+      await openPreferredWalletConnect()
+      return
+    }
+
+    const amount = Number(bridgeAmount)
+    const recipient = bridgeRecipient.trim() || initiaAddress?.trim() || ''
+
+    if (!Number.isFinite(amount) || !Number.isInteger(amount) || amount <= 0) {
+      showToast({
+        tone: 'warning',
+        title: 'Invalid bridge amount',
+        message: 'Enter a whole-number LEND amount before opening the bridge.',
+      })
+      return
+    }
+
+    if (rewards && amount > rewards.liquidLend) {
+      showToast({
+        tone: 'warning',
+        title: 'Amount exceeds liquid LEND',
+        message: `You currently have ${formatNumber(rewards.liquidLend)} liquid LEND available for bridging.`,
+      })
+      return
+    }
+
+    if (!recipient) {
+      showToast({
+        tone: 'warning',
+        title: 'Recipient required',
+        message: 'Set the MiniEVM recipient address before opening the bridge flow.',
+      })
+      return
+    }
+
+    if (!lendLiquidityRoute.routeId || !isChainWriteReady) {
+      try {
+        openConfiguredLendBridge({
+          recipient,
+          route: lendLiquidityRoute,
+        })
+      } catch (error) {
+        showToast({
+          tone: 'warning',
+          title: 'Bridge unavailable',
+          message: getErrorMessage(
+            error,
+            'Interwoven Bridge could not be opened right now. Please try again in a moment.',
+          ),
+        })
+      }
+
+      return
+    }
+
+    const message = createOpenBridgeIntentMessage({
+      amount,
+      recipient,
+      routeId: lendLiquidityRoute.routeId,
+      moduleAddress: appEnv.packageAddress,
+      moduleName: 'bridge',
+      sender: initiaAddress!,
+      functionName: 'open_bridge_intent',
+    })
+
+    const preview: TxPreviewContent = {
+      actionLabel: 'Open wallet signer',
+      eyebrow: 'Bridge intent',
+      title: 'Record bridge intent before transfer',
+      subtitle:
+        'This stores your requested LEND bridge route onchain first, then LendPay opens Interwoven Bridge for the transfer step.',
+      rows: [
+        { label: 'Amount', value: `${formatNumber(amount)} LEND` },
+        { label: 'Recipient', value: recipient.length > 18 ? shortenAddress(recipient) : recipient },
+        {
+          label: 'Route',
+          value: `${lendLiquidityRoute.sourceChainName} → ${lendLiquidityRoute.destinationChainName}`,
+        },
+        { label: 'Module', value: 'bridge::open_bridge_intent' },
+        { label: 'Network', value: appEnv.appchainId },
+      ],
+      note:
+        'After the intent is recorded, Interwoven Bridge opens with the same route and recipient so the transfer step stays aligned with the onchain audit trail.',
+    }
+
+    try {
+      setPendingProtocolAction('bridge-intent')
+      const result = await requestWalletTx([message], 'bridge-intent', preview)
+      const txHash = extractTxHash(result)
+
+      try {
+        openConfiguredLendBridge({
+          announceIntentTxHash: txHash || undefined,
+          recipient,
+          route: lendLiquidityRoute,
+        })
+        setBridgeAmount('')
+      } catch (bridgeError) {
+        showToast({
+          tone: 'warning',
+          title: 'Intent recorded, bridge unavailable',
+          message: getErrorMessage(
+            bridgeError,
+            `The bridge intent was recorded${txHash ? ` (${formatTxHash(txHash)})` : ''}, but Interwoven Bridge could not be opened right now.`,
+          ),
+        })
+      }
+
+      try {
+        const token = await ensureBackendSession()
+        if (apiEnabled && token) {
+          await syncProtocolAfterTx(token, txHash || undefined)
+        }
+      } catch (syncError) {
+        console.warn('Bridge intent sync failed', syncError)
+      }
+    } catch (error) {
+      if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
+        return
+      }
+
+      showToast({
+        tone: 'warning',
+        title: 'Bridge intent failed',
+        message: getErrorMessage(
+          error,
+          'LendPay could not record the bridge intent right now. Please try again in a moment.',
+        ),
+      })
+    } finally {
+      setPendingProtocolAction(null)
+    }
   }
 
   const handleSelectProfile = (profileId: number) => {
@@ -1541,6 +1777,70 @@ function App() {
       controller.abort()
     }
   }, [apiEnabled, hasOfflineSigner, initiaAddress])
+
+  useEffect(() => {
+    if (!apiEnabled || !initiaAddress || !hasLoadedBorrowerState) {
+      return
+    }
+
+    let cancelled = false
+    let refreshInFlight = false
+
+    const refreshBorrowerSnapshot = async () => {
+      if (cancelled || refreshInFlight) {
+        return
+      }
+
+      if (typeof document !== 'undefined' && document.hidden) {
+        return
+      }
+
+      const reusableToken = sessionTokenRef.current ?? readPersistedSessionToken(initiaAddress)
+      if (!reusableToken) {
+        return
+      }
+
+      refreshInFlight = true
+
+      try {
+        await syncBorrowerState(reusableToken)
+      } catch (error) {
+        if (cancelled || isAbortError(error) || isSessionAuthError(error)) {
+          return
+        }
+
+        console.warn('Background borrower refresh failed', error)
+      } finally {
+        refreshInFlight = false
+      }
+    }
+
+    const handleWindowFocus = () => {
+      void refreshBorrowerSnapshot()
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        return
+      }
+
+      void refreshBorrowerSnapshot()
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshBorrowerSnapshot()
+    }, 30_000)
+
+    window.addEventListener('focus', handleWindowFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', handleWindowFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [apiEnabled, hasLoadedBorrowerState, initiaAddress])
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true)
@@ -3360,9 +3660,9 @@ function App() {
       ? 'Ready to use'
       : 'Run profile'
   let topbarStatus: string | undefined = undefined
-  let topbarPrimaryLabel: string | undefined = activeLoan ? 'Repay now' : 'Use credit'
+  let topbarPrimaryLabel: string | undefined = activeLoan ? 'Repay now' : undefined
   let topbarSecondaryLabel: string | undefined = activeLoan ? 'Use credit' : undefined
-  let handleTopbarPrimaryAction: (() => void) | undefined = activeLoan ? handleRepay : () => setActivePage('request')
+  let handleTopbarPrimaryAction: (() => void) | undefined = activeLoan ? handleRepay : undefined
   let handleTopbarSecondaryAction: (() => void) | undefined = activeLoan ? () => setActivePage('request') : undefined
 
   if (activePage === 'analyze') {
@@ -3550,6 +3850,13 @@ function App() {
     handleTopbarPrimaryAction = () => setActivePage('request')
     handleTopbarSecondaryAction = undefined
   } else {
+    topbarStatus = hasActiveAutoSignPermission ? 'Temporary session active' : 'Wallet asks each time'
+    topbarPrimaryLabel = hasActiveAutoSignPermission ? 'Auto-sign session' : 'Enable auto-sign'
+    topbarSecondaryLabel = score ? 'Use credit' : undefined
+    handleTopbarPrimaryAction = hasActiveAutoSignPermission
+      ? handleShowAutoSignSessionInfo
+      : () => void handleEnableAutoSignSession()
+    handleTopbarSecondaryAction = score ? () => setActivePage('request') : undefined
     agentPanelTitle = score
       ? `You can safely spend up to ${formatCurrency(suggestedSpendToday)} today`
       : 'Refresh your profile to unlock your first limit'
@@ -3616,7 +3923,7 @@ function App() {
     docs: 'https://github.com/ntfound-dev/lendpay/tree/main/docs-site',
     discord: 'https://discord.gg/initia',
     x: 'https://x.com/InitiaFDN',
-    explorer: 'https://scan.testnet.initia.xyz',
+    explorer: '/scan.html',
   }
 
   return (
@@ -4033,7 +4340,6 @@ function App() {
                 interestDiscountPercent={interestDiscountPercent}
                 isApplyingReferral={isApplyingReferral}
                 isProtocolActionPending={isProtocolActionPending}
-                lendLiquidityRoute={lendLiquidityRoute}
                 leaderboardMyRank={effectiveLeaderboardMyRank}
                 leaderboardTab={leaderboardTab}
                 leaderboardTabMeta={leaderboardTabMeta}
@@ -4066,6 +4372,8 @@ function App() {
             {canRenderConnectedPages && activePage === 'admin' ? (
               <EcosystemPage
                 allocationDraft={allocationDraft}
+                bridgeAmount={bridgeAmount}
+                bridgeRecipient={bridgeRecipient}
                 campaignDraft={campaignDraft}
                 campaigns={campaigns}
                 ecosystemFamilyStats={ecosystemFamilyStats}
@@ -4077,18 +4385,22 @@ function App() {
                 handleDismissWalletRecovery={handleDismissWalletRecovery}
                 handleFinalizeProposal={handleFinalizeProposal}
                 handleOpenWalletApproval={handleOpenWalletApproval}
+                handleOpenLendBridge={handleOpenLendBridge}
                 handleProposeGovernance={handleProposeGovernance}
                 handleRegisterMerchant={handleRegisterMerchant}
                 handleRetryLoad={handleRetryLoad}
                 handleSetMerchantActive={handleSetMerchantActive}
                 handleVoteGovernance={handleVoteGovernance}
                 isProtocolActionPending={isProtocolActionPending}
+                lendLiquidityRoute={lendLiquidityRoute}
                 merchantDraft={merchantDraft}
                 openCampaignCount={openCampaignCount}
                 operatorModeEnabled={operatorModeEnabled}
                 protocolUpdates={protocolUpdates}
                 sectionErrors={sectionErrors}
                 setAllocationDraft={setAllocationDraft}
+                setBridgeAmount={setBridgeAmount}
+                setBridgeRecipient={setBridgeRecipient}
                 setCampaignDraft={setCampaignDraft}
                 setGovernanceDraft={setGovernanceDraft}
                 setMerchantDraft={setMerchantDraft}
@@ -4107,8 +4419,13 @@ function App() {
         {isConnected ? (
           <footer className="lendpay-footer">
             <div className="lendpay-footer__brand">
-              <span className="lendpay-footer__name">LendPay</span>
-              <span className="lendpay-footer__tag">Pay later across Initia apps</span>
+              <div className="lendpay-footer__brandmark" aria-hidden="true">
+                <img src="/favicon.svg" alt="" />
+              </div>
+              <div className="lendpay-footer__brand-copy">
+                <span className="lendpay-footer__name">LendPay</span>
+                <span className="lendpay-footer__tag">Pay later across Initia apps</span>
+              </div>
             </div>
             <div className="lendpay-footer__links">
               <a className="footer-link" href={footerLinks.github} target="_blank" rel="noopener noreferrer">

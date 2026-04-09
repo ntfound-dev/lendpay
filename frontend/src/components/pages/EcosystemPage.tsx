@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react'
+import { useState, type Dispatch, type SetStateAction } from 'react'
 import { appEnv, isChainWriteReady } from '../../config/env'
 import {
   appCategoryMeta,
@@ -6,8 +6,13 @@ import {
   formatAppLabel,
   getCampaignIneligibleReason,
 } from '../../lib/appHelpers'
-import { formatNumber, shortenAddress } from '../../lib/format'
-import type { CampaignState, GovernanceProposalState, MerchantState } from '../../types/domain'
+import { formatCurrency, formatDate, formatNumber, shortenAddress } from '../../lib/format'
+import type {
+  CampaignState,
+  GovernanceProposalState,
+  LendLiquidityRouteState,
+  MerchantState,
+} from '../../types/domain'
 import { EmptyState } from '../shared/EmptyState'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -59,6 +64,8 @@ export type ProtocolUpdateItem = {
 
 type EcosystemPageProps = {
   allocationDraft: AllocationDraft
+  bridgeAmount: string
+  bridgeRecipient: string
   campaignDraft: CampaignDraft
   campaigns: CampaignState[]
   ecosystemFamilyStats: EcosystemFamilyStat[]
@@ -68,6 +75,7 @@ type EcosystemPageProps = {
   handleClaimCampaign: (campaignId: string) => void | Promise<void>
   handleCreateCampaign: () => void | Promise<void>
   handleDismissWalletRecovery: () => void | Promise<void>
+  handleOpenLendBridge: () => void | Promise<void>
   handleFinalizeProposal: (proposalId: string) => void | Promise<void>
   handleOpenWalletApproval: () => void | Promise<void>
   handleProposeGovernance: () => void | Promise<void>
@@ -76,12 +84,15 @@ type EcosystemPageProps = {
   handleSetMerchantActive: (merchantId: string, active: boolean) => void | Promise<void>
   handleVoteGovernance: (proposalId: string, support: boolean) => void | Promise<void>
   isProtocolActionPending: (key: string) => boolean
+  lendLiquidityRoute: LendLiquidityRouteState | null
   merchantDraft: MerchantDraft
   openCampaignCount: number
   operatorModeEnabled: boolean
   protocolUpdates: ProtocolUpdateItem[]
   sectionErrors: Partial<Record<string, string>>
   setAllocationDraft: Dispatch<SetStateAction<AllocationDraft>>
+  setBridgeAmount: Dispatch<SetStateAction<string>>
+  setBridgeRecipient: Dispatch<SetStateAction<string>>
   setCampaignDraft: Dispatch<SetStateAction<CampaignDraft>>
   setGovernanceDraft: Dispatch<SetStateAction<GovernanceDraft>>
   setMerchantDraft: Dispatch<SetStateAction<MerchantDraft>>
@@ -94,6 +105,8 @@ type EcosystemPageProps = {
 
 export function EcosystemPage({
   allocationDraft,
+  bridgeAmount,
+  bridgeRecipient,
   campaignDraft,
   campaigns,
   ecosystemFamilyStats,
@@ -103,6 +116,7 @@ export function EcosystemPage({
   handleClaimCampaign,
   handleCreateCampaign,
   handleDismissWalletRecovery,
+  handleOpenLendBridge,
   handleFinalizeProposal,
   handleOpenWalletApproval,
   handleProposeGovernance,
@@ -111,12 +125,15 @@ export function EcosystemPage({
   handleSetMerchantActive,
   handleVoteGovernance,
   isProtocolActionPending,
+  lendLiquidityRoute,
   merchantDraft,
   openCampaignCount,
   operatorModeEnabled,
   protocolUpdates,
   sectionErrors,
   setAllocationDraft,
+  setBridgeAmount,
+  setBridgeRecipient,
   setCampaignDraft,
   setGovernanceDraft,
   setMerchantDraft,
@@ -126,6 +143,35 @@ export function EcosystemPage({
   uniqueApps,
   username,
 }: EcosystemPageProps) {
+  const [copiedRecipient, setCopiedRecipient] = useState(false)
+  const bridgeAmountValue = Number(bridgeAmount)
+  const normalizedBridgeAmount =
+    Number.isFinite(bridgeAmountValue) && bridgeAmountValue > 0 ? bridgeAmountValue : 0
+  const estimatedReceiveAmount = normalizedBridgeAmount
+  const estimatedUsdValue = estimatedReceiveAmount * (lendLiquidityRoute?.oracleQuote.price ?? 0)
+  const bridgeLastUpdated = lendLiquidityRoute
+    ? formatDate(lendLiquidityRoute.oracleQuote.blockTimestamp ?? lendLiquidityRoute.oracleQuote.fetchedAt)
+    : ''
+  const bridgeRouteLine = lendLiquidityRoute
+    ? `${lendLiquidityRoute.sourceChainName} → ${lendLiquidityRoute.destinationChainName} via InterwovenKit`
+    : ''
+  const isBridgeActive = lendLiquidityRoute?.routeMode === 'live'
+
+  const handleCopyRecipient = async () => {
+    const recipient = bridgeRecipient.trim()
+    if (!recipient || typeof navigator === 'undefined' || !navigator.clipboard) {
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(recipient)
+      setCopiedRecipient(true)
+      window.setTimeout(() => setCopiedRecipient(false), 1200)
+    } catch {
+      setCopiedRecipient(false)
+    }
+  }
+
   return (
     <>
       <Card eyebrow="Ecosystem status" title="What is live right now" className="admin-card">
@@ -169,6 +215,130 @@ export function EcosystemPage({
             <small>{isChainWriteReady ? 'Borrower flow ready' : 'Chain target not configured'}</small>
           </div>
         </div>
+      </Card>
+
+      <Card className="bridge-card section-stack">
+        {lendLiquidityRoute ? (
+          <>
+            <div className="bridge-card__header">
+              <div className="bridge-card__headline">
+                <div className="bridge-card__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M7 8h10" strokeLinecap="round" />
+                    <path d="m13.5 4.5 3.5 3.5-3.5 3.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M17 16H7" strokeLinecap="round" />
+                    <path d="m10.5 12.5-3.5 3.5 3.5 3.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="bridge-card__kicker">Bridge</div>
+                  <h3 className="bridge-card__title">Bridge LEND → Initia MiniEVM</h3>
+                </div>
+              </div>
+              <div
+                className={[
+                  'bridge-card__status',
+                  isBridgeActive ? 'bridge-card__status--active' : 'bridge-card__status--pending',
+                ].join(' ')}
+              >
+                <span className="bridge-card__status-dot" aria-hidden="true" />
+                {isBridgeActive ? 'Active' : 'Preview'}
+              </div>
+            </div>
+
+            <p className="bridge-card__route">{bridgeRouteLine}</p>
+            <div className="bridge-card__divider" />
+
+            <div className="bridge-card__fields">
+              <div className="bridge-card__field">
+                <label className="bridge-card__label" htmlFor="bridgeAmount">
+                  Amount (LEND)
+                </label>
+                <input
+                  className="bridge-card__input bridge-card__input--mono"
+                  id="bridgeAmount"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={bridgeAmount}
+                  onChange={(event) => setBridgeAmount(event.target.value)}
+                  placeholder="250"
+                />
+              </div>
+              <div className="bridge-card__field">
+                <label className="bridge-card__label" htmlFor="bridgeRecipient">
+                  Recipient address
+                </label>
+                <div className="bridge-card__input-shell">
+                  <input
+                    className="bridge-card__input bridge-card__input--mono bridge-card__input--copyable"
+                    id="bridgeRecipient"
+                    value={bridgeRecipient}
+                    onChange={(event) => setBridgeRecipient(event.target.value)}
+                    placeholder="Defaults to the connected wallet"
+                  />
+                  <button
+                    type="button"
+                    className={[
+                      'bridge-card__copy',
+                      copiedRecipient ? 'bridge-card__copy--copied' : '',
+                    ].join(' ')}
+                    onClick={() => void handleCopyRecipient()}
+                    aria-label="Copy recipient address"
+                    title={copiedRecipient ? 'Copied' : 'Copy recipient address'}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <rect x="9" y="9" width="10" height="10" rx="2" />
+                      <path d="M15 9V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bridge-card__output">
+              <span className="bridge-card__output-label">You receive:</span>
+              <strong className="bridge-card__output-value">
+                {formatNumber(estimatedReceiveAmount)} INIT
+                <span>≈ {formatCurrency(estimatedUsdValue)}</span>
+              </strong>
+            </div>
+
+            <div className="bridge-card__actions">
+              <Button
+                className="bridge-card__cta"
+                onClick={handleOpenLendBridge}
+                wide
+                disabled={
+                  lendLiquidityRoute.routeMode !== 'live' ||
+                  isProtocolActionPending('bridge-intent')
+                }
+              >
+                {isProtocolActionPending('bridge-intent') ? 'Bridging...' : 'Bridge Now'}
+              </Button>
+            </div>
+
+            <div className="bridge-card__footer">
+              <span>
+                Reference price <strong className="bridge-card__mono">{formatCurrency(lendLiquidityRoute.oracleQuote.price)}</strong>
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>
+                Last updated <strong className="bridge-card__mono">{bridgeLastUpdated}</strong>
+              </span>
+            </div>
+          </>
+        ) : (
+          <EmptyState
+            title="Bridge status unavailable"
+            subtitle={
+              sectionErrors.liquidity ??
+              'Refresh your account to load the current LEND bridge route and official price reference.'
+            }
+            actionLabel="Retry load"
+            onAction={handleRetryLoad}
+          />
+        )}
       </Card>
 
       {technicalModeEnabled ? (

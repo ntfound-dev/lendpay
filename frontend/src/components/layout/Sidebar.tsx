@@ -22,6 +22,13 @@ export function Sidebar({
     <aside className="sidebar">
       <div className="sidebar__top">
         <div className="sidebar__brand-wrap">
+          <div className="sidebar__brandmark" aria-hidden="true">
+            <img
+              className="sidebar__brandmark-svg"
+              src="/favicon.svg"
+              alt=""
+            />
+          </div>
           <div className="sidebar__brand-copy">
             <div className="sidebar__brand">LendPay</div>
             <div className="sidebar__tagline">Pay later across Initia apps</div>

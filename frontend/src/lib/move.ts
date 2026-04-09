@@ -224,6 +224,31 @@ export const createClaimCampaignMessage = ({
     ]),
   )
 
+export const createOpenBridgeIntentMessage = ({
+  amount,
+  recipient,
+  routeId,
+  moduleAddress,
+  moduleName,
+  sender,
+  functionName,
+}: {
+  amount: number
+  recipient: string
+  routeId: number
+  moduleAddress: string
+  moduleName: string
+  sender: string
+  functionName: string
+}) =>
+  toEncodeObject(
+    new MsgExecute(sender, moduleAddress, moduleName, functionName, [], [
+      bcs.u64().serialize(routeId).toBase64(),
+      bcs.u64().serialize(amount).toBase64(),
+      encodeBytes(recipient),
+    ]),
+  )
+
 export const createGovernanceVoteMessage = ({
   proposalId,
   support,
