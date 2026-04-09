@@ -2,6 +2,8 @@
 
 This folder holds the Docker-based deploy path for the local `lendpay-4` runtime on Railway.
 
+The GitHub-tracked version of this folder only keeps the Docker recipe and an empty runtime skeleton. Real runtime files stay local and must be staged separately.
+
 ## What it expects
 
 1. A staged `minitiad` runtime under `deploy/railway/deploy/runtime/bin`
@@ -20,6 +22,7 @@ That copies:
 
 - the local `minitiad` binary and shared libraries
 - the local rollup home for `lendpay-4`
+- two tar.gz archives under `.run/railway-deploy`
 
 Important:
 
@@ -45,6 +48,8 @@ Recommended variables:
 
 - `ROLLUP_HOME=/data/rollup-home`
 - `MINITIAD_BIN=/opt/minitiad/minitiad`
+- `MINITIAD_ARCHIVE_URL=<private tar.gz URL for minitiad + libs>`
+- `ROLLUP_HOME_SEED_ARCHIVE_URL=<private tar.gz URL for the rollup home seed>`
 
 Useful checks after deploy:
 
@@ -53,6 +58,7 @@ Useful checks after deploy:
 
 ## Notes
 
-- The first boot seeds the Railway volume from the staged `home-seed`.
+- The first boot seeds the Railway volume from the staged `home-seed` if it exists in the image, or from `ROLLUP_HOME_SEED_ARCHIVE_URL` if you provide one.
+- If the image does not include `minitiad`, the container can download it from `MINITIAD_ARCHIVE_URL`.
 - Later boots reuse the volume state and do not overwrite an existing seeded home.
 - This is meant for the chain runtime itself. Frontend and backend should stay separate services.

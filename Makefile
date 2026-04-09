@@ -1,4 +1,4 @@
-.PHONY: help up down status restart logs explorer railway-deploy-prepare railway-deploy-build
+.PHONY: help help-deploy up down status restart logs explorer railway-deploy-prepare railway-deploy-build
 
 help:
 	@echo "LendPay local stack commands"
@@ -8,6 +8,10 @@ help:
 	@echo "  make restart - restart the whole stack"
 	@echo "  make logs    - show log file locations and postgres log commands"
 	@echo "  make explorer - show the local explorer URLs"
+	@echo "  make help-deploy - show Railway deploy helpers"
+
+help-deploy:
+	@echo "LendPay Railway deploy helpers"
 	@echo "  make railway-deploy-prepare - stage minitiad + rollup home for Railway Docker deploy"
 	@echo "  make railway-deploy-build   - build the Railway Docker image locally"
 

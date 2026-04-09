@@ -7,6 +7,9 @@ BACKEND_ENV_FILE="$ROOT_DIR/backend/.env"
 RUNTIME_DIR="$ROOT_DIR/deploy/railway/deploy/runtime"
 BIN_DIR="$RUNTIME_DIR/bin"
 HOME_SEED_DIR="$RUNTIME_DIR/home-seed"
+ARCHIVE_DIR="$ROOT_DIR/.run/railway-deploy"
+BIN_ARCHIVE="$ARCHIVE_DIR/minitiad-runtime.tgz"
+HOME_SEED_ARCHIVE="$ARCHIVE_DIR/rollup-home-seed.tgz"
 
 if [[ -f "$BACKEND_ENV_FILE" ]]; then
   set -a
@@ -32,6 +35,7 @@ if [[ ! -d "$ROLLUP_HOME_SOURCE" ]]; then
 fi
 
 mkdir -p "$BIN_DIR" "$HOME_SEED_DIR"
+mkdir -p "$ARCHIVE_DIR"
 
 cp "$MINITIAD_SOURCE" "$BIN_DIR/minitiad"
 
@@ -52,6 +56,9 @@ rsync -a --delete \
 
 chmod +x "$BIN_DIR/minitiad"
 
+tar -czf "$BIN_ARCHIVE" -C "$BIN_DIR" .
+tar -czf "$HOME_SEED_ARCHIVE" -C "$HOME_SEED_DIR" .
+
 cat <<EOF
 Railway deploy runtime staged.
 
@@ -59,9 +66,12 @@ Railway deploy runtime staged.
 - Rollup home   : $ROLLUP_HOME_SOURCE
 - Runtime bin   : $BIN_DIR
 - Runtime seed  : $HOME_SEED_DIR
+- Bin archive   : $BIN_ARCHIVE
+- Seed archive  : $HOME_SEED_ARCHIVE
 
 Important:
 - The staged home contains validator and node keys. Keep deploy/railway/deploy/runtime out of git.
+- For GitHub-based Railway builds, upload the archives somewhere private and set MINITIAD_ARCHIVE_URL and ROLLUP_HOME_SEED_ARCHIVE_URL in Railway.
 - On Railway, attach a volume to /data and keep ROLLUP_HOME=/data/rollup-home.
 - Use the Dockerfile at deploy/railway/deploy/Dockerfile for the rollup service.
 EOF

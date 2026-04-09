@@ -1,1 +1,4 @@
-runtime/
+runtime/*
+!runtime/.gitignore
+!runtime/bin/
+!runtime/home-seed/
