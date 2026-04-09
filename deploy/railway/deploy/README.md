@@ -1,11 +1,11 @@
-# Railway Rollup Docker
+# Railway Deploy
 
-This folder holds the Docker-based deploy path for the local `lendpay-4` rollup on Railway.
+This folder holds the Docker-based deploy path for the local `lendpay-4` runtime on Railway.
 
 ## What it expects
 
-1. A staged `minitiad` runtime under `deploy/railway/rollup/runtime/bin`
-2. A staged rollup home under `deploy/railway/rollup/runtime/home-seed`
+1. A staged `minitiad` runtime under `deploy/railway/deploy/runtime/bin`
+2. A staged rollup home under `deploy/railway/deploy/runtime/home-seed`
 3. A Railway volume mounted at `/data`
 
 ## Prepare the runtime from your local machine
@@ -13,7 +13,7 @@ This folder holds the Docker-based deploy path for the local `lendpay-4` rollup 
 From the repo root:
 
 ```bash
-make railway-rollup-prepare
+make railway-deploy-prepare
 ```
 
 That copies:
@@ -24,21 +24,22 @@ That copies:
 Important:
 
 - the staged home includes validator and node keys
-- `deploy/railway/rollup/runtime` is intentionally gitignored
+- `deploy/railway/deploy/runtime` is intentionally gitignored
 - do not commit those staged files
 
 ## Build locally
 
 ```bash
-make railway-rollup-build
+make railway-deploy-build
 ```
 
 ## Railway service setup
 
 1. Create an empty Railway service from this repo.
-2. Set `RAILWAY_DOCKERFILE_PATH=deploy/railway/rollup/Dockerfile`.
-3. Attach a volume at `/data`.
-4. Deploy.
+2. In `Config-as-code`, add the file path `deploy/railway/deploy/railway.json`.
+3. If you prefer manual setup, set `RAILWAY_DOCKERFILE_PATH=deploy/railway/deploy/Dockerfile`.
+4. Attach a volume at `/data`.
+5. Deploy.
 
 Recommended variables:
 

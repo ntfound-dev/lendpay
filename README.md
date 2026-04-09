@@ -149,9 +149,9 @@ The backend already includes:
 
 The rollup can also be packaged for Railway with Docker:
 
-- [deploy/railway/rollup/Dockerfile](./deploy/railway/rollup/Dockerfile)
-- [deploy/railway/rollup/README.md](./deploy/railway/rollup/README.md)
-- `make railway-rollup-prepare`
+- [deploy/railway/deploy/Dockerfile](./deploy/railway/deploy/Dockerfile)
+- [deploy/railway/deploy/README.md](./deploy/railway/deploy/README.md)
+- `make railway-deploy-prepare`
 
 Important note:
 

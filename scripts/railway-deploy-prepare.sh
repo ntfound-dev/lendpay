@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_ENV_FILE="$ROOT_DIR/backend/.env"
-RUNTIME_DIR="$ROOT_DIR/deploy/railway/rollup/runtime"
+RUNTIME_DIR="$ROOT_DIR/deploy/railway/deploy/runtime"
 BIN_DIR="$RUNTIME_DIR/bin"
 HOME_SEED_DIR="$RUNTIME_DIR/home-seed"
 
@@ -53,7 +53,7 @@ rsync -a --delete \
 chmod +x "$BIN_DIR/minitiad"
 
 cat <<EOF
-Railway rollup runtime staged.
+Railway deploy runtime staged.
 
 - Binary source : $MINITIAD_SOURCE
 - Rollup home   : $ROLLUP_HOME_SOURCE
@@ -61,7 +61,7 @@ Railway rollup runtime staged.
 - Runtime seed  : $HOME_SEED_DIR
 
 Important:
-- The staged home contains validator and node keys. Keep deploy/railway/rollup/runtime out of git.
+- The staged home contains validator and node keys. Keep deploy/railway/deploy/runtime out of git.
 - On Railway, attach a volume to /data and keep ROLLUP_HOME=/data/rollup-home.
-- Use the Dockerfile at deploy/railway/rollup/Dockerfile for the rollup service.
+- Use the Dockerfile at deploy/railway/deploy/Dockerfile for the rollup service.
 EOF
