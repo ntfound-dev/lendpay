@@ -8,7 +8,10 @@ try {
     host: '0.0.0.0',
     port: env.PORT,
   })
+  console.log(`[startup] backend listening on 0.0.0.0:${env.PORT}`)
 } catch (error) {
+  console.error('[startup] backend failed to start')
+  console.error(error)
   app.log.error(error)
   process.exit(1)
 }

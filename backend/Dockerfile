@@ -20,4 +20,4 @@ RUN npm run build
 ENV NODE_ENV=production
 ENV PORT=8080
 
-CMD ["node", "dist/server.js"]
+CMD ["node", "scripts/start-server.mjs"]
