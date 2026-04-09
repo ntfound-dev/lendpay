@@ -11,9 +11,11 @@ import type {
   GovernanceProposalState,
   LoanFeeState,
   MerchantState,
+  OnchainBridgeRouteSnapshot,
   OnchainLoanSnapshot,
   OnchainRequestSnapshot,
   OnchainRewardsSnapshot,
+  LiquidityStatus,
   RewardTier,
   TreasuryState,
   TxExplorerState,
@@ -142,6 +144,23 @@ type MerchantView = {
   active: boolean
 }
 
+type BridgeRouteView = {
+  id: string
+  source_chain_id: string | number[]
+  source_denom: string | number[]
+  destination_chain_id: string | number[]
+  destination_denom: string | number[]
+  transfer_method: number
+  active: boolean
+  mapping_published: boolean
+  destination_asset_reference: string | number[]
+  liquidity_venue: string | number[]
+  pool_reference: string | number[]
+  liquidity_status: number
+  swap_enabled: boolean
+  notes: string | number[]
+}
+
 type ViralDropItemView = {
   id: string
   name: string | number[]
@@ -206,6 +225,13 @@ const tierFromCode = (tierCode: number): RewardTier => {
   if (tierCode >= 3) return 'Gold'
   if (tierCode >= 2) return 'Silver'
   return 'Bronze'
+}
+
+const liquidityStatusFromCode = (statusCode: number): LiquidityStatus => {
+  if (statusCode === 2) return 'live'
+  if (statusCode === 3) return 'paused'
+  if (statusCode === 1) return 'coming_soon'
+  return 'unknown'
 }
 
 const decodeBytesToUtf8 = (value: string | number[] | undefined | null): string | undefined => {
@@ -549,6 +575,74 @@ export class RollupClient {
       mockYominetAddress: String(mockYominetAddress || ''),
       mockIntergazeAddress: String(mockIntergazeAddress || ''),
     })
+  }
+
+  async getPreferredLendBridgeRoute(input: {
+    sourceChainId: string
+    destinationChainId: string
+    sourceDenom: string
+  }): Promise<OnchainBridgeRouteSnapshot | null> {
+    if (!this.canRead()) return null
+
+    const routeCount = await this.viewScalarNumber('bridge', 'route_count').catch(() => 0)
+    if (routeCount <= 0) return null
+
+    const routeIds = Array.from({ length: routeCount }, (_, index) => index + 1)
+    const routes = (
+      await Promise.all(
+        routeIds.map(async (routeId) => {
+          const route = await this.viewJson<BridgeRouteView>('bridge', 'get_route', [
+            bcs.u64().serialize(routeId).toBase64(),
+          ]).catch(() => null)
+
+          if (!route) return null
+
+          const normalizedRoute: OnchainBridgeRouteSnapshot = {
+            id: toNumber(route.id),
+            sourceChainId:
+              decodeBytesToUtf8(route.source_chain_id)?.trim() || input.sourceChainId,
+            sourceDenom: decodeBytesToUtf8(route.source_denom)?.trim() || input.sourceDenom,
+            destinationChainId:
+              decodeBytesToUtf8(route.destination_chain_id)?.trim() || input.destinationChainId,
+            destinationDenom: decodeBytesToUtf8(route.destination_denom)?.trim() || '',
+            transferMethod: route.transfer_method === 1 ? 'ibc_hooks' : 'ibc_hooks',
+            active: route.active,
+            mappingPublished: route.mapping_published,
+            destinationAssetReference:
+              decodeBytesToUtf8(route.destination_asset_reference)?.trim() || undefined,
+            liquidityVenue: decodeBytesToUtf8(route.liquidity_venue)?.trim() || undefined,
+            poolReference: decodeBytesToUtf8(route.pool_reference)?.trim() || undefined,
+            liquidityStatus: liquidityStatusFromCode(route.liquidity_status),
+            swapEnabled: route.swap_enabled,
+            notes: decodeBytesToUtf8(route.notes)?.trim() || undefined,
+          }
+
+          return normalizedRoute
+        }),
+      )
+    ).filter((route): route is OnchainBridgeRouteSnapshot => route !== null)
+
+    const exactMatch =
+      routes.find(
+        (route) =>
+          route.sourceChainId === input.sourceChainId &&
+          route.destinationChainId === input.destinationChainId &&
+          route.sourceDenom === input.sourceDenom,
+      ) ?? null
+
+    if (exactMatch) return exactMatch
+
+    const chainMatch =
+      routes.find(
+        (route) =>
+          route.sourceChainId === input.sourceChainId &&
+          route.destinationChainId === input.destinationChainId,
+      ) ?? null
+
+    if (chainMatch) return chainMatch
+
+    const denomMatch = routes.find((route) => route.sourceDenom === input.sourceDenom) ?? null
+    return denomMatch ?? routes[0] ?? null
   }
 
   async listViralDropItems(): Promise<ViralDropItemState[]> {

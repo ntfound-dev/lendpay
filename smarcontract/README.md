@@ -14,7 +14,7 @@ It uses real Initia fungible assets for:
 Main module groups:
 
 - [`sources/bootstrap`](./sources/bootstrap): one-time protocol initialization
-- [`sources/credit`](./sources/credit): config, treasury, loan book, profiles, merchants, reputation, viral drop destination
+- [`sources/credit`](./sources/credit): config, treasury, loan book, profiles, merchants, bridge helper state, reputation, viral drop destination
 - [`sources/rewards`](./sources/rewards): rewards accounting and campaign logic
 - [`sources/tokenomics`](./sources/tokenomics): LEND asset, fees, staking, governance
 - [`sources/shared`](./sources/shared): common errors and asset helpers
@@ -26,6 +26,7 @@ Core modules:
 - [`treasury.move`](./sources/credit/treasury.move): custody and disbursement of native assets
 - [`profiles.move`](./sources/credit/profiles.move): product profiles and collateral requirements
 - [`merchant_registry.move`](./sources/credit/merchant_registry.move): ecosystem app registry rail
+- [`bridge.move`](./sources/credit/bridge.move): bridge route registry, liquidity venue metadata, and user bridge-intent audit trail
 - [`reputation.move`](./sources/credit/reputation.move): borrower identity and repayment reputation
 - [`viral_drop.move`](./sources/credit/viral_drop.move): internal live app destination that receives funded balance and mints receipts
 - [`rewards.move`](./sources/rewards/rewards.move): points, LEND claims, point spending, and borrower perks
@@ -55,6 +56,9 @@ Key entry and view functions by module:
 - `merchant_registry`
   Merchant rail management:
   `register_merchant`, `set_active`, `get_merchant`, `quote_partner_fee`.
+- `bridge`
+  Cross-VM helper registry:
+  `register_route`, `update_route_status`, `update_route_liquidity`, `open_bridge_intent`, `cancel_bridge_intent`, `resolve_bridge_intent`.
 - `reputation`
   Identity and borrower reputation:
   `attest_username`, `get_entry`, `has_verified_username`, `platform_actions_of`.
@@ -98,6 +102,7 @@ The contract also supports:
 - ecosystem-aware requests
 - unsecured profiles for small and standard app credit
 - a separate collateralized profile for advanced secured credit
+- bridge-route metadata and user bridge intents for real sell/exit paths once mapping is live
 - point spending for perks
 - claimable LEND
 - staking and staking rewards
@@ -139,6 +144,20 @@ Latest successful transactions:
 - register `mock_cabal` route (`merchant_id = 2`): `D33F15997D8E1D604C059E9445800DFD66AFE4331CD605A734A2557AF9900D0D`
 - register `mock_yominet` route (`merchant_id = 3`): `23E92FB5ACEA3353D7CB211496C02E5C1C03B8772021635A3A9C1CA3419329F9`
 - register `mock_intergaze` route (`merchant_id = 4`): `9EB9F34C2C81E10C81E7AA5C5AAFFD1D33CF3B01EBE8CBB15C09E351DE652B6C`
+- package upgrade including `bridge.move`: `A36F31E75969F9D285EEA503F6046D065AA3A0B56561B5E04F2EB9DAB8D251FA`
+- `bridge::initialize`: `8C7F9944ABB35AA2F5BFF2C7F596D1A6F21D7CE7B7C8D5F3BDD7F4C82561AE30`
+- `bridge::register_route`: `A2D0DF04150D326D951A0EE13AA4600EBD22D6F03C62F6440DB5913B05A54C53`
+
+Current published bridge route on `lendpay-4`:
+
+- source: `lendpay-4 / ulend`
+- destination: `evm-1 / erc20/LEND`
+- liquidity venue: `InitiaDEX`
+- pool reference: `LEND/INIT`
+- liquidity status: `coming_soon`
+- swap enabled: `false`
+
+This route is now provable onchain, but the final user sell path still remains preview until the official MiniEVM mapping is live.
 
 ## Testnet App Route Proofs
 

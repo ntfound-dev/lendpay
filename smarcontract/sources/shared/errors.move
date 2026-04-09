@@ -61,6 +61,10 @@ module lendpay::errors {
     const E_MERCHANT_NOT_FOUND: u64 = 60;
     const E_PURCHASE_NOT_FOUND: u64 = 61;
     const E_DUPLICATE_CLAIM_ALLOCATION: u64 = 62;
+    const E_BRIDGE_ROUTE_NOT_FOUND: u64 = 63;
+    const E_BRIDGE_INTENT_NOT_FOUND: u64 = 64;
+    const E_BRIDGE_ROUTE_NOT_LIVE: u64 = 65;
+    const E_BRIDGE_INTENT_NOT_PENDING: u64 = 66;
 
     public fun already_initialized(): u64 { E_ALREADY_INITIALIZED }
     public fun not_initialized(): u64 { E_NOT_INITIALIZED }
@@ -124,4 +128,8 @@ module lendpay::errors {
     public fun merchant_not_found(): u64 { E_MERCHANT_NOT_FOUND }
     public fun purchase_not_found(): u64 { E_PURCHASE_NOT_FOUND }
     public fun duplicate_claim_allocation(): u64 { E_DUPLICATE_CLAIM_ALLOCATION }
+    public fun bridge_route_not_found(): u64 { E_BRIDGE_ROUTE_NOT_FOUND }
+    public fun bridge_intent_not_found(): u64 { E_BRIDGE_INTENT_NOT_FOUND }
+    public fun bridge_route_not_live(): u64 { E_BRIDGE_ROUTE_NOT_LIVE }
+    public fun bridge_intent_not_pending(): u64 { E_BRIDGE_INTENT_NOT_PENDING }
 }

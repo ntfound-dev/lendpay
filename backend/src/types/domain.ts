@@ -7,6 +7,7 @@ export type RewardTier = 'Bronze' | 'Silver' | 'Gold' | 'Diamond'
 export type ScoreProvider = 'heuristic' | 'ollama'
 export type CollateralStatus = 'none' | 'locked' | 'returned' | 'liquidated'
 export type UsernameSource = 'preview' | 'initia_l1' | 'rollup'
+export type LiquidityStatus = 'unknown' | 'coming_soon' | 'live' | 'paused'
 
 export interface ScoreBreakdownItem {
   label: string
@@ -180,6 +181,8 @@ export interface LiquidityOracleQuoteState {
 export interface LendLiquidityRouteState {
   routeMode: 'live' | 'preview'
   routeStatus: 'mapped' | 'mapping_required'
+  routeRegistry: 'onchain' | 'derived'
+  routeId?: number
   walletHandler: 'interwovenkit'
   transferMethod: 'ibc_hooks'
   sourceChainId: string
@@ -189,8 +192,16 @@ export interface LendLiquidityRouteState {
   destinationRestUrl: string
   assetSymbol: string
   assetDenom: string
+  destinationDenom?: string
   erc20FactoryAddress?: string
   erc20Address?: string
+  destinationAssetReference?: string
+  liquidityVenue?: string
+  poolReference?: string
+  liquidityStatus: LiquidityStatus
+  swapEnabled: boolean
+  sellReady: boolean
+  routeNotes?: string
   swapSummary: string
   oracleQuote: LiquidityOracleQuoteState
 }
@@ -249,6 +260,23 @@ export interface OnchainLoanSnapshot {
   gracePeriodSeconds: number
   totalRepaid: number
   status: number
+}
+
+export interface OnchainBridgeRouteSnapshot {
+  id: number
+  sourceChainId: string
+  sourceDenom: string
+  destinationChainId: string
+  destinationDenom: string
+  transferMethod: 'ibc_hooks'
+  active: boolean
+  mappingPublished: boolean
+  destinationAssetReference?: string
+  liquidityVenue?: string
+  poolReference?: string
+  liquidityStatus: LiquidityStatus
+  swapEnabled: boolean
+  notes?: string
 }
 
 export interface OnchainRewardsSnapshot {

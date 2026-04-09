@@ -81,36 +81,70 @@ export class ProtocolService {
   async getLendLiquidityRoute(initiaAddress: string): Promise<LendLiquidityRouteState> {
     await this.userService.ensureUser(initiaAddress)
 
-    const assetDenom = env.MINIEVM_LOOKUP_DENOM?.trim() || env.ROLLUP_NATIVE_DENOM
+    const lookupDenom = env.MINIEVM_LOOKUP_DENOM?.trim() || env.ROLLUP_NATIVE_DENOM
     const requestedPair = `${env.ROLLUP_NATIVE_SYMBOL}/${env.CONNECT_QUOTE_CURRENCY}`
     const supportedFeeds = await this.oracleClient.getSupportedFeeds()
     const pairSupported = supportedFeeds.includes(requestedPair)
     const resolvedBase = pairSupported ? env.ROLLUP_NATIVE_SYMBOL : env.CONNECT_BASE_CURRENCY
     const resolvedQuote = env.CONNECT_QUOTE_CURRENCY
     const resolvedPair = `${resolvedBase}/${resolvedQuote}`
-    const [erc20FactoryAddress, erc20Address, oracleQuote] = await Promise.all([
+    const [onchainBridgeRoute, erc20FactoryAddress, erc20Address, oracleQuote] = await Promise.all([
+      this.rollupClient.getPreferredLendBridgeRoute({
+        sourceChainId: env.ROLLUP_CHAIN_ID,
+        destinationChainId: env.MINIEVM_CHAIN_ID,
+        sourceDenom: env.ROLLUP_NATIVE_DENOM,
+      }),
       this.miniEvmClient.getErc20FactoryAddress(),
-      this.miniEvmClient.getContractByDenom(assetDenom),
+      this.miniEvmClient.getContractByDenom(lookupDenom),
       this.oracleClient.getPrice(resolvedBase, resolvedQuote),
     ])
+    const mappingPublished = Boolean(erc20Address)
+    const routeActive = onchainBridgeRoute?.active ?? true
+    const routeMode = routeActive && mappingPublished ? 'live' : 'preview'
+    const liquidityStatus =
+      onchainBridgeRoute?.liquidityStatus ?? (mappingPublished ? 'unknown' : 'coming_soon')
+    const swapEnabled = onchainBridgeRoute?.swapEnabled ?? false
+    const sellReady =
+      routeMode === 'live' && swapEnabled && liquidityStatus === 'live'
+    const liquidityVenue = onchainBridgeRoute?.liquidityVenue
+    const poolReference = onchainBridgeRoute?.poolReference
+    const routeNotes = onchainBridgeRoute?.notes
+    const swapSummary = sellReady
+      ? `LEND can bridge into ${env.MINIEVM_CHAIN_NAME} and use ${liquidityVenue || 'the published destination venue'}${poolReference ? ` via ${poolReference}` : ''} for the sell step.`
+      : routeMode === 'live'
+        ? liquidityVenue
+          ? `${liquidityVenue} is published as the destination liquidity venue, but the sell path is not marked fully ready yet.`
+          : 'LEND already has a MiniEVM ERC20 mapping, so the bridge step is live even though a destination sell venue is not published onchain yet.'
+        : routeActive
+          ? 'LEND does not have a live MiniEVM ERC20 mapping yet, so the swap route stays in preview until denom conversion is published.'
+          : 'The bridge route is registered onchain but still marked inactive, so users should not use it yet.'
 
     return {
-      routeMode: erc20Address ? 'live' : 'preview',
-      routeStatus: erc20Address ? 'mapped' : 'mapping_required',
+      routeMode,
+      routeStatus: mappingPublished ? 'mapped' : 'mapping_required',
+      routeRegistry: onchainBridgeRoute ? 'onchain' : 'derived',
+      routeId: onchainBridgeRoute?.id,
       walletHandler: 'interwovenkit',
       transferMethod: 'ibc_hooks',
-      sourceChainId: env.ROLLUP_CHAIN_ID,
+      sourceChainId: onchainBridgeRoute?.sourceChainId ?? env.ROLLUP_CHAIN_ID,
       sourceChainName: 'LendPay Move Rollup',
-      destinationChainId: env.MINIEVM_CHAIN_ID,
+      destinationChainId: onchainBridgeRoute?.destinationChainId ?? env.MINIEVM_CHAIN_ID,
       destinationChainName: env.MINIEVM_CHAIN_NAME,
       destinationRestUrl: env.MINIEVM_REST_URL,
       assetSymbol: env.ROLLUP_NATIVE_SYMBOL,
-      assetDenom,
+      assetDenom: onchainBridgeRoute?.sourceDenom ?? env.ROLLUP_NATIVE_DENOM,
+      destinationDenom: onchainBridgeRoute?.destinationDenom || undefined,
       erc20FactoryAddress: erc20FactoryAddress ?? undefined,
       erc20Address: erc20Address ?? undefined,
-      swapSummary: erc20Address
-        ? 'LEND already has a MiniEVM ERC20 mapping, so the asset can move into MiniEVM liquidity before the swap step.'
-        : 'LEND does not have a live MiniEVM ERC20 mapping yet, so the swap route stays in preview until denom conversion is published.',
+      destinationAssetReference:
+        onchainBridgeRoute?.destinationAssetReference ?? erc20Address ?? undefined,
+      liquidityVenue,
+      poolReference,
+      liquidityStatus,
+      swapEnabled,
+      sellReady,
+      routeNotes,
+      swapSummary,
       oracleQuote: {
         requestedPair,
         resolvedPair,

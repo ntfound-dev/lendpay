@@ -1,4 +1,5 @@
 module lendpay::bootstrap {
+    use lendpay::bridge;
     use lendpay::campaigns;
     use lendpay::config;
     use lendpay::fee_engine;
@@ -30,6 +31,7 @@ module lendpay::bootstrap {
         governance::initialize(admin);
         profiles::initialize(admin);
         merchant_registry::initialize(admin);
+        bridge::initialize(admin);
         mock_cabal::initialize(admin);
         mock_yominet::initialize(admin);
         mock_intergaze::initialize(admin);
