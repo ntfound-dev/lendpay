@@ -20,4 +20,4 @@ RUN npm run build
 ENV NODE_ENV=production
 ENV PORT=8080
 
-CMD ["sh", "-lc", "npm run db:push && node dist/server.js"]
+CMD ["node", "dist/server.js"]
