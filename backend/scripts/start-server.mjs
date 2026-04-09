@@ -1,4 +1,5 @@
-import { pushPrismaSchema, resolveDatabaseUrl } from './db.mjs'
+import { bootstrapPostgresSchema } from './bootstrap-postgres.mjs'
+import { resolveDatabaseUrl } from './db.mjs'
 
 const redactDatabaseUrl = (value) => {
   try {
@@ -14,13 +15,13 @@ const redactDatabaseUrl = (value) => {
 
 const schemaUrl = resolveDatabaseUrl()
 
-console.log('[startup] syncing prisma schema via DATABASE_URL')
+console.log('[startup] bootstrapping postgres schema via DATABASE_URL')
 console.log(`[startup] schema target: ${redactDatabaseUrl(schemaUrl)}`)
 
 try {
-  await pushPrismaSchema(schemaUrl)
+  await bootstrapPostgresSchema(schemaUrl)
 } catch (error) {
-  console.error('[startup] prisma schema sync failed')
+  console.error('[startup] postgres schema bootstrap failed')
   console.error(error)
   process.exit(1)
 }
