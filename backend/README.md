@@ -259,6 +259,8 @@ That starts:
 - frontend on `127.0.0.1:5173`
 - docs on `127.0.0.1:4173`
 
+It does not start the Rapid relayer or OPinit bots. Having `LEND` on the rollup is not enough by itself for the built-in oracle path, because the bridge also depends on funded system keys and running services on the L1 side. Backend reads can still succeed from Connect REST while Move calls that depend on the rollup built-in oracle may fail or return empty local oracle state until those services are configured separately.
+
 If you only want the backend:
 
 ```bash

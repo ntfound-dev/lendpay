@@ -87,6 +87,7 @@ resolve_rollup_home() {
   local candidate=""
   for candidate in \
     "${ROLLUP_HOME:-}" \
+    "$HOME/.minitia-testnet4" \
     "$HOME/.minitia-testnet3" \
     "$HOME/.minitia" \
     "/tmp/lendpay-minitia-home"; do
@@ -97,6 +98,27 @@ resolve_rollup_home() {
   done
 
   return 1
+}
+
+minitiad_with_env() {
+  local minitiad_path=""
+  local rollup_home_path=""
+  local minitiad_dir=""
+
+  minitiad_path="$(resolve_minitiad_bin || true)"
+  rollup_home_path="$(resolve_rollup_home || true)"
+
+  if [[ -z "$minitiad_path" || -z "$rollup_home_path" ]]; then
+    return 1
+  fi
+
+  minitiad_dir="$(dirname "$minitiad_path")"
+
+  /usr/bin/env \
+    "LD_LIBRARY_PATH=$minitiad_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+    "$minitiad_path" \
+    --home "$rollup_home_path" \
+    "$@"
 }
 
 read_pid() {
@@ -136,6 +158,18 @@ rollup_up() {
 
 backend_up() {
   curl -fsS --max-time 2 "http://127.0.0.1:8080/api/v1/health" >/dev/null 2>&1
+}
+
+backend_log_up() {
+  local pid=""
+  pid="$(pid_status "$BACKEND_PID_FILE")"
+  [[ -n "$pid" ]] &&
+    [[ -f "$BACKEND_LOG_FILE" ]] &&
+    grep -q "Server listening at http://127.0.0.1:${PORT:-8080}" "$BACKEND_LOG_FILE"
+}
+
+backend_ready() {
+  backend_up || backend_log_up
 }
 
 frontend_up() {

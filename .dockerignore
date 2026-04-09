@@ -1,0 +1,11 @@
+.git
+.github
+.run
+.DS_Store
+*.log
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+docs-site/.docusaurus
+docs-site/build

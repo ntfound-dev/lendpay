@@ -54,8 +54,8 @@ else
   echo "rollup already listening on 26657 and 1317."
 fi
 
-if ! backend_up; then
-  restart_if_unhealthy "backend" "$BACKEND_PID_FILE" backend_up
+if ! backend_ready; then
+  restart_if_unhealthy "backend" "$BACKEND_PID_FILE" backend_ready
   (
     cd "$ROOT_DIR/backend"
     /usr/bin/env \
@@ -75,7 +75,7 @@ if ! backend_up; then
     "ROLLUP_HOME=$ROLLUP_HOME_PATH" \
     ./node_modules/.bin/tsx watch src/server.ts
 
-  wait_for_check "backend" 60 1 backend_up "$BACKEND_LOG_FILE"
+  wait_for_check "backend" 60 1 backend_ready "$BACKEND_LOG_FILE"
 else
   echo "backend already listening on 8080."
 fi
@@ -121,7 +121,12 @@ Local LendPay stack is up.
 - Postgres:    postgresql://postgres:postgres@127.0.0.1:55432/lendpay_dev
 - Backend API: http://127.0.0.1:8080/api/v1/health
 - Frontend:    http://127.0.0.1:5173
+- Explorer:    http://127.0.0.1:5173/scan.html
 - Docs:        http://127.0.0.1:4173
+
+Built-in oracle note:
+- This script does not start the Rapid relayer or OPinit bots.
+- Move calls that depend on the rollup oracle can still fail until those services are configured.
 
 Logs:
 - $ROLLUP_LOG_FILE
