@@ -6,7 +6,7 @@ hero:
   text: "Open credit infrastructure for Initia apps"
   tagline: "Turn wallet reputation, identity, and repayment behavior into pay-later credit across NFT, gaming, and DeFi experiences on Initia."
   image:
-    src: /logo.svg
+    src: /favicon.svg
     alt: LendPay
   actions:
     - theme: brand

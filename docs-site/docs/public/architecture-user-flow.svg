@@ -1,0 +1,64 @@
+<svg width="1480" height="980" viewBox="0 0 1480 980" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1480" height="980" rx="36" fill="#FBFCFE"/>
+  <rect x="36" y="36" width="1408" height="908" rx="28" fill="white" stroke="#D7E3F4" stroke-width="2"/>
+
+  <text x="80" y="96" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="42" font-weight="700">Borrower Flow</text>
+  <text x="80" y="134" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="22">The simple path the product should make obvious first.</text>
+
+  <rect x="86" y="186" width="292" height="126" rx="24" fill="#EEF4FF" stroke="#93C5FD" stroke-width="2"/>
+  <text x="118" y="232" fill="#1D4ED8" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700">1. Connect Wallet</text>
+  <text x="118" y="272" fill="#334155" font-family="Segoe UI, Arial, sans-serif" font-size="20">InterwovenKit connects the borrower wallet.</text>
+
+  <rect x="432" y="186" width="292" height="126" rx="24" fill="#F6F3FF" stroke="#C4B5FD" stroke-width="2"/>
+  <text x="464" y="232" fill="#6D28D9" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700">2. Sign Login</text>
+  <text x="464" y="272" fill="#334155" font-family="Segoe UI, Arial, sans-serif" font-size="20">Wallet signs the backend challenge.</text>
+
+  <rect x="778" y="186" width="292" height="126" rx="24" fill="#FEFCE8" stroke="#FACC15" stroke-width="2"/>
+  <text x="810" y="232" fill="#854D0E" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700">3. Refresh Profile</text>
+  <text x="810" y="272" fill="#334155" font-family="Segoe UI, Arial, sans-serif" font-size="20">Backend loads score, rewards, and context.</text>
+
+  <rect x="1124" y="186" width="270" height="126" rx="24" fill="#EFFCF6" stroke="#86EFAC" stroke-width="2"/>
+  <text x="1156" y="232" fill="#166534" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700">4. Request Credit</text>
+  <text x="1156" y="272" fill="#334155" font-family="Segoe UI, Arial, sans-serif" font-size="20">User submits a credit request.</text>
+
+  <rect x="1124" y="436" width="270" height="126" rx="24" fill="#FFF7ED" stroke="#FDBA74" stroke-width="2"/>
+  <text x="1156" y="482" fill="#9A3412" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700">5. Approval</text>
+  <text x="1156" y="522" fill="#334155" font-family="Segoe UI, Arial, sans-serif" font-size="20">Operator path funds the approved line.</text>
+
+  <rect x="778" y="436" width="292" height="126" rx="24" fill="#FDF2F8" stroke="#F9A8D4" stroke-width="2"/>
+  <text x="810" y="482" fill="#9D174D" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700">6. Use In App</text>
+  <text x="810" y="522" fill="#334155" font-family="Segoe UI, Arial, sans-serif" font-size="20">Borrower uses funded balance in partner flow.</text>
+
+  <rect x="432" y="436" width="292" height="126" rx="24" fill="#EEFCF8" stroke="#5EEAD4" stroke-width="2"/>
+  <text x="464" y="482" fill="#0F766E" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700">7. Repay Over Time</text>
+  <text x="464" y="522" fill="#334155" font-family="Segoe UI, Arial, sans-serif" font-size="20">Installments are repaid and synced back.</text>
+
+  <rect x="86" y="436" width="292" height="126" rx="24" fill="#F0FDF4" stroke="#4ADE80" stroke-width="2"/>
+  <text x="118" y="482" fill="#166534" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700">8. Stronger Access</text>
+  <text x="118" y="522" fill="#334155" font-family="Segoe UI, Arial, sans-serif" font-size="20">Clean repayment unlocks better future access.</text>
+
+  <path d="M378 248H432" stroke="#2563EB" stroke-width="5" stroke-linecap="round"/>
+  <path d="M418 238L436 248L418 258" stroke="#2563EB" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M724 248H778" stroke="#7C3AED" stroke-width="5" stroke-linecap="round"/>
+  <path d="M764 238L782 248L764 258" stroke="#7C3AED" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M1070 248H1124" stroke="#CA8A04" stroke-width="5" stroke-linecap="round"/>
+  <path d="M1110 238L1128 248L1110 258" stroke="#CA8A04" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M1258 312V390" stroke="#EA580C" stroke-width="5" stroke-linecap="round"/>
+  <path d="M1248 378L1258 394L1268 378" stroke="#EA580C" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M1124 498H1070" stroke="#DB2777" stroke-width="5" stroke-linecap="round"/>
+  <path d="M1084 488L1066 498L1084 508" stroke="#DB2777" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M778 498H724" stroke="#0F766E" stroke-width="5" stroke-linecap="round"/>
+  <path d="M738 488L720 498L738 508" stroke="#0F766E" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M432 498H378" stroke="#16A34A" stroke-width="5" stroke-linecap="round"/>
+  <path d="M392 488L374 498L392 508" stroke="#16A34A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M232 562V646C232 684 262 714 300 714H1180C1222 714 1258 680 1258 638V590" stroke="#1D4ED8" stroke-width="5" stroke-dasharray="12 10" stroke-linecap="round"/>
+  <path d="M1248 600L1258 584L1268 600" stroke="#1D4ED8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="420" y="766" fill="#1D4ED8" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="600">Good repayment feeds the next profile refresh and improves the next credit decision.</text>
+
+  <rect x="86" y="796" width="404" height="98" rx="20" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="2"/>
+  <text x="116" y="834" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Optional UX Layer</text>
+  <text x="116" y="870" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="18">Temporary auto-sign session for supported Move actions only.</text>
+</svg>

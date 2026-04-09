@@ -6,19 +6,20 @@ export default defineConfig({
   lang: 'en-US',
   cleanUrls: true,
   head: [
-    ['link', { rel: 'icon', href: '/logo.svg' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+    ['link', { rel: 'icon', type: 'image/png', href: '/favicon.png' }],
     ['meta', { name: 'theme-color', content: '#2563eb' }],
   ],
   themeConfig: {
-    logo: '/logo.svg',
+    logo: '/favicon.svg',
     siteTitle: 'LendPay Docs',
     search: {
       provider: 'local',
     },
     nav: [
       { text: 'Guide', link: '/guide/introduction' },
-      { text: 'App', link: '/app/frontend' },
-      { text: 'Protocol', link: '/protocol/move-package' },
+      { text: 'App Stack', link: '/app/frontend' },
+      { text: 'Onchain Protocol', link: '/protocol/move-package' },
       { text: 'Reference', link: '/reference/api' },
       { text: 'GitHub', link: 'https://github.com/ntfound-dev/lendpay' },
     ],
@@ -28,20 +29,33 @@ export default defineConfig({
         items: [
           { text: 'Introduction', link: '/guide/introduction' },
           { text: 'Quickstart', link: '/guide/quickstart' },
+          { text: 'Hackathon Readiness', link: '/guide/hackathon-readiness' },
+          { text: 'Scoring Criteria', link: '/guide/scoring-criteria' },
+          { text: 'Demo Video Script', link: '/guide/demo-video-script' },
+          { text: 'Pitch Deck', link: '/guide/pitch-deck' },
           { text: 'Architecture', link: '/guide/architecture' },
+          { text: 'Terminology', link: '/guide/terminology' },
+          { text: 'Business Model', link: '/guide/business-model' },
+          { text: 'LEND Tokenomics', link: '/guide/lend-tokenomics' },
+          { text: 'Roadmap', link: '/guide/roadmap' },
+          { text: 'Risk And Growth', link: '/guide/risk-growth' },
         ],
       },
       {
-        text: 'Application',
+        text: 'App Stack',
         items: [
           { text: 'Frontend', link: '/app/frontend' },
           { text: 'Backend', link: '/app/backend' },
+          { text: 'Rollup', link: '/app/rollup' },
+          { text: 'Move Contract', link: '/app/smartcontract' },
+          { text: 'EVM Contract (Soon)', link: '/app/evm-contract' },
+          { text: 'Wasm Contract (Soon)', link: '/app/wasm-contract' },
         ],
       },
       {
-        text: 'Protocol',
+        text: 'Onchain Protocol',
         items: [
-          { text: 'Move Package', link: '/protocol/move-package' },
+          { text: 'Onchain Modules', link: '/protocol/move-package' },
         ],
       },
       {

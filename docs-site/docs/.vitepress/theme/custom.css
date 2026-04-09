@@ -54,3 +54,78 @@
   display: table;
   width: 100%;
 }
+
+.docs-diagram {
+  margin: 28px 0 34px;
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.06), transparent 34%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255, 255, 255, 0.98));
+}
+
+.docs-diagram img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 18px;
+}
+
+.docs-diagram--wide {
+  width: min(1120px, calc(100vw - 80px));
+  max-width: none;
+  margin-left: 50%;
+  transform: translateX(-50%);
+}
+
+.docs-diagram figcaption {
+  margin-top: 12px;
+  color: #64748b;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.docs-diagram figcaption a {
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.mermaid-diagram {
+  width: 100%;
+}
+
+.mermaid-diagram__canvas {
+  overflow-x: auto;
+}
+
+.mermaid-diagram__canvas svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.mermaid-diagram__canvas pre {
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.04);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.mermaid-diagram__error {
+  margin-top: 12px;
+  color: #b91c1c;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 1200px) {
+  .docs-diagram--wide {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    transform: none;
+  }
+}

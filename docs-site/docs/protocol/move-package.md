@@ -1,4 +1,4 @@
-# Move Package
+# Onchain Modules
 
 The Move package implements the onchain credit protocol for LendPay.
 
@@ -16,6 +16,7 @@ The Move package implements the onchain credit protocol for LendPay.
 - `treasury.move`
 - `profiles.move`
 - `merchant_registry.move`
+- `bridge.move`
 - `reputation.move`
 - `viral_drop.move`
 - `rewards.move`
@@ -39,6 +40,7 @@ The Move package implements the onchain credit protocol for LendPay.
 - unsecured app credit
 - collateralized advanced credit
 - app-aware requests
+- bridge route metadata, liquidity venue metadata, and bridge intents
 - claimable LEND
 - staking and staking rewards
 - campaign allocation and claim
@@ -57,3 +59,21 @@ The test suite covers:
 - campaign claims
 - app-linked credit paths
 - collateralized flows
+- bridge route registration, liquidity metadata updates, and bridge intent lifecycle
+
+## Current Local Bridge Proof
+
+The current local `lendpay-4` package also includes the published `bridge` module and one registered route:
+
+- package upgrade including `bridge.move`: `A36F31E75969F9D285EEA503F6046D065AA3A0B56561B5E04F2EB9DAB8D251FA`
+- `bridge::initialize`: `8C7F9944ABB35AA2F5BFF2C7F596D1A6F21D7CE7B7C8D5F3BDD7F4C82561AE30`
+- `bridge::register_route`: `A2D0DF04150D326D951A0EE13AA4600EBD22D6F03C62F6440DB5913B05A54C53`
+
+Published route summary:
+
+- source: `lendpay-4 / ulend`
+- destination: `evm-1 / erc20/LEND`
+- venue: `InitiaDEX`
+- pool: `LEND/INIT`
+- liquidity status: `coming_soon`
+- swap enabled: `false`
