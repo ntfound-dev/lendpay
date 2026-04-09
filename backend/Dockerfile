@@ -2,13 +2,13 @@ FROM node:20-bookworm-slim
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY backend/package*.json ./
 RUN npm ci
 
-COPY prisma ./prisma
-COPY scripts ./scripts
-COPY src ./src
-COPY tsconfig.json ./
+COPY backend/prisma ./prisma
+COPY backend/scripts ./scripts
+COPY backend/src ./src
+COPY backend/tsconfig.json ./
 
 RUN npm run db:generate
 RUN npm run build
