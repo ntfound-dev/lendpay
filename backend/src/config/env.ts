@@ -31,6 +31,7 @@ const schema = z.object({
   APP_ENV: z.enum(['development', 'test', 'production']).default('development'),
   CORS_ORIGIN: z.string().default('*'),
   DATABASE_URL: z.string().default('postgresql://postgres:postgres@127.0.0.1:55432/lendpay_dev?schema=public'),
+  DIRECT_DATABASE_URL: z.string().optional(),
   JWT_SECRET: z.string().min(8).default('change-me-now'),
   JWT_TTL_SECONDS: z.coerce.number().int().positive().default(60 * 60 * 24 * 7),
   RATE_LIMIT_ENABLED: z.coerce.boolean().default(true),
@@ -99,6 +100,9 @@ const parsedEnv = schema.parse(process.env)
 export const env: AppEnv = {
   ...parsedEnv,
   DATABASE_URL: normalizeDatabaseUrl(parsedEnv.DATABASE_URL),
+  DIRECT_DATABASE_URL: parsedEnv.DIRECT_DATABASE_URL
+    ? normalizeDatabaseUrl(parsedEnv.DIRECT_DATABASE_URL)
+    : undefined,
 }
 
 if (env.APP_ENV === 'production' && env.DATABASE_URL.startsWith('file:')) {
@@ -106,3 +110,7 @@ if (env.APP_ENV === 'production' && env.DATABASE_URL.startsWith('file:')) {
 }
 
 process.env.DATABASE_URL = env.DATABASE_URL
+
+if (env.DIRECT_DATABASE_URL) {
+  process.env.DIRECT_DATABASE_URL = env.DIRECT_DATABASE_URL
+}

@@ -106,6 +106,16 @@ export const resolveDirectDatabaseUrl = () => {
   return normalizeDatabaseUrl(value)
 }
 
+export const resolveRuntimeDatabaseUrl = (databaseUrl = resolveDatabaseUrl()) => {
+  const directDatabaseUrl = resolveDirectDatabaseUrl()
+
+  if (!directDatabaseUrl || !looksLikePooledPostgresUrl(databaseUrl)) {
+    return databaseUrl
+  }
+
+  return directDatabaseUrl
+}
+
 export const resolveBootstrapDatabaseUrl = () => resolveDirectDatabaseUrl() ?? resolveDatabaseUrl()
 
 const resolveSqlitePath = (databaseUrl) => {
@@ -176,7 +186,7 @@ const waitForPostgresServer = async (databaseUrl) => {
   )
 }
 
-export const pushPrismaSchema = async (databaseUrl = resolveDatabaseUrl()) => {
+export const pushPrismaSchema = async (databaseUrl = resolveBootstrapDatabaseUrl()) => {
   const prismaDatabaseUrl = resolvePrismaDatabaseUrl(databaseUrl)
 
   prepareSqliteDatabase(prismaDatabaseUrl)

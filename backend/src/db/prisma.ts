@@ -6,6 +6,32 @@ const globalForPrisma = globalThis as { prisma?: PrismaClient }
 const POOLED_POSTGRES_PORTS = new Set(['6432', '6438', '6543'])
 const POOLED_POSTGRES_HOST_MARKERS = ['pooler', 'pool', 'pgbouncer']
 
+const looksLikePooledPostgresUrl = (databaseUrl: string) => {
+  if (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://')) {
+    return false
+  }
+
+  try {
+    const url = new URL(databaseUrl)
+    const hostname = url.hostname.toLowerCase()
+
+    return (
+      POOLED_POSTGRES_PORTS.has(url.port) ||
+      POOLED_POSTGRES_HOST_MARKERS.some((marker) => hostname.includes(marker))
+    )
+  } catch {
+    return false
+  }
+}
+
+const resolveRuntimeDatabaseUrl = (databaseUrl: string, directDatabaseUrl?: string) => {
+  if (!directDatabaseUrl || !looksLikePooledPostgresUrl(databaseUrl)) {
+    return databaseUrl
+  }
+
+  return directDatabaseUrl
+}
+
 const resolvePrismaDatabaseUrl = (databaseUrl: string) => {
   if (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://')) {
     return databaseUrl
@@ -31,7 +57,8 @@ const resolvePrismaDatabaseUrl = (databaseUrl: string) => {
   }
 }
 
-const prismaDatabaseUrl = resolvePrismaDatabaseUrl(env.DATABASE_URL)
+const runtimeDatabaseUrl = resolveRuntimeDatabaseUrl(env.DATABASE_URL, env.DIRECT_DATABASE_URL)
+const prismaDatabaseUrl = resolvePrismaDatabaseUrl(runtimeDatabaseUrl)
 
 process.env.DATABASE_URL = prismaDatabaseUrl
 

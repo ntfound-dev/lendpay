@@ -1,5 +1,10 @@
 import { bootstrapPostgresSchema, resolveApplicationDatabaseUrl } from './bootstrap-postgres.mjs'
-import { resolveBootstrapDatabaseUrl, resolveDatabaseUrl } from './db.mjs'
+import {
+  looksLikePooledPostgresUrl,
+  resolveBootstrapDatabaseUrl,
+  resolveDatabaseUrl,
+  resolveRuntimeDatabaseUrl,
+} from './db.mjs'
 
 const redactDatabaseUrl = (value) => {
   try {
@@ -14,8 +19,11 @@ const redactDatabaseUrl = (value) => {
 }
 
 const schemaUrl = resolveBootstrapDatabaseUrl()
+const configuredDatabaseUrl = resolveDatabaseUrl()
+const runtimeBaseUrl = resolveRuntimeDatabaseUrl(configuredDatabaseUrl)
+const schemaSourceLabel = schemaUrl === configuredDatabaseUrl ? 'DATABASE_URL' : 'DIRECT_DATABASE_URL'
 
-console.log('[startup] bootstrapping postgres schema via DATABASE_URL')
+console.log(`[startup] bootstrapping postgres schema via ${schemaSourceLabel}`)
 console.log(`[startup] schema target: ${redactDatabaseUrl(schemaUrl)}`)
 
 try {
@@ -26,7 +34,13 @@ try {
   process.exit(1)
 }
 
-const runtimeUrl = await resolveApplicationDatabaseUrl(resolveDatabaseUrl())
+if (runtimeBaseUrl !== configuredDatabaseUrl) {
+  console.log('[startup] using DIRECT_DATABASE_URL for Prisma runtime because DATABASE_URL points to a pooled Postgres endpoint')
+} else if (looksLikePooledPostgresUrl(configuredDatabaseUrl)) {
+  console.log('[startup] pooled DATABASE_URL detected without DIRECT_DATABASE_URL; falling back to Prisma pooler compatibility mode')
+}
+
+const runtimeUrl = await resolveApplicationDatabaseUrl(runtimeBaseUrl)
 process.env.DATABASE_URL = runtimeUrl
 
 console.log(`[startup] runtime target: ${redactDatabaseUrl(runtimeUrl)}`)

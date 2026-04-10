@@ -7,6 +7,8 @@ import {
   resolveBootstrapDatabaseUrl,
   resolveConfiguredDatabaseSchema,
   resolveDatabaseUrl,
+  resolveRuntimeDatabaseUrl,
+  resolvePrismaDatabaseUrl,
   withDatabaseSchema,
 } from './db.mjs'
 
@@ -80,7 +82,7 @@ const detectExistingAppSchema = async (databaseUrl) => {
   }
 }
 
-export const bootstrapPostgresSchema = async (databaseUrl = resolveDatabaseUrl()) => {
+export const bootstrapPostgresSchema = async (databaseUrl = resolveBootstrapDatabaseUrl()) => {
   if (looksLikePooledPostgresUrl(databaseUrl) && !process.env.DIRECT_DATABASE_URL?.trim()) {
     console.warn(
       '[startup] skipping postgres schema bootstrap on pooled DATABASE_URL; set DIRECT_DATABASE_URL for direct DDL access',
@@ -113,19 +115,17 @@ export const bootstrapPostgresSchema = async (databaseUrl = resolveDatabaseUrl()
   }
 }
 
-export const resolveApplicationDatabaseUrl = async (databaseUrl = resolveDatabaseUrl()) => {
+export const resolveApplicationDatabaseUrl = async (databaseUrl = resolveRuntimeDatabaseUrl()) => {
   const schema = await detectExistingAppSchema(databaseUrl)
+  const schemaUrl = schema ? withDatabaseSchema(databaseUrl, schema) : databaseUrl
 
-  if (!schema) {
-    return databaseUrl
-  }
-
-  return withDatabaseSchema(databaseUrl, schema)
+  return resolvePrismaDatabaseUrl(schemaUrl)
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const databaseUrl = resolveBootstrapDatabaseUrl()
-  console.log('[startup] bootstrapping postgres schema via DATABASE_URL')
+  const sourceLabel = databaseUrl === resolveDatabaseUrl() ? 'DATABASE_URL' : 'DIRECT_DATABASE_URL'
+  console.log(`[startup] bootstrapping postgres schema via ${sourceLabel}`)
   console.log(`[startup] schema target: ${redactDatabaseUrl(databaseUrl)}`)
 
   try {

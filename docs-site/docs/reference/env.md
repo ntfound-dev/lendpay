@@ -67,6 +67,8 @@ Most important variables:
   Backend HTTP port.
 - `DATABASE_URL`
   Prisma and backend persistence database.
+- `DIRECT_DATABASE_URL`
+  Optional direct PostgreSQL connection used automatically for Prisma runtime and schema bootstrap when `DATABASE_URL` points at a pooled endpoint.
 - `ROLLUP_CHAIN_ID`
   Chain ID the backend should read and write against.
 - `ROLLUP_RPC_URL`
@@ -129,6 +131,7 @@ Operational notes:
 - backend session creation depends on signed wallet challenges
 - `GET /api/v1/score` can trigger first-time score generation if no cached score exists yet
 - read and write chain targets must match the same deployed package
+- if your hosted database exposes both pooled and direct URLs, set both so Prisma can avoid `prepared statement ... does not exist` failures on PgCat-style poolers
 
 ## Smart Contract
 

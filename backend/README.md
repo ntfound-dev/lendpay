@@ -185,6 +185,7 @@ Core:
 - `APP_ENV`
 - `CORS_ORIGIN`
 - `DATABASE_URL`
+- `DIRECT_DATABASE_URL` (optional but recommended when `DATABASE_URL` points to a pooler)
 - `JWT_SECRET`
 - `JWT_TTL_SECONDS`
 
@@ -306,11 +307,16 @@ Recommended Railway setup:
 - Root Directory: `backend`
 - Managed PostgreSQL attached to the service
 - `DATABASE_URL=postgresql://...`
+- if your provider gives a pooled hostname or port such as `6432`, `6438`, or a `...pool...` host, also set `DIRECT_DATABASE_URL=postgresql://...` to the non-pooled connection string
 - `PORT=8080`
 - real rollup URLs and operator secrets
 
 Container start command:
 
 ```bash
-npm run db:push && node dist/server.js
+node scripts/start-server.mjs
 ```
+
+Runtime note:
+
+- on pooled Postgres endpoints, Prisma runtime now prefers `DIRECT_DATABASE_URL` automatically and only falls back to pooled compatibility mode when no direct URL is available

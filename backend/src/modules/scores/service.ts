@@ -3,7 +3,7 @@ import { mapScore, serializeJson } from '../../db/mappers.js'
 import { prisma } from '../../db/prisma.js'
 import type { ConnectOracleClient } from '../../integrations/connect/oracle.js'
 import { createPrefixedId } from '../../lib/ids.js'
-import { isPrismaMissingTableError } from '../../lib/prisma-errors.js'
+import { isPrismaRecoverableStorageError } from '../../lib/prisma-errors.js'
 import type { AiProviderState } from '../../types/domain.js'
 import type { ActivityService } from '../activity/service.js'
 import { CreditScoringAgent } from './agent.js'
@@ -34,7 +34,7 @@ export class ScoreService {
         return mapped
       }
     } catch (error) {
-      if (!isPrismaMissingTableError(error, ['public.CreditScore'])) {
+      if (!isPrismaRecoverableStorageError(error, ['public.CreditScore'])) {
         throw error
       }
 
@@ -100,9 +100,7 @@ export class ScoreService {
       store.scores.set(initiaAddress, [mapped, ...existing].slice(0, 12))
       return mapped
     } catch (error) {
-      if (
-        !isPrismaMissingTableError(error, ['public.CreditScore', 'public.OracleSnapshot', 'public.Activity'])
-      ) {
+      if (!isPrismaRecoverableStorageError(error, ['public.CreditScore', 'public.OracleSnapshot', 'public.Activity'])) {
         throw error
       }
 
@@ -130,7 +128,7 @@ export class ScoreService {
       store.scores.set(initiaAddress, mapped)
       return mapped
     } catch (error) {
-      if (!isPrismaMissingTableError(error, ['public.CreditScore'])) {
+      if (!isPrismaRecoverableStorageError(error, ['public.CreditScore'])) {
         throw error
       }
 

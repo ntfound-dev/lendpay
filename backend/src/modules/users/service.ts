@@ -7,6 +7,7 @@ import type {
   FaucetState,
   LeaderboardEntry,
   LeaderboardState,
+  LoanState,
   OnchainRewardsSnapshot,
   ReferralEntry,
   ReferralState,
@@ -18,7 +19,7 @@ import type { UsernameResolution, UsernamesClient } from '../../integrations/l1/
 import type { RollupClient } from '../../integrations/rollup/client.js'
 import { AppError } from '../../lib/errors.js'
 import { createPrefixedId } from '../../lib/ids.js'
-import { isPrismaMissingTableError } from '../../lib/prisma-errors.js'
+import { isPrismaRecoverableStorageError } from '../../lib/prisma-errors.js'
 
 const resolveTier = (points: number): RewardTier => {
   if (points >= 10000) return 'Diamond'
@@ -113,6 +114,11 @@ const rememberProfile = (profile: UserProfile) => {
   return profile
 }
 
+type FaucetClaimRecord = {
+  createdAt: Date
+  txHash?: string
+}
+
 export class UserService {
   constructor(
     private usernamesClient: UsernamesClient,
@@ -189,13 +195,23 @@ export class UserService {
     let suffix = 1
 
     while (true) {
-      const existing = await prisma.user.findFirst({
-        where: {
-          referralCode: candidate,
-          NOT: { initiaAddress },
-        },
-        select: { initiaAddress: true },
-      })
+      let existing: { initiaAddress: string } | null = null
+
+      try {
+        existing = await prisma.user.findFirst({
+          where: {
+            referralCode: candidate,
+            NOT: { initiaAddress },
+          },
+          select: { initiaAddress: true },
+        })
+      } catch (error) {
+        if (!isPrismaRecoverableStorageError(error, ['public.User'])) {
+          throw error
+        }
+
+        return candidate
+      }
 
       if (!existing) {
         return candidate
@@ -207,12 +223,28 @@ export class UserService {
   }
 
   private async computeReferralStatus(refereeAddress: string): Promise<ReferralEntry['status']> {
-    const loans = await prisma.loan.findMany({
-      where: { initiaAddress: refereeAddress },
-      select: { status: true },
-      orderBy: { id: 'desc' },
-      take: 8,
-    })
+    let loans: Array<{ status: string }> = []
+
+    try {
+      loans = await prisma.loan.findMany({
+        where: { initiaAddress: refereeAddress },
+        select: { status: true },
+        orderBy: { id: 'desc' },
+        take: 8,
+      })
+    } catch (error) {
+      if (!isPrismaRecoverableStorageError(error, ['public.Loan'])) {
+        throw error
+      }
+
+      loans = Array.from(store.loans.values())
+        .filter((loan) => {
+          const owner = (loan as LoanState & { initiaAddress?: string }).initiaAddress
+          return owner === refereeAddress
+        })
+        .slice(0, 8)
+        .map((loan) => ({ status: loan.status }))
+    }
 
     if (loans.some((loan) => loan.status === 'defaulted')) {
       return 'defaulted'
@@ -225,27 +257,63 @@ export class UserService {
     return 'pending'
   }
 
-  private async getLatestFaucetClaim(initiaAddress: string) {
-    return prisma.operatorAction.findFirst({
-      where: {
-        actionType: FAUCET_ACTION_TYPE,
-        targetType: FAUCET_TARGET_TYPE,
-        targetId: initiaAddress,
-        status: {
-          in: ['submitted', 'confirmed'],
+  private async getLatestFaucetClaim(initiaAddress: string): Promise<FaucetClaimRecord | null> {
+    try {
+      const latestClaim = await prisma.operatorAction.findFirst({
+        where: {
+          actionType: FAUCET_ACTION_TYPE,
+          targetType: FAUCET_TARGET_TYPE,
+          targetId: initiaAddress,
+          status: {
+            in: ['submitted', 'confirmed'],
+          },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+        orderBy: { createdAt: 'desc' },
+      })
+
+      return latestClaim
+        ? {
+            createdAt: latestClaim.createdAt,
+            txHash: latestClaim.txHash ?? undefined,
+          }
+        : null
+    } catch (error) {
+      if (!isPrismaRecoverableStorageError(error, ['public.OperatorAction'])) {
+        throw error
+      }
+
+      const latestClaim = store.operatorActions
+        .filter(
+          (action) =>
+            action.actionType === FAUCET_ACTION_TYPE &&
+            action.targetType === FAUCET_TARGET_TYPE &&
+            action.targetId === initiaAddress &&
+            (action.status === 'submitted' || action.status === 'confirmed'),
+        )
+        .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())[0]
+
+      return latestClaim
+        ? {
+            createdAt: new Date(latestClaim.createdAt),
+            txHash: latestClaim.txHash,
+          }
+        : null
+    }
   }
 
   private async syncReferralLinkStatus(refereeAddress: string) {
     const status = await this.computeReferralStatus(refereeAddress)
 
-    await prisma.referralLink.updateMany({
-      where: { refereeAddress },
-      data: { status },
-    })
+    try {
+      await prisma.referralLink.updateMany({
+        where: { refereeAddress },
+        data: { status },
+      })
+    } catch (error) {
+      if (!isPrismaRecoverableStorageError(error, ['public.ReferralLink'])) {
+        throw error
+      }
+    }
 
     return status
   }
@@ -368,7 +436,7 @@ export class UserService {
 
       return rememberProfile(mapUserProfile(user, identity))
     } catch (error) {
-      if (!isPrismaMissingTableError(error, ['public.User'])) {
+      if (!isPrismaRecoverableStorageError(error, ['public.User'])) {
         throw error
       }
 
@@ -405,7 +473,7 @@ export class UserService {
 
       return rememberProfile(mapUserProfile(updated, identity))
     } catch (error) {
-      if (!isPrismaMissingTableError(error, ['public.User'])) {
+      if (!isPrismaRecoverableStorageError(error, ['public.User'])) {
         throw error
       }
 
@@ -470,18 +538,31 @@ export class UserService {
       )
     }
 
-    await prisma.operatorAction.create({
-      data: {
-        id: createPrefixedId('faucet'),
-        actorAddress: env.ROLLUP_KEY_NAME || 'faucet-relayer',
-        actionType: FAUCET_ACTION_TYPE,
-        targetType: FAUCET_TARGET_TYPE,
-        targetId: initiaAddress,
-        reason: `Testnet faucet claim · ${env.FAUCET_CLAIM_AMOUNT} ${env.ROLLUP_NATIVE_SYMBOL}`,
-        txHash,
-        status: 'confirmed',
-        createdAt: new Date(),
-      },
+    const operatorAction = {
+      id: createPrefixedId('faucet'),
+      actorAddress: env.ROLLUP_KEY_NAME || 'faucet-relayer',
+      actionType: FAUCET_ACTION_TYPE,
+      targetType: FAUCET_TARGET_TYPE,
+      targetId: initiaAddress,
+      reason: `Testnet faucet claim · ${env.FAUCET_CLAIM_AMOUNT} ${env.ROLLUP_NATIVE_SYMBOL}`,
+      txHash,
+      status: 'confirmed' as const,
+      createdAt: new Date(),
+    }
+
+    try {
+      await prisma.operatorAction.create({
+        data: operatorAction,
+      })
+    } catch (error) {
+      if (!isPrismaRecoverableStorageError(error, ['public.OperatorAction'])) {
+        throw error
+      }
+    }
+
+    store.operatorActions.unshift({
+      ...operatorAction,
+      createdAt: operatorAction.createdAt.toISOString(),
     })
 
     await this.ensureUser(initiaAddress)
@@ -501,32 +582,65 @@ export class UserService {
     const user = await this.ensureUser(initiaAddress)
     const points = Math.max(0, user.rewards.points + delta)
 
-    const updated = await prisma.user.update({
-      where: { initiaAddress },
-      data: {
-        points,
-        streak: delta > 0 ? user.rewards.streak + 1 : user.rewards.streak,
-        tier: resolveTier(points),
-      },
-    })
+    try {
+      const updated = await prisma.user.update({
+        where: { initiaAddress },
+        data: {
+          points,
+          streak: delta > 0 ? user.rewards.streak + 1 : user.rewards.streak,
+          tier: resolveTier(points),
+        },
+      })
 
-    return mapUserProfile(updated)
+      return mapUserProfile(updated)
+    } catch (error) {
+      if (!isPrismaRecoverableStorageError(error, ['public.User'])) {
+        throw error
+      }
+
+      return rememberProfile({
+        ...user,
+        rewards: {
+          ...user.rewards,
+          points,
+          streak: delta > 0 ? user.rewards.streak + 1 : user.rewards.streak,
+          tier: resolveTier(points),
+        },
+        updatedAt: new Date().toISOString(),
+      })
+    }
   }
 
   async getReferral(initiaAddress: string): Promise<ReferralState> {
     const user = await this.ensureUser(initiaAddress)
-    const links = await prisma.referralLink.findMany({
-      where: { referrerAddress: initiaAddress },
-      include: {
-        referee: {
-          select: {
-            initiaAddress: true,
-            username: true,
+    let links: Array<{
+      refereeAddress: string
+      joinedAt: Date
+      pointsGenerated: number
+      referee: {
+        initiaAddress: string
+        username: string | null
+      }
+    }> = []
+
+    try {
+      links = await prisma.referralLink.findMany({
+        where: { referrerAddress: initiaAddress },
+        include: {
+          referee: {
+            select: {
+              initiaAddress: true,
+              username: true,
+            },
           },
         },
-      },
-      orderBy: { joinedAt: 'desc' },
-    })
+        orderBy: { joinedAt: 'desc' },
+      })
+    } catch (error) {
+      if (!isPrismaRecoverableStorageError(error, ['public.ReferralLink', 'public.User'])) {
+        throw error
+      }
+    }
 
     const referralList: ReferralEntry[] = await Promise.all(
       links.map(async (link) => {
@@ -718,45 +832,127 @@ export class UserService {
   async getLeaderboard(initiaAddress: string): Promise<LeaderboardState> {
     const currentProfile = await this.ensureUser(initiaAddress)
 
-    const [users, loans, scores, referralLinks] = await Promise.all([
-      prisma.user.findMany({
-        select: {
-          initiaAddress: true,
-          username: true,
-          tier: true,
-          heldLend: true,
-          points: true,
-          streak: true,
-          referralPointsEarned: true,
-        },
-      }),
-      prisma.loan.findMany({
-        select: {
-          initiaAddress: true,
-          principal: true,
-          installmentsPaid: true,
-          status: true,
-          tenorMonths: true,
-          scheduleJson: true,
-        },
-      }),
-      prisma.creditScore.findMany({
-        select: {
-          initiaAddress: true,
-          score: true,
-          scannedAt: true,
-        },
-        orderBy: { scannedAt: 'asc' },
-      }),
-      prisma.referralLink.findMany({
-        select: {
-          referrerAddress: true,
-          refereeAddress: true,
-          pointsGenerated: true,
-          status: true,
-        },
-      }),
-    ])
+    let users: Array<{
+      initiaAddress: string
+      username: string | null
+      tier: string
+      heldLend: number
+      points: number
+      streak: number
+      referralPointsEarned: number
+    }> = []
+    let loans: Array<{
+      initiaAddress: string
+      principal: number
+      installmentsPaid: number
+      status: string
+      tenorMonths: number
+      scheduleJson: string
+    }> = []
+    let scores: Array<{
+      initiaAddress: string
+      score: number
+      scannedAt: Date
+    }> = []
+    let referralLinks: Array<{
+      referrerAddress: string
+      refereeAddress: string
+      pointsGenerated: number
+      status: string
+    }> = []
+
+    try {
+      ;[users, loans, scores, referralLinks] = await Promise.all([
+        prisma.user.findMany({
+          select: {
+            initiaAddress: true,
+            username: true,
+            tier: true,
+            heldLend: true,
+            points: true,
+            streak: true,
+            referralPointsEarned: true,
+          },
+        }),
+        prisma.loan.findMany({
+          select: {
+            initiaAddress: true,
+            principal: true,
+            installmentsPaid: true,
+            status: true,
+            tenorMonths: true,
+            scheduleJson: true,
+          },
+        }),
+        prisma.creditScore.findMany({
+          select: {
+            initiaAddress: true,
+            score: true,
+            scannedAt: true,
+          },
+          orderBy: { scannedAt: 'asc' },
+        }),
+        prisma.referralLink.findMany({
+          select: {
+            referrerAddress: true,
+            refereeAddress: true,
+            pointsGenerated: true,
+            status: true,
+          },
+        }),
+      ])
+    } catch (error) {
+      if (
+        !isPrismaRecoverableStorageError(error, [
+          'public.User',
+          'public.Loan',
+          'public.CreditScore',
+          'public.ReferralLink',
+        ])
+      ) {
+        throw error
+      }
+
+      users = [
+        currentProfile,
+        ...Array.from(store.users.values()).filter(
+          (user) => user.initiaAddress !== currentProfile.initiaAddress,
+        ),
+      ].map((user) => ({
+        initiaAddress: user.initiaAddress,
+        username: user.username ?? null,
+        tier: user.rewards.tier,
+        heldLend: user.rewards.heldLend,
+        points: user.rewards.points,
+        streak: user.rewards.streak,
+        referralPointsEarned: user.referralPointsEarned ?? 0,
+      }))
+      loans = Array.from(store.loans.values()).flatMap((loan) => {
+        const owner = (loan as LoanState & { initiaAddress?: string }).initiaAddress
+        return owner
+          ? [
+              {
+                initiaAddress: owner,
+                principal: loan.principal,
+                installmentsPaid: loan.installmentsPaid,
+                status: loan.status,
+                tenorMonths: loan.tenorMonths,
+                scheduleJson: JSON.stringify(loan.schedule),
+              },
+            ]
+          : []
+      })
+      scores = Array.from(store.scores.entries())
+        .flatMap(([address, history]) =>
+          history.map((score) => ({
+            initiaAddress: address,
+            score: score.score,
+            scannedAt: new Date(score.scannedAt),
+          })),
+        )
+        .sort((left, right) => left.scannedAt.getTime() - right.scannedAt.getTime())
+      referralLinks = []
+    }
 
     const firstScores = new Map<string, number>()
     const monthStart = new Date()

@@ -2,7 +2,7 @@ import { store } from '../../data/store.js'
 import { mapActivity } from '../../db/mappers.js'
 import { prisma } from '../../db/prisma.js'
 import { createPrefixedId } from '../../lib/ids.js'
-import { isPrismaMissingTableError } from '../../lib/prisma-errors.js'
+import { isPrismaRecoverableStorageError } from '../../lib/prisma-errors.js'
 import type { ActivityItem } from '../../types/domain.js'
 
 export class ActivityService {
@@ -18,7 +18,7 @@ export class ActivityService {
       store.activities.set(initiaAddress, mapped)
       return mapped
     } catch (error) {
-      if (!isPrismaMissingTableError(error, ['public.Activity'])) {
+      if (!isPrismaRecoverableStorageError(error, ['public.Activity'])) {
         throw error
       }
 
@@ -48,7 +48,7 @@ export class ActivityService {
         },
       })
     } catch (error) {
-      if (!isPrismaMissingTableError(error, ['public.Activity'])) {
+      if (!isPrismaRecoverableStorageError(error, ['public.Activity'])) {
         throw error
       }
     }

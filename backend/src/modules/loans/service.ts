@@ -3,7 +3,7 @@ import { mapLoan, mapLoanRequest, serializeJson } from '../../db/mappers.js'
 import { prisma } from '../../db/prisma.js'
 import type { RollupClient } from '../../integrations/rollup/client.js'
 import { AppError } from '../../lib/errors.js'
-import { isPrismaMissingTableError } from '../../lib/prisma-errors.js'
+import { isPrismaRecoverableStorageError } from '../../lib/prisma-errors.js'
 import type {
   CreditProfileQuote,
   InstallmentState,
@@ -197,7 +197,7 @@ export class LoanService {
         loans: dbLoans.map(mapLoan),
       })
     } catch (error) {
-      if (!isPrismaMissingTableError(error, ['public.LoanRequest', 'public.Loan'])) {
+      if (!isPrismaRecoverableStorageError(error, ['public.LoanRequest', 'public.Loan'])) {
         throw error
       }
 

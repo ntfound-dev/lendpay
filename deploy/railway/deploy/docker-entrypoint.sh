@@ -8,12 +8,40 @@ ROLLUP_SEED_HOME="${ROLLUP_SEED_HOME:-/opt/lendpay-rollup/home-seed}"
 MINITIAD_ARCHIVE_URL="${MINITIAD_ARCHIVE_URL:-}"
 ROLLUP_HOME_SEED_ARCHIVE_URL="${ROLLUP_HOME_SEED_ARCHIVE_URL:-}"
 
+is_placeholder_url() {
+  local url="$1"
+  [[ -z "$url" || "$url" == "..." || "$url" == *"://..." || "$url" == *"ganti-"* ]]
+}
+
 download_archive() {
   local url="$1"
   local destination="$2"
+  local label="$3"
+  local archive_tmp
+
+  if is_placeholder_url "$url"; then
+    echo "$label is not set to a real archive URL." >&2
+    echo "Replace the placeholder value before deploying the rollup service." >&2
+    exit 1
+  fi
 
   mkdir -p "$destination"
-  curl -fsSL "$url" | tar -xzf - -C "$destination"
+  archive_tmp="$(mktemp)"
+
+  if ! curl -fsSL "$url" -o "$archive_tmp"; then
+    rm -f "$archive_tmp"
+    echo "Failed to download $label. Check that the archive URL is reachable from Railway." >&2
+    exit 1
+  fi
+
+  if ! tar -xzf "$archive_tmp" -C "$destination"; then
+    rm -f "$archive_tmp"
+    echo "Downloaded $label, but the archive could not be extracted." >&2
+    echo "Make sure it is a valid .tar.gz containing the expected runtime files." >&2
+    exit 1
+  fi
+
+  rm -f "$archive_tmp"
 }
 
 ensure_minitiad_runtime() {
@@ -23,7 +51,7 @@ ensure_minitiad_runtime() {
 
   if [[ -n "$MINITIAD_ARCHIVE_URL" ]]; then
     echo "Downloading minitiad runtime from MINITIAD_ARCHIVE_URL"
-    download_archive "$MINITIAD_ARCHIVE_URL" "$(dirname "$MINITIAD_BIN")"
+    download_archive "$MINITIAD_ARCHIVE_URL" "$(dirname "$MINITIAD_BIN")" "MINITIAD_ARCHIVE_URL"
   fi
 
   if [[ -f "$MINITIAD_BIN" ]]; then
@@ -44,7 +72,7 @@ ensure_seed_home() {
 
   if [[ -n "$ROLLUP_HOME_SEED_ARCHIVE_URL" ]]; then
     echo "Downloading rollup seed home from ROLLUP_HOME_SEED_ARCHIVE_URL"
-    download_archive "$ROLLUP_HOME_SEED_ARCHIVE_URL" "$ROLLUP_SEED_HOME"
+    download_archive "$ROLLUP_HOME_SEED_ARCHIVE_URL" "$ROLLUP_SEED_HOME" "ROLLUP_HOME_SEED_ARCHIVE_URL"
   fi
 
   if [[ ! -f "$ROLLUP_SEED_HOME/config/genesis.json" ]]; then
