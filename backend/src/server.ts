@@ -1,15 +1,5 @@
 import { buildApp } from './app.js'
 import { env } from './config/env.js'
-import { prisma } from './db/prisma.js'
-
-try {
-  await prisma.$connect()
-  console.log('[startup] prisma connected')
-} catch (error) {
-  console.error('[startup] prisma failed to connect')
-  console.error(error)
-  process.exit(1)
-}
 
 const app = await buildApp()
 
