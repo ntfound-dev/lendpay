@@ -169,6 +169,7 @@ export const buildApp = async () => {
       })
     }
 
+    console.error(error)
     app.log.error(error)
 
     return reply.status(500).send({

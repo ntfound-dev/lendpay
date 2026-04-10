@@ -6,9 +6,35 @@ import { dirname, resolve } from 'node:path'
 export const DEFAULT_DATABASE_URL = 'postgresql://postgres:postgres@127.0.0.1:55432/lendpay_dev?schema=public'
 
 const SSLMODE_ALIAS_TO_VERIFY_FULL = new Set(['prefer', 'require', 'verify-ca'])
+const POOLED_POSTGRES_PORTS = new Set(['6432', '6438', '6543'])
+const POOLED_POSTGRES_HOST_MARKERS = ['pooler', 'pool', 'pgbouncer']
 
 const isPostgresUrl = (databaseUrl) =>
   databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://')
+
+const resolvePrismaDatabaseUrl = (databaseUrl) => {
+  if (!isPostgresUrl(databaseUrl)) {
+    return databaseUrl
+  }
+
+  try {
+    const url = new URL(databaseUrl)
+    const hostname = url.hostname.toLowerCase()
+    const alreadyConfigured = url.searchParams.has('pgbouncer')
+    const looksLikePooler =
+      POOLED_POSTGRES_PORTS.has(url.port) ||
+      POOLED_POSTGRES_HOST_MARKERS.some((marker) => hostname.includes(marker))
+
+    if (alreadyConfigured || !looksLikePooler) {
+      return databaseUrl
+    }
+
+    url.searchParams.set('pgbouncer', 'true')
+    return url.toString()
+  } catch {
+    return databaseUrl
+  }
+}
 
 export const normalizeDatabaseUrl = (databaseUrl) => {
   if (!isPostgresUrl(databaseUrl)) {
@@ -106,7 +132,9 @@ const waitForPostgresServer = async (databaseUrl) => {
 }
 
 export const pushPrismaSchema = async (databaseUrl = resolveDatabaseUrl()) => {
-  prepareSqliteDatabase(databaseUrl)
+  const prismaDatabaseUrl = resolvePrismaDatabaseUrl(databaseUrl)
+
+  prepareSqliteDatabase(prismaDatabaseUrl)
 
   if (isPostgresUrl(databaseUrl)) {
     await waitForPostgresServer(databaseUrl)
@@ -116,7 +144,7 @@ export const pushPrismaSchema = async (databaseUrl = resolveDatabaseUrl()) => {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      DATABASE_URL: databaseUrl,
+      DATABASE_URL: prismaDatabaseUrl,
     },
     stdio: 'inherit',
   })
