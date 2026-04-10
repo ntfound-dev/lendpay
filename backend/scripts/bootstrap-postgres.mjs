@@ -23,7 +23,8 @@ const redactDatabaseUrl = (value) => {
 }
 
 export const bootstrapPostgresSchema = async (databaseUrl = resolveDatabaseUrl()) => {
-  const sql = await readFile(sqlPath, 'utf8')
+  const rawSql = await readFile(sqlPath, 'utf8')
+  const sql = [`CREATE SCHEMA IF NOT EXISTS "public";`, `SET search_path TO public;`, rawSql].join('\n')
   const client = new Client({
     connectionString: databaseUrl,
   })
@@ -32,6 +33,11 @@ export const bootstrapPostgresSchema = async (databaseUrl = resolveDatabaseUrl()
   try {
     await client.query('SELECT pg_advisory_lock($1)', [BOOTSTRAP_LOCK_KEY])
     await client.query(sql)
+    const verification = await client.query(`SELECT to_regclass('public."User"') AS user_table`)
+
+    if (!verification.rows[0]?.user_table) {
+      throw new Error('Bootstrap SQL completed but public."User" is still missing.')
+    }
   } finally {
     try {
       await client.query('SELECT pg_advisory_unlock($1)', [BOOTSTRAP_LOCK_KEY])
