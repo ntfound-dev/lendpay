@@ -33,6 +33,21 @@ const redactDatabaseUrl = (value) => {
   }
 }
 
+const findMissingTables = async (client) => {
+  const result = await client.query(
+    `
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name = ANY($1::text[])
+    `,
+    [REQUIRED_PUBLIC_TABLES],
+  )
+
+  const existingTables = new Set(result.rows.map((row) => row.table_name))
+  return REQUIRED_PUBLIC_TABLES.filter((tableName) => !existingTables.has(tableName))
+}
+
 export const bootstrapPostgresSchema = async (databaseUrl = resolveDatabaseUrl()) => {
   const sql = await readFile(sqlPath, 'utf8')
   const client = new Client({
@@ -43,27 +58,33 @@ export const bootstrapPostgresSchema = async (databaseUrl = resolveDatabaseUrl()
   await client.connect()
   try {
     await client.query(sql)
-    const result = await client.query(
-      `
-        SELECT table_name
-        FROM information_schema.tables
-        WHERE table_schema = 'public'
-          AND table_name = ANY($1::text[])
-      `,
-      [REQUIRED_PUBLIC_TABLES],
-    )
-
-    const existingTables = new Set(result.rows.map((row) => row.table_name))
-    missingTables = REQUIRED_PUBLIC_TABLES.filter((tableName) => !existingTables.has(tableName))
+    missingTables = await findMissingTables(client)
   } finally {
     await client.end()
   }
 
   if (missingTables.length > 0) {
-    console.warn(
-      `[startup] bootstrap SQL left missing tables (${missingTables.join(', ')}); syncing Prisma schema`,
+    console.warn(`[startup] bootstrap SQL left missing tables (${missingTables.join(', ')})`)
+  }
+
+  console.log('[startup] syncing Prisma schema via DATABASE_URL')
+  await pushPrismaSchema(databaseUrl)
+
+  const verificationClient = new Client({
+    connectionString: databaseUrl,
+  })
+
+  await verificationClient.connect()
+  try {
+    missingTables = await findMissingTables(verificationClient)
+  } finally {
+    await verificationClient.end()
+  }
+
+  if (missingTables.length > 0) {
+    throw new Error(
+      `Database bootstrap finished but required tables are still missing: ${missingTables.join(', ')}`,
     )
-    await pushPrismaSchema(databaseUrl)
   }
 }
 

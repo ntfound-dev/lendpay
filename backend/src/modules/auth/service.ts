@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { prisma } from '../../db/prisma.js'
+import { store } from '../../data/store.js'
 import { AppError } from '../../lib/errors.js'
 import {
   createSessionToken,
@@ -35,13 +35,11 @@ export class AuthService {
       `Expires: ${expiresAt}`,
     ].join('\n')
 
-    await prisma.challenge.create({
-      data: {
-        id,
-        initiaAddress,
-        message,
-        expiresAt: new Date(expiresAt),
-      },
+    store.challenges.set(id, {
+      id,
+      initiaAddress,
+      message,
+      expiresAt,
     })
 
     return {
@@ -52,15 +50,14 @@ export class AuthService {
   }
 
   async verify(initiaAddress: string, challengeId: string, signaturePayload: unknown): Promise<AuthResponse> {
-    const challenge = await prisma.challenge.findUnique({
-      where: { id: challengeId },
-    })
+    const challenge = store.challenges.get(challengeId)
 
     if (!challenge || challenge.initiaAddress !== initiaAddress) {
       throw new AppError(400, 'INVALID_CHALLENGE', 'Challenge is missing or does not match the address.')
     }
 
     if (new Date(challenge.expiresAt).getTime() < Date.now()) {
+      store.challenges.delete(challengeId)
       throw new AppError(400, 'EXPIRED_CHALLENGE', 'Challenge has expired.')
     }
 
@@ -107,9 +104,7 @@ export class AuthService {
       }
     }
 
-    await prisma.challenge.delete({
-      where: { id: challengeId },
-    })
+    store.challenges.delete(challengeId)
 
     const user = await this.userService.ensureUser(initiaAddress)
     const session = await this.createSession(initiaAddress)
@@ -145,23 +140,19 @@ export class AuthService {
       }
     }
 
-    const session = await prisma.session.findUnique({
-      where: { token },
-    })
+    const session = store.sessions.get(token)
 
     if (!session) {
       throw new AppError(401, 'SESSION_NOT_FOUND', 'Session not found.')
     }
 
     if (new Date(session.expiresAt).getTime() < Date.now()) {
-      await prisma.session.delete({
-        where: { token },
-      })
+      store.sessions.delete(token)
       throw new AppError(401, 'SESSION_EXPIRED', 'Session expired.')
     }
 
     return {
-      expiresAt: session.expiresAt.toISOString(),
+      expiresAt: session.expiresAt,
       initiaAddress: session.initiaAddress,
       token: session.token,
     }
@@ -172,9 +163,7 @@ export class AuthService {
     const next = await this.createSession(session.initiaAddress)
 
     if (!isSignedSessionToken(session.token)) {
-      await prisma.session.delete({
-        where: { token: session.token },
-      })
+      store.sessions.delete(session.token)
     }
 
     return next
@@ -184,9 +173,7 @@ export class AuthService {
     const session = await this.requireSession(authorizationHeader)
 
     if (!isSignedSessionToken(session.token)) {
-      await prisma.session.delete({
-        where: { token: session.token },
-      })
+      store.sessions.delete(session.token)
     }
 
     return { success: true }
