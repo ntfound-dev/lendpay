@@ -1,7 +1,9 @@
+import { store } from '../../data/store.js'
 import { mapLoan, mapLoanRequest, serializeJson } from '../../db/mappers.js'
 import { prisma } from '../../db/prisma.js'
 import type { RollupClient } from '../../integrations/rollup/client.js'
 import { AppError } from '../../lib/errors.js'
+import { isPrismaMissingTableError } from '../../lib/prisma-errors.js'
 import type {
   CreditProfileQuote,
   InstallmentState,
@@ -166,18 +168,41 @@ export class LoanService {
   private async runBorrowerMirrorSync(initiaAddress: string): Promise<BorrowerMirrorState> {
     await this.userService.ensureUser(initiaAddress)
 
-    const dbRequests = await prisma.loanRequest.findMany({
+    let dbRequests = []
+    let dbLoans = []
+    let fallbackState = this.cacheBorrowerMirrors(initiaAddress, {
+      requests: Array.from(store.loanRequests.values())
+        .filter((request) => request.id && true)
+        .filter((request) => {
+          const owner = (request as LoanRequestState & { initiaAddress?: string }).initiaAddress
+          return !owner || owner === initiaAddress
+        }),
+      loans: Array.from(store.loans.values()).filter((loan) => {
+        const owner = (loan as LoanState & { initiaAddress?: string }).initiaAddress
+        return !owner || owner === initiaAddress
+      }),
+    })
+
+    try {
+      dbRequests = await prisma.loanRequest.findMany({
         where: { initiaAddress },
         orderBy: { submittedAt: 'desc' },
       })
-    const dbLoans = await prisma.loan.findMany({
-      where: { initiaAddress },
-      orderBy: { id: 'desc' },
-    })
-    const fallbackState = this.cacheBorrowerMirrors(initiaAddress, {
-      requests: dbRequests.map(mapLoanRequest),
-      loans: dbLoans.map(mapLoan),
-    })
+      dbLoans = await prisma.loan.findMany({
+        where: { initiaAddress },
+        orderBy: { id: 'desc' },
+      })
+      fallbackState = this.cacheBorrowerMirrors(initiaAddress, {
+        requests: dbRequests.map(mapLoanRequest),
+        loans: dbLoans.map(mapLoan),
+      })
+    } catch (error) {
+      if (!isPrismaMissingTableError(error, ['public.LoanRequest', 'public.Loan'])) {
+        throw error
+      }
+
+      return fallbackState
+    }
 
     if (!this.rollupClient.canRead()) {
       return fallbackState

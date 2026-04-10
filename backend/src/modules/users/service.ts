@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { store } from '../../data/store.js'
 import { env } from '../../config/env.js'
 import { mapUserProfile } from '../../db/mappers.js'
 import { prisma } from '../../db/prisma.js'
@@ -10,12 +11,14 @@ import type {
   ReferralEntry,
   ReferralState,
   RewardTier,
+  UserProfile,
   UsernameSource,
 } from '../../types/domain.js'
 import type { UsernameResolution, UsernamesClient } from '../../integrations/l1/usernames.js'
 import type { RollupClient } from '../../integrations/rollup/client.js'
 import { AppError } from '../../lib/errors.js'
 import { createPrefixedId } from '../../lib/ids.js'
+import { isPrismaMissingTableError } from '../../lib/prisma-errors.js'
 
 const resolveTier = (points: number): RewardTier => {
   if (points >= 10000) return 'Diamond'
@@ -103,6 +106,11 @@ const topEntries = (
     items: ranked.slice(0, 10),
     myRank: ranked.find((entry) => entry.address === selfAddress)?.rank,
   }
+}
+
+const rememberProfile = (profile: UserProfile) => {
+  store.users.set(profile.initiaAddress, profile)
+  return profile
 }
 
 export class UserService {
@@ -252,67 +260,120 @@ export class UserService {
     onchain = await this.syncL1UsernameAttestation(initiaAddress, resolvedUsername, onchain)
     const identity = this.resolveIdentity(resolvedUsername, onchain)
     const username = identity.username
+    const buildStoredProfile = () => {
+      const existing = store.users.get(initiaAddress)
+      const now = new Date().toISOString()
 
-    const existing = await prisma.user.findUnique({
-      where: { initiaAddress },
-    })
+      return rememberProfile({
+        id: existing?.id ?? `user-${initiaAddress.slice(-8)}`,
+        initiaAddress,
+        username,
+        usernameSource: identity.usernameSource,
+        usernameVerified: identity.usernameVerified,
+        usernameVerifiedOnL1: identity.usernameVerifiedOnL1,
+        usernameAttestedOnRollup: identity.usernameAttestedOnRollup,
+        referralCode: existing?.referralCode ?? buildReferralCode(initiaAddress),
+        referredBy: existing?.referredBy,
+        referralPointsEarned: existing?.referralPointsEarned ?? 0,
+        wallet: {
+          nativeBalance: wallet.nativeBalance,
+          lockedCollateralLend: wallet.lockedCollateralLend,
+        },
+        rewards: {
+          heldLend: onchain?.heldLend ?? existing?.rewards.heldLend ?? 0,
+          liquidLend: onchain?.liquidLend ?? existing?.rewards.liquidLend ?? 0,
+          stakedLend: onchain?.stakedLend ?? existing?.rewards.stakedLend ?? 0,
+          claimableLend: onchain?.claimableLend ?? existing?.rewards.claimableLend ?? 0,
+          claimableStakingRewards:
+            onchain?.claimableStakingRewards ?? existing?.rewards.claimableStakingRewards ?? 0,
+          points: onchain?.points ?? existing?.rewards.points ?? 0,
+          streak: onchain?.streak ?? existing?.rewards.streak ?? 0,
+          tier:
+            onchain?.tier ??
+            existing?.rewards.tier ??
+            resolveTier(onchain?.points ?? existing?.rewards.points ?? 0),
+          creditLimitBoostBps:
+            onchain?.creditLimitBoostBps ?? existing?.rewards.creditLimitBoostBps ?? 0,
+          interestDiscountBps:
+            onchain?.interestDiscountBps ?? existing?.rewards.interestDiscountBps ?? 0,
+          premiumChecksAvailable:
+            onchain?.premiumChecksAvailable ?? existing?.rewards.premiumChecksAvailable ?? 0,
+          badgeCount: onchain?.badgeCount ?? existing?.rewards.badgeCount ?? 0,
+        },
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      })
+    }
 
-    const referralCode = await this.ensureReferralCode(initiaAddress, existing?.referralCode)
-
-    if (existing) {
-      const updated = await prisma.user.update({
+    try {
+      const existing = await prisma.user.findUnique({
         where: { initiaAddress },
+      })
+
+      const referralCode = await this.ensureReferralCode(initiaAddress, existing?.referralCode)
+
+      if (existing) {
+        const updated = await prisma.user.update({
+          where: { initiaAddress },
+          data: {
+            username,
+            referralCode,
+            nativeBalance: wallet.nativeBalance,
+            lockedCollateralLend: wallet.lockedCollateralLend,
+            heldLend: onchain?.heldLend ?? existing.heldLend,
+            liquidLend: onchain?.liquidLend ?? existing.liquidLend,
+            stakedLend: onchain?.stakedLend ?? existing.stakedLend,
+            claimableLend: onchain?.claimableLend ?? existing.claimableLend,
+            claimableStakingRewards:
+              onchain?.claimableStakingRewards ?? existing.claimableStakingRewards,
+            points: onchain?.points ?? existing.points,
+            streak: onchain?.streak ?? existing.streak,
+            tier: onchain?.tier ?? existing.tier,
+            creditLimitBoostBps: onchain?.creditLimitBoostBps ?? existing.creditLimitBoostBps,
+            interestDiscountBps: onchain?.interestDiscountBps ?? existing.interestDiscountBps,
+            premiumChecksAvailable:
+              onchain?.premiumChecksAvailable ?? existing.premiumChecksAvailable,
+            badgeCount: onchain?.badgeCount ?? existing.badgeCount,
+          },
+        })
+
+        return rememberProfile(mapUserProfile(updated, identity))
+      }
+
+      const now = new Date().toISOString()
+
+      const user = await prisma.user.create({
         data: {
+          id: `user-${initiaAddress.slice(-8)}`,
+          initiaAddress,
           username,
           referralCode,
           nativeBalance: wallet.nativeBalance,
           lockedCollateralLend: wallet.lockedCollateralLend,
-          heldLend: onchain?.heldLend ?? existing.heldLend,
-          liquidLend: onchain?.liquidLend ?? existing.liquidLend,
-          stakedLend: onchain?.stakedLend ?? existing.stakedLend,
-          claimableLend: onchain?.claimableLend ?? existing.claimableLend,
-          claimableStakingRewards:
-            onchain?.claimableStakingRewards ?? existing.claimableStakingRewards,
-          points: onchain?.points ?? existing.points,
-          streak: onchain?.streak ?? existing.streak,
-          tier: onchain?.tier ?? existing.tier,
-          creditLimitBoostBps: onchain?.creditLimitBoostBps ?? existing.creditLimitBoostBps,
-          interestDiscountBps: onchain?.interestDiscountBps ?? existing.interestDiscountBps,
-          premiumChecksAvailable:
-            onchain?.premiumChecksAvailable ?? existing.premiumChecksAvailable,
-          badgeCount: onchain?.badgeCount ?? existing.badgeCount,
+          heldLend: onchain?.heldLend ?? 0,
+          liquidLend: onchain?.liquidLend ?? 0,
+          stakedLend: onchain?.stakedLend ?? 0,
+          claimableLend: onchain?.claimableLend ?? 0,
+          claimableStakingRewards: onchain?.claimableStakingRewards ?? 0,
+          points: onchain?.points ?? 0,
+          streak: onchain?.streak ?? 0,
+          tier: onchain?.tier ?? resolveTier(onchain?.points ?? 0),
+          creditLimitBoostBps: onchain?.creditLimitBoostBps ?? 0,
+          interestDiscountBps: onchain?.interestDiscountBps ?? 0,
+          premiumChecksAvailable: onchain?.premiumChecksAvailable ?? 0,
+          badgeCount: onchain?.badgeCount ?? 0,
+          createdAt: new Date(now),
         },
       })
 
-      return mapUserProfile(updated, identity)
+      return rememberProfile(mapUserProfile(user, identity))
+    } catch (error) {
+      if (!isPrismaMissingTableError(error, ['public.User'])) {
+        throw error
+      }
+
+      return buildStoredProfile()
     }
-    const now = new Date().toISOString()
-
-    const user = await prisma.user.create({
-      data: {
-        id: `user-${initiaAddress.slice(-8)}`,
-        initiaAddress,
-        username,
-        referralCode,
-        nativeBalance: wallet.nativeBalance,
-        lockedCollateralLend: wallet.lockedCollateralLend,
-        heldLend: onchain?.heldLend ?? 0,
-        liquidLend: onchain?.liquidLend ?? 0,
-        stakedLend: onchain?.stakedLend ?? 0,
-        claimableLend: onchain?.claimableLend ?? 0,
-        claimableStakingRewards: onchain?.claimableStakingRewards ?? 0,
-        points: onchain?.points ?? 0,
-        streak: onchain?.streak ?? 0,
-        tier: onchain?.tier ?? resolveTier(onchain?.points ?? 0),
-        creditLimitBoostBps: onchain?.creditLimitBoostBps ?? 0,
-        interestDiscountBps: onchain?.interestDiscountBps ?? 0,
-        premiumChecksAvailable: onchain?.premiumChecksAvailable ?? 0,
-        badgeCount: onchain?.badgeCount ?? 0,
-        createdAt: new Date(now),
-      },
-    })
-
-    return mapUserProfile(user, identity)
   }
 
   async getProfile(initiaAddress: string) {
@@ -334,14 +395,22 @@ export class UserService {
     const identity = this.resolveIdentity(resolvedUsername, onchain)
     const username = identity.username
 
-    const updated = await prisma.user.update({
-      where: { initiaAddress },
-      data: {
-        username,
-      },
-    })
+    try {
+      const updated = await prisma.user.update({
+        where: { initiaAddress },
+        data: {
+          username,
+        },
+      })
 
-    return mapUserProfile(updated, identity)
+      return rememberProfile(mapUserProfile(updated, identity))
+    } catch (error) {
+      if (!isPrismaMissingTableError(error, ['public.User'])) {
+        throw error
+      }
+
+      return this.ensureUser(initiaAddress)
+    }
   }
 
   async getFaucetStatus(initiaAddress: string): Promise<FaucetState> {
