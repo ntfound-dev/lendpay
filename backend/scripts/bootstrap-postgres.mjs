@@ -2,13 +2,31 @@ import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pg from 'pg'
-import { resolveDatabaseUrl } from './db.mjs'
+import {
+  looksLikePooledPostgresUrl,
+  resolveBootstrapDatabaseUrl,
+  resolveConfiguredDatabaseSchema,
+  resolveDatabaseUrl,
+  withDatabaseSchema,
+} from './db.mjs'
 
 const { Client } = pg
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const sqlPath = resolve(__dirname, 'sql/bootstrap-postgres.sql')
 const BOOTSTRAP_LOCK_KEY = 80412026
+const APP_TABLES = [
+  'User',
+  'Challenge',
+  'Session',
+  'OracleSnapshot',
+  'CreditScore',
+  'LoanRequest',
+  'Loan',
+  'Activity',
+  'OperatorAction',
+  'ReferralLink',
+]
 
 const redactDatabaseUrl = (value) => {
   try {
@@ -22,7 +40,54 @@ const redactDatabaseUrl = (value) => {
   }
 }
 
+const detectExistingAppSchema = async (databaseUrl) => {
+  const configuredSchema = resolveConfiguredDatabaseSchema()
+  if (configuredSchema) {
+    return configuredSchema
+  }
+
+  try {
+    const url = new URL(databaseUrl)
+    const existingSchema = url.searchParams.get('schema')
+    if (existingSchema) {
+      return existingSchema
+    }
+  } catch {
+    return null
+  }
+
+  const client = new Client({
+    connectionString: databaseUrl,
+  })
+
+  await client.connect()
+  try {
+    const result = await client.query(
+      `
+        SELECT table_schema, COUNT(*)::int AS hits
+        FROM information_schema.tables
+        WHERE table_name = ANY($1::text[])
+          AND table_schema NOT IN ('pg_catalog', 'information_schema')
+        GROUP BY table_schema
+        ORDER BY hits DESC, table_schema ASC
+      `,
+      [APP_TABLES],
+    )
+
+    return result.rows[0]?.table_schema ?? null
+  } finally {
+    await client.end()
+  }
+}
+
 export const bootstrapPostgresSchema = async (databaseUrl = resolveDatabaseUrl()) => {
+  if (looksLikePooledPostgresUrl(databaseUrl) && !process.env.DIRECT_DATABASE_URL?.trim()) {
+    console.warn(
+      '[startup] skipping postgres schema bootstrap on pooled DATABASE_URL; set DIRECT_DATABASE_URL for direct DDL access',
+    )
+    return
+  }
+
   const rawSql = await readFile(sqlPath, 'utf8')
   const sql = [`CREATE SCHEMA IF NOT EXISTS "public";`, `SET search_path TO public;`, rawSql].join('\n')
   const client = new Client({
@@ -48,8 +113,18 @@ export const bootstrapPostgresSchema = async (databaseUrl = resolveDatabaseUrl()
   }
 }
 
+export const resolveApplicationDatabaseUrl = async (databaseUrl = resolveDatabaseUrl()) => {
+  const schema = await detectExistingAppSchema(databaseUrl)
+
+  if (!schema) {
+    return databaseUrl
+  }
+
+  return withDatabaseSchema(databaseUrl, schema)
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const databaseUrl = resolveDatabaseUrl()
+  const databaseUrl = resolveBootstrapDatabaseUrl()
   console.log('[startup] bootstrapping postgres schema via DATABASE_URL')
   console.log(`[startup] schema target: ${redactDatabaseUrl(databaseUrl)}`)
 

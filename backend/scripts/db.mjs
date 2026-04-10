@@ -12,18 +12,33 @@ const POOLED_POSTGRES_HOST_MARKERS = ['pooler', 'pool', 'pgbouncer']
 const isPostgresUrl = (databaseUrl) =>
   databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://')
 
-const resolvePrismaDatabaseUrl = (databaseUrl) => {
+export const looksLikePooledPostgresUrl = (databaseUrl) => {
+  if (!isPostgresUrl(databaseUrl)) {
+    return false
+  }
+
+  try {
+    const url = new URL(databaseUrl)
+    const hostname = url.hostname.toLowerCase()
+
+    return (
+      POOLED_POSTGRES_PORTS.has(url.port) ||
+      POOLED_POSTGRES_HOST_MARKERS.some((marker) => hostname.includes(marker))
+    )
+  } catch {
+    return false
+  }
+}
+
+export const resolvePrismaDatabaseUrl = (databaseUrl) => {
   if (!isPostgresUrl(databaseUrl)) {
     return databaseUrl
   }
 
   try {
     const url = new URL(databaseUrl)
-    const hostname = url.hostname.toLowerCase()
     const alreadyConfigured = url.searchParams.has('pgbouncer')
-    const looksLikePooler =
-      POOLED_POSTGRES_PORTS.has(url.port) ||
-      POOLED_POSTGRES_HOST_MARKERS.some((marker) => hostname.includes(marker))
+    const looksLikePooler = looksLikePooledPostgresUrl(databaseUrl)
 
     if (alreadyConfigured || !looksLikePooler) {
       return databaseUrl
@@ -62,6 +77,36 @@ export const resolveDatabaseUrl = () => {
   const resolved = value && value.length > 0 ? value : DEFAULT_DATABASE_URL
   return normalizeDatabaseUrl(resolved)
 }
+
+export const resolveConfiguredDatabaseSchema = () => {
+  const value = process.env.DATABASE_SCHEMA?.trim()
+  return value && value.length > 0 ? value : null
+}
+
+export const withDatabaseSchema = (databaseUrl, schema) => {
+  if (!schema || !isPostgresUrl(databaseUrl)) {
+    return databaseUrl
+  }
+
+  try {
+    const url = new URL(databaseUrl)
+    url.searchParams.set('schema', schema)
+    return url.toString()
+  } catch {
+    return databaseUrl
+  }
+}
+
+export const resolveDirectDatabaseUrl = () => {
+  const value = process.env.DIRECT_DATABASE_URL?.trim()
+  if (!value) {
+    return null
+  }
+
+  return normalizeDatabaseUrl(value)
+}
+
+export const resolveBootstrapDatabaseUrl = () => resolveDirectDatabaseUrl() ?? resolveDatabaseUrl()
 
 const resolveSqlitePath = (databaseUrl) => {
   if (!databaseUrl.startsWith('file:')) {
