@@ -5,9 +5,36 @@ import { dirname, resolve } from 'node:path'
 
 export const DEFAULT_DATABASE_URL = 'postgresql://postgres:postgres@127.0.0.1:55432/lendpay_dev?schema=public'
 
+const SSLMODE_ALIAS_TO_VERIFY_FULL = new Set(['prefer', 'require', 'verify-ca'])
+
+const isPostgresUrl = (databaseUrl) =>
+  databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://')
+
+export const normalizeDatabaseUrl = (databaseUrl) => {
+  if (!isPostgresUrl(databaseUrl)) {
+    return databaseUrl
+  }
+
+  try {
+    const url = new URL(databaseUrl)
+    const sslMode = url.searchParams.get('sslmode')
+    const useLibpqCompat = url.searchParams.get('uselibpqcompat') === 'true'
+
+    if (!sslMode || useLibpqCompat || !SSLMODE_ALIAS_TO_VERIFY_FULL.has(sslMode)) {
+      return databaseUrl
+    }
+
+    url.searchParams.set('sslmode', 'verify-full')
+    return url.toString()
+  } catch {
+    return databaseUrl
+  }
+}
+
 export const resolveDatabaseUrl = () => {
   const value = process.env.DATABASE_URL?.trim()
-  return value && value.length > 0 ? value : DEFAULT_DATABASE_URL
+  const resolved = value && value.length > 0 ? value : DEFAULT_DATABASE_URL
+  return normalizeDatabaseUrl(resolved)
 }
 
 const resolveSqlitePath = (databaseUrl) => {
@@ -25,9 +52,11 @@ const resolveSqlitePath = (databaseUrl) => {
 }
 
 export const prepareSqliteDatabase = (databaseUrl = resolveDatabaseUrl()) => {
-  process.env.DATABASE_URL = databaseUrl
+  const normalizedDatabaseUrl = normalizeDatabaseUrl(databaseUrl)
 
-  const sqlitePath = resolveSqlitePath(databaseUrl)
+  process.env.DATABASE_URL = normalizedDatabaseUrl
+
+  const sqlitePath = resolveSqlitePath(normalizedDatabaseUrl)
 
   if (!sqlitePath) {
     return
@@ -36,9 +65,6 @@ export const prepareSqliteDatabase = (databaseUrl = resolveDatabaseUrl()) => {
   mkdirSync(dirname(sqlitePath), { recursive: true })
   closeSync(openSync(sqlitePath, 'a'))
 }
-
-const isPostgresUrl = (databaseUrl) =>
-  databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://')
 
 const wait = (ms) => new Promise((resolveWait) => setTimeout(resolveWait, ms))
 

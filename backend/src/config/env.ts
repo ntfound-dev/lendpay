@@ -3,6 +3,29 @@ import { z } from 'zod'
 
 loadEnv()
 
+const SSLMODE_ALIAS_TO_VERIFY_FULL = new Set(['prefer', 'require', 'verify-ca'])
+
+const normalizeDatabaseUrl = (databaseUrl: string) => {
+  if (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://')) {
+    return databaseUrl
+  }
+
+  try {
+    const url = new URL(databaseUrl)
+    const sslMode = url.searchParams.get('sslmode')
+    const useLibpqCompat = url.searchParams.get('uselibpqcompat') === 'true'
+
+    if (!sslMode || useLibpqCompat || !SSLMODE_ALIAS_TO_VERIFY_FULL.has(sslMode)) {
+      return databaseUrl
+    }
+
+    url.searchParams.set('sslmode', 'verify-full')
+    return url.toString()
+  } catch {
+    return databaseUrl
+  }
+}
+
 const schema = z.object({
   PORT: z.coerce.number().int().positive().default(8080),
   APP_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -72,10 +95,14 @@ const schema = z.object({
 })
 
 export type AppEnv = z.infer<typeof schema>
-export const env = schema.parse(process.env)
+const parsedEnv = schema.parse(process.env)
+export const env: AppEnv = {
+  ...parsedEnv,
+  DATABASE_URL: normalizeDatabaseUrl(parsedEnv.DATABASE_URL),
+}
 
 if (env.APP_ENV === 'production' && env.DATABASE_URL.startsWith('file:')) {
   throw new Error('SQLite file databases are not supported for production traffic. Move the backend to PostgreSQL before launch.')
 }
 
-process.env.DATABASE_URL = process.env.DATABASE_URL || env.DATABASE_URL
+process.env.DATABASE_URL = env.DATABASE_URL
