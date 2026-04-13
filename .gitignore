@@ -9,6 +9,7 @@ backend/dist/
 backend/prisma/dev.db
 backend/prisma/dev.db-journal
 backend/.env
+backend-go/.env
 frontend/.env
 .run/
 .codex

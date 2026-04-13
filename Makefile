@@ -33,13 +33,12 @@ logs:
 	@echo "Backend: ./.run/local-stack/logs/backend.log"
 	@echo "Frontend: ./.run/local-stack/logs/frontend.log"
 	@echo "Docs: ./.run/local-stack/logs/docs.log"
-	@echo "Postgres status: docker compose -f docker-compose.local-stack.yml ps"
-	@echo "Postgres logs  : docker compose -f docker-compose.local-stack.yml logs -f postgres"
+	@bash -lc 'source ./scripts/local-stack-common.sh; load_backend_env; if manage_local_postgres; then echo "Postgres status: docker compose -f docker-compose.local-stack.yml ps"; echo "Postgres logs  : docker compose -f docker-compose.local-stack.yml logs -f postgres"; else echo "Postgres target: $$(postgres_target_summary)"; echo "Postgres logs  : external service"; fi'
 
 explorer:
-	@echo "Explorer UI : http://127.0.0.1:5173/scan.html"
-	@echo "Explorer TX : http://127.0.0.1:5173/scan.html?tx=448E7B788606C657BDD7639628F809E1254E7A230AA3D4F053BB51F25A51C9D9"
-	@echo "Rollup REST : http://127.0.0.1:1317"
+	@echo "Explorer UI : http://localhost:5173/scan.html"
+	@echo "Explorer TX : http://localhost:5173/scan.html?tx=448E7B788606C657BDD7639628F809E1254E7A230AA3D4F053BB51F25A51C9D9"
+	@echo "Rollup REST : http://localhost:1317"
 
 railway-deploy-prepare:
 	@./scripts/railway-deploy-prepare.sh

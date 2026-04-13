@@ -38,11 +38,19 @@ import { mainnet } from 'wagmi/chains'
 import App from './App'
 import { ErrorBoundary } from './components/shared/ErrorBoundary'
 import { customChain } from './config/chain'
+import { appEnv } from './config/env'
 import './styles/globals.css'
+
+if (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1') {
+  const redirectUrl = new URL(window.location.href)
+  redirectUrl.hostname = 'localhost'
+  window.location.replace(redirectUrl.toString())
+}
 
 injectStyles(InterwovenKitStyles)
 
 const queryClient = new QueryClient()
+const localRollupRestOrigins = new Set(['http://127.0.0.1:1317', 'http://localhost:1317'])
 const hiddenWalletSuggestionUrls = new Set([
   'https://metamask.io',
   'https://phantom.com',
@@ -91,6 +99,28 @@ const readConnectorIdFromPersistedWagmiStore = (rawStore: string | null) => {
     const connections = parsedStore.state?.connections?.value ?? []
     const activeConnection = connections.find(([uid]) => uid === currentConnectionUid)
     return activeConnection?.[1]?.connector?.id ?? null
+  } catch {
+    return null
+  }
+}
+
+try {
+  localRollupRestOrigins.add(new URL(appEnv.chainRestUrl).origin)
+} catch {
+  // Ignore malformed env and keep the well-known local fallbacks.
+}
+
+const responseJSON = (body: unknown) =>
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: {
+      'content-type': 'application/json',
+    },
+  })
+
+const readRequestOrigin = (requestUrl: string) => {
+  try {
+    return new URL(requestUrl, window.location.origin).origin
   } catch {
     return null
   }
@@ -168,35 +198,34 @@ if (originalFetch) {
           : String(input)
 
     if (requestUrl.startsWith(`https://indexer.initia.xyz/initia/${customChain.chain_id}/assets`)) {
-      return new Response(JSON.stringify([]), {
-        status: 200,
-        headers: {
-          'content-type': 'application/json',
-        },
-      })
+      return responseJSON([])
     }
 
     if (
       requestUrl.startsWith('https://registry.testnet.initia.xyz/errors/lendpay/') &&
       requestUrl.endsWith('.json')
     ) {
-      return new Response(JSON.stringify({}), {
-        status: 200,
-        headers: {
-          'content-type': 'application/json',
-        },
-      })
+      return responseJSON({})
+    }
+
+    if (
+      requestUrl.startsWith('https://rest.testnet.initia.xyz/cosmos/auth/v1beta1/account_info/')
+    ) {
+      // InterwovenKit probes Initia L1 account_info to reuse an existing pubkey,
+      // but local LendPay borrowers often only exist on the rollup. Returning a
+      // neutral response keeps the wallet flow on its built-in sign-message fallback
+      // without noisy 404 console errors.
+      return responseJSON({ info: null })
     }
 
     if (requestUrl.includes('/cosmos/feegrant/v1beta1/allowance/')) {
+      if (localRollupRestOrigins.has(readRequestOrigin(requestUrl) ?? '')) {
+        return responseJSON({ allowance: null })
+      }
+
       const response = await originalFetch(input, init)
       if (response.status === 404 || response.status === 500) {
-        return new Response(JSON.stringify({ allowance: null }), {
-          status: 200,
-          headers: {
-            'content-type': 'application/json',
-          },
-        })
+        return responseJSON({ allowance: null })
       }
 
       return response

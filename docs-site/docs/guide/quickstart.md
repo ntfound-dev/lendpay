@@ -40,11 +40,11 @@ make down
 
 ## Local URLs
 
-- Frontend: `http://127.0.0.1:5173`
-- Backend: `http://127.0.0.1:8080`
-- Rollup RPC: `http://127.0.0.1:26657`
-- Rollup REST: `http://127.0.0.1:1317`
-- Docs site: `http://127.0.0.1:4173`
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:8080`
+- Rollup RPC: `http://localhost:26657`
+- Rollup REST: `http://localhost:1317`
+- Docs site: `http://localhost:4173`
 
 ## Local Bridge Status
 

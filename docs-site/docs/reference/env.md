@@ -57,8 +57,8 @@ Important rule:
 Source file:
 
 ```bash
-backend/.env
-backend/.env.example
+backend-go/.env
+backend-go/.env.example
 ```
 
 Most important variables:
@@ -66,9 +66,9 @@ Most important variables:
 - `PORT`
   Backend HTTP port.
 - `DATABASE_URL`
-  Prisma and backend persistence database.
+  Backend persistence database.
 - `DIRECT_DATABASE_URL`
-  Optional direct PostgreSQL connection used automatically for Prisma runtime and schema bootstrap when `DATABASE_URL` points at a pooled endpoint.
+  Optional direct PostgreSQL connection used automatically for Go runtime and schema bootstrap when `DATABASE_URL` points at a pooled endpoint.
 - `ROLLUP_CHAIN_ID`
   Chain ID the backend should read and write against.
 - `ROLLUP_RPC_URL`
@@ -131,7 +131,7 @@ Operational notes:
 - backend session creation depends on signed wallet challenges
 - `GET /api/v1/score` can trigger first-time score generation if no cached score exists yet
 - read and write chain targets must match the same deployed package
-- if your hosted database exposes both pooled and direct URLs, set both so Prisma can avoid `prepared statement ... does not exist` failures on PgCat-style poolers
+- if your hosted database exposes both pooled and direct URLs, set both so the Go backend can use direct connections for bootstrap and runtime when needed
 
 ## Smart Contract
 

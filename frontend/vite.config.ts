@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 export default defineConfig({
@@ -24,6 +25,7 @@ export default defineConfig({
     include: ['wagmi', '@tanstack/react-query', 'viem'],
   },
   plugins: [
+    tailwindcss(),
     react(),
     nodePolyfills({
       globals: {
@@ -37,7 +39,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/scan-api': {
-        target: 'http://127.0.0.1:1317',
+        target: 'http://localhost:1317',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/scan-api/, ''),
       },

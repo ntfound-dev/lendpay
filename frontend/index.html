@@ -7,6 +7,154 @@
       name="description"
       content="LendPay is a Move-native credit and installment app on an Initia MiniMove rollup."
     />
+    <script>
+      ;(() => {
+        const currentOrigin = window.location.origin.toLowerCase()
+        const noisySocketOrigins = new Set([
+          'ws://localhost:8081',
+          'ws://localhost:8081/',
+          'ws://127.0.0.1:8081',
+          'ws://127.0.0.1:8081/',
+        ])
+
+        const readErrorMessage = (value) => {
+          if (typeof value === 'string') {
+            return value
+          }
+
+          if (!value || typeof value !== 'object') {
+            return ''
+          }
+
+          if ('message' in value && typeof value.message === 'string') {
+            return value.message
+          }
+
+          try {
+            return String(value)
+          } catch {
+            return ''
+          }
+        }
+
+        const isWalletExtensionNoise = (value) => {
+          const message = readErrorMessage(value).toLowerCase()
+          if (!message) {
+            return false
+          }
+
+          return (
+            message.includes('ws://localhost:8081') ||
+            (message.includes('has not been authorized yet') && message.includes(currentOrigin))
+          )
+        }
+
+        const normalizeSocketUrl = (value) => {
+          try {
+            return new URL(String(value), window.location.href).toString()
+          } catch {
+            return String(value)
+          }
+        }
+
+        const nativeConsoleError = window.console.error.bind(window.console)
+        window.console.error = (...args) => {
+          if (args.some((arg) => isWalletExtensionNoise(arg))) {
+            return
+          }
+
+          nativeConsoleError(...args)
+        }
+
+        window.addEventListener(
+          'unhandledrejection',
+          (event) => {
+            if (isWalletExtensionNoise(event.reason)) {
+              event.preventDefault()
+            }
+          },
+          { capture: true },
+        )
+
+        window.addEventListener(
+          'error',
+          (event) => {
+            if (isWalletExtensionNoise(event.message) || isWalletExtensionNoise(event.error)) {
+              event.preventDefault()
+            }
+          },
+          true,
+        )
+
+        const NativeWebSocket = window.WebSocket
+        if (typeof NativeWebSocket !== 'function') {
+          return
+        }
+
+        class SilentWalletExtensionSocket extends EventTarget {
+          static CONNECTING = 0
+          static OPEN = 1
+          static CLOSING = 2
+          static CLOSED = 3
+
+          CONNECTING = 0
+          OPEN = 1
+          CLOSING = 2
+          CLOSED = 3
+
+          url = ''
+          readyState = SilentWalletExtensionSocket.CONNECTING
+          bufferedAmount = 0
+          extensions = ''
+          protocol = ''
+          binaryType = 'blob'
+          onclose = null
+          onerror = null
+          onmessage = null
+          onopen = null
+
+          constructor(url) {
+            super()
+            this.url = normalizeSocketUrl(url)
+
+            queueMicrotask(() => {
+              this.close(1000, 'lendpay-wallet-extension-noise-guard')
+            })
+          }
+
+          close(code = 1000, reason = '') {
+            if (this.readyState === SilentWalletExtensionSocket.CLOSED) {
+              return
+            }
+
+            this.readyState = SilentWalletExtensionSocket.CLOSED
+
+            const event =
+              typeof window.CloseEvent === 'function'
+                ? new window.CloseEvent('close', { code, reason, wasClean: true })
+                : new Event('close')
+
+            this.dispatchEvent(event)
+            if (typeof this.onclose === 'function') {
+              this.onclose(event)
+            }
+          }
+
+          send() {}
+        }
+
+        window.WebSocket = new Proxy(NativeWebSocket, {
+          construct(target, args, newTarget) {
+            const socketUrl = normalizeSocketUrl(args[0])
+            if (noisySocketOrigins.has(socketUrl)) {
+              return new SilentWalletExtensionSocket(socketUrl)
+            }
+
+            return Reflect.construct(target, args, newTarget)
+          },
+        })
+      })()
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <title>LendPay</title>

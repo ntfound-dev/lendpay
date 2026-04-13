@@ -106,6 +106,33 @@ export const humanizeRepayError = (message: string) => {
   return message
 }
 
+export const humanizeRequestError = (message: string) => {
+  const moveAbort = parseMoveAbort(message)
+  if (!moveAbort) return message
+
+  if (moveAbort.moduleName === 'profiles' && moveAbort.code === 8) {
+    return 'The repayment period you picked is not allowed for this onchain credit product. Choose a shorter tenor for this profile, or switch to a product with a longer term.'
+  }
+
+  if (moveAbort.moduleName === 'profiles' && moveAbort.code === 39) {
+    return 'This wallet does not meet the onchain requirements for that credit product yet. Refresh your account and choose a profile that is marked ready.'
+  }
+
+  if (moveAbort.moduleName === 'profiles' && moveAbort.code === 40) {
+    return 'That onchain credit product requires collateral. Pick the secured profile and lock the required LEND first.'
+  }
+
+  if (moveAbort.moduleName === 'profiles' && moveAbort.code === 43) {
+    return 'The collateral amount is still below the onchain minimum for this request.'
+  }
+
+  if (moveAbort.moduleName === 'loan_book' && moveAbort.code === 59) {
+    return 'LendPay already sees a pending request or active credit for this wallet onchain. Your previous submit may have landed even if the app has not refreshed yet. Refresh your account, or finish the current credit on the Repay page before sending another request.'
+  }
+
+  return message
+}
+
 export const describeDropItemDelivery = (item: ViralDropItemState) => {
   if (item.instantCollateralRequired > 0) {
     return `Receipt mints now. Full collectible unlocks after full repayment, or instantly with ${formatNumber(item.instantCollateralRequired)} LEND locked.`
@@ -588,18 +615,19 @@ export const productTagMeta = (value?: string) => {
 }
 
 export const productRequirementCopy = (profile?: CreditProfileQuote | null) => {
-  switch (profile?.label) {
-    case 'standard_bnpl':
-      return 'Requires stronger score'
-    case 'credit_line':
-      return 'Requires loyalty tier'
-    case 'collateralized':
-      return 'Requires loyalty tier'
-    case 'micro_loan':
-      return 'Requires profile refresh'
-    default:
-      return 'Not available yet'
+  if (!profile) {
+    return 'Not available yet'
   }
+
+  if (profile.requiresCollateral) {
+    return 'Requires LEND collateral'
+  }
+
+  if (profile.minLendHoldings > 0) {
+    return `Requires ${formatNumber(profile.minLendHoldings)} LEND held`
+  }
+
+  return 'Requires profile refresh'
 }
 
 export const titleCase = (value?: string) =>

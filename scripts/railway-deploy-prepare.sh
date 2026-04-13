@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BACKEND_ENV_FILE="$ROOT_DIR/backend/.env"
+BACKEND_ENV_FILE="$ROOT_DIR/backend-go/.env"
 RUNTIME_DIR="$ROOT_DIR/deploy/railway/deploy/runtime"
 BIN_DIR="$RUNTIME_DIR/bin"
 HOME_SEED_DIR="$RUNTIME_DIR/home-seed"

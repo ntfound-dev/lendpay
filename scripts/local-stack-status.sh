@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/local-stack-common.sh"
 
 ensure_dirs
+load_backend_env
 
 print_service() {
   local name="$1"
@@ -85,7 +86,7 @@ format_balances() {
 print_system_key_balances() {
   local config_path="$HOME/.weave/data/minitia.config.json"
   local l1_rest="${INITIA_L1_REST_URL:-https://rest.testnet.initia.xyz}"
-  local l2_rest="http://127.0.0.1:1317"
+  local l2_rest="http://localhost:1317"
   local bridge_l1=""
   local bridge_l2=""
   local output_l1=""
@@ -171,10 +172,14 @@ print_oracle_bridge() {
 }
 
 echo "LendPay local stack status"
-if postgres_up; then
-  printf '%-10s pid=%-8s health=%s\n' "postgres" "-" "up"
+if manage_local_postgres; then
+  if postgres_up; then
+    printf '%-10s pid=%-8s health=%s\n' "postgres" "-" "up"
+  else
+    printf '%-10s pid=%-8s health=%s\n' "postgres" "-" "down"
+  fi
 else
-  printf '%-10s pid=%-8s health=%s\n' "postgres" "-" "down"
+  printf '%-10s pid=%-8s health=%s\n' "postgres" "-" "external"
 fi
 print_service "rollup" "$ROLLUP_PID_FILE" rollup_rpc_up
 print_service "backend" "$BACKEND_PID_FILE" backend_up
@@ -183,12 +188,15 @@ print_service "docs" "$DOCS_PID_FILE" docs_up
 
 echo
 echo "Endpoints"
-echo "- postgres   : postgresql://postgres:postgres@127.0.0.1:55432/lendpay_dev"
-echo "- rollup rpc : http://127.0.0.1:26657"
-echo "- rollup rest: http://127.0.0.1:1317"
-echo "- backend    : http://127.0.0.1:8080"
-echo "- frontend   : http://127.0.0.1:5173"
-echo "- docs       : http://127.0.0.1:4173"
+echo "- postgres   : $(postgres_target_summary)"
+echo "- rollup rpc : http://localhost:26657"
+echo "- rollup rest: http://localhost:1317"
+echo "- backend    : http://localhost:8080"
+echo "- frontend   : http://localhost:5173"
+echo "- docs       : http://localhost:4173"
+if looks_like_pooled_postgres_url "$(database_url)" && [[ -z "${DIRECT_DATABASE_URL:-}" ]]; then
+  echo "- note       : pooled DATABASE_URL without DIRECT_DATABASE_URL skips backend schema bootstrap"
+fi
 
 print_system_key_balances
 print_oracle_bridge

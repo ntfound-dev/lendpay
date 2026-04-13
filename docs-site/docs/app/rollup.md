@@ -28,8 +28,8 @@ Main pieces:
 
 Default local endpoints:
 
-- RPC: `http://127.0.0.1:26657`
-- REST: `http://127.0.0.1:1317`
+- RPC: `http://localhost:26657`
+- REST: `http://localhost:1317`
 
 Related local stack dependency:
 

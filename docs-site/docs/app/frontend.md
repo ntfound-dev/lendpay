@@ -61,6 +61,7 @@ Primary path:
 - prepare one or more Move `MsgExecute` messages
 - open the standard wallet approval drawer with `requestTxBlock`
 - after broadcast, ask the backend to resync borrower state
+- if the backend responds with pending confirmation, show a submitted toast rather than a final success
 
 Fallback path:
 
@@ -133,7 +134,7 @@ Most of this is loaded from the backend API rather than by querying the chain di
 
 Why that design exists:
 
-- the backend can merge rollup reads, Prisma mirrors, oracle snapshots, and identity data
+- the backend can merge rollup reads, Postgres mirrors, oracle snapshots, and identity data
 - the frontend receives one normalized borrower model instead of rebuilding everything client-side
 - error handling becomes easier because the UI can present retry and recovery states when first-load hydration is slow
 

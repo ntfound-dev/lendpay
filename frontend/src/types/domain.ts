@@ -50,6 +50,7 @@ export interface LoanRequestState {
   merchantCategory?: string
   merchantAddress?: string
   assetSymbol?: string
+  onchainRequestId?: string
   tenorMonths: number
   submittedAt: string
   status: RequestStatus
@@ -77,6 +78,8 @@ export interface LoanState {
   tenorMonths: number
   installmentsPaid: number
   status: LoanStatus
+  routeMode: 'preview' | 'live'
+  onchainLoanId?: string
   txHashApprove?: string
   schedule: InstallmentState[]
 }
