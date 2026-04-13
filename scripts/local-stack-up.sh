@@ -10,8 +10,10 @@ ensure_dirs
 load_backend_env
 
 NODE_BIN_DIR="$(resolve_node_bin_dir || true)"
+GO_RUNNER="$ROOT_DIR/scripts/go-bin.sh"
 MINITIAD_PATH="$(resolve_minitiad_bin || true)"
 ROLLUP_HOME_PATH="$(resolve_rollup_home || true)"
+POSTGRES_LOG_HINT="docker compose -f $POSTGRES_COMPOSE_FILE logs $POSTGRES_SERVICE_NAME"
 
 if [[ -z "$NODE_BIN_DIR" ]]; then
   echo "Node.js 20+ was not found. Install Node 20 or make it available in PATH." >&2
@@ -19,22 +21,36 @@ if [[ -z "$NODE_BIN_DIR" ]]; then
 fi
 
 if [[ -z "$MINITIAD_PATH" ]]; then
-  echo "minitiad binary was not found. Set MINITIAD_BIN in backend/.env or install MiniMove." >&2
+  echo "minitiad binary was not found. Set MINITIAD_BIN in backend-go/.env or install MiniMove." >&2
+  exit 1
+fi
+
+if ! "$GO_RUNNER" version >/dev/null 2>&1; then
+  echo "Go was not found in PATH. Install Go 1.23+ to run the migrated backend locally." >&2
   exit 1
 fi
 
 if [[ -z "$ROLLUP_HOME_PATH" ]]; then
-  echo "Rollup home was not found. Set ROLLUP_HOME in backend/.env." >&2
+  echo "Rollup home was not found. Set ROLLUP_HOME in backend-go/.env." >&2
   exit 1
 fi
 
 MINITIAD_DIR="$(dirname "$MINITIAD_PATH")"
 
-if ! postgres_up; then
-  docker compose -f "$POSTGRES_COMPOSE_FILE" up -d "$POSTGRES_SERVICE_NAME"
-  wait_for_check "postgres" 60 1 postgres_up
+if manage_local_postgres; then
+  if ! postgres_up; then
+    docker compose -f "$POSTGRES_COMPOSE_FILE" up -d "$POSTGRES_SERVICE_NAME"
+    wait_for_check "postgres" 60 1 postgres_up
+  else
+    echo "postgres already listening on 55432."
+  fi
 else
-  echo "postgres already listening on 55432."
+  echo "external postgres configured; skipping docker compose."
+  echo "postgres target: $(postgres_target_summary)"
+  POSTGRES_LOG_HINT="external Postgres: see your provider dashboard or connect with a SQL client"
+  if looks_like_pooled_postgres_url "$(database_url)" && [[ -z "${DIRECT_DATABASE_URL:-}" ]]; then
+    echo "note: pooled DATABASE_URL detected without DIRECT_DATABASE_URL, so schema bootstrap will be skipped."
+  fi
 fi
 
 if ! rollup_rpc_up || ! rollup_rest_up; then
@@ -56,24 +72,16 @@ fi
 
 if ! backend_ready; then
   restart_if_unhealthy "backend" "$BACKEND_PID_FILE" backend_ready
-  (
-    cd "$ROOT_DIR/backend"
-    /usr/bin/env \
-      "PATH=$NODE_BIN_DIR:$PATH" \
-      "MINITIAD_BIN=$MINITIAD_PATH" \
-      "ROLLUP_HOME=$ROLLUP_HOME_PATH" \
-      npm run db:push
-  )
   start_detached \
     "backend" \
-    "$ROOT_DIR/backend" \
+    "$ROOT_DIR/backend-go" \
     "$BACKEND_PID_FILE" \
     "$BACKEND_LOG_FILE" \
     /usr/bin/env \
     "PATH=$NODE_BIN_DIR:$PATH" \
     "MINITIAD_BIN=$MINITIAD_PATH" \
     "ROLLUP_HOME=$ROLLUP_HOME_PATH" \
-    ./node_modules/.bin/tsx watch src/server.ts
+    "$GO_RUNNER" run ./cmd/server
 
   wait_for_check "backend" 60 1 backend_ready "$BACKEND_LOG_FILE"
 else
@@ -116,13 +124,13 @@ cat <<EOF
 
 Local LendPay stack is up.
 
-- Rollup RPC:  http://127.0.0.1:26657
-- Rollup REST: http://127.0.0.1:1317
-- Postgres:    postgresql://postgres:postgres@127.0.0.1:55432/lendpay_dev
-- Backend API: http://127.0.0.1:8080/api/v1/health
-- Frontend:    http://127.0.0.1:5173
-- Explorer:    http://127.0.0.1:5173/scan.html
-- Docs:        http://127.0.0.1:4173
+- Rollup RPC:  http://localhost:26657
+- Rollup REST: http://localhost:1317
+- Postgres:    $(postgres_target_summary)
+- Backend API: http://localhost:8080/api/v1/health
+- Frontend:    http://localhost:5173
+- Explorer:    http://localhost:5173/scan.html
+- Docs:        http://localhost:4173
 
 Built-in oracle note:
 - This script does not start the Rapid relayer or OPinit bots.
@@ -133,7 +141,7 @@ Logs:
 - $BACKEND_LOG_FILE
 - $FRONTEND_LOG_FILE
 - $DOCS_LOG_FILE
-- docker compose -f $POSTGRES_COMPOSE_FILE logs $POSTGRES_SERVICE_NAME
+- $POSTGRES_LOG_HINT
 
 Use:
 - ./scripts/local-stack-status.sh

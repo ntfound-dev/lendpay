@@ -19,8 +19,140 @@ BACKEND_LOG_FILE="$LOG_DIR/backend.log"
 FRONTEND_LOG_FILE="$LOG_DIR/frontend.log"
 DOCS_LOG_FILE="$LOG_DIR/docs.log"
 
-BACKEND_ENV_FILE="$ROOT_DIR/backend/.env"
+BACKEND_ENV_FILE="$ROOT_DIR/backend-go/.env"
 FRONTEND_ENV_FILE="$ROOT_DIR/frontend/.env"
+DEFAULT_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:55432/lendpay_dev?schema=public"
+
+database_url() {
+  printf '%s\n' "${DATABASE_URL:-$DEFAULT_DATABASE_URL}"
+}
+
+looks_like_pooled_postgres_url() {
+  local value="${1:-}"
+  if [[ "$value" != postgres://* && "$value" != postgresql://* ]]; then
+    return 1
+  fi
+
+  local authority=""
+  local hostport=""
+  local hostname=""
+  local port=""
+
+  authority="${value#*://}"
+  authority="${authority%%/*}"
+  hostport="${authority##*@}"
+  hostname="${hostport%%:*}"
+  port=""
+  if [[ "$hostport" == *:* ]]; then
+    port="${hostport##*:}"
+  fi
+
+  hostname="${hostname,,}"
+  case "$port" in
+    6432|6438|6543)
+      return 0
+      ;;
+  esac
+
+  [[ "$hostname" == *pooler* || "$hostname" == *pool* || "$hostname" == *pgbouncer* ]]
+}
+
+resolve_runtime_database_url() {
+  local runtime_database_url=""
+  runtime_database_url="$(database_url)"
+
+  if [[ -n "${DIRECT_DATABASE_URL:-}" ]] && looks_like_pooled_postgres_url "$runtime_database_url"; then
+    printf '%s\n' "$DIRECT_DATABASE_URL"
+    return 0
+  fi
+
+  printf '%s\n' "$runtime_database_url"
+}
+
+database_host() {
+  local value="${1:-}"
+  local authority=""
+  local hostport=""
+  local host=""
+
+  authority="${value#*://}"
+  authority="${authority%%/*}"
+  hostport="${authority##*@}"
+  host="${hostport%%:*}"
+  printf '%s\n' "$host"
+}
+
+database_port() {
+  local value="${1:-}"
+  local authority=""
+  local hostport=""
+
+  authority="${value#*://}"
+  authority="${authority%%/*}"
+  hostport="${authority##*@}"
+  if [[ "$hostport" != *:* ]]; then
+    printf '%s\n' ""
+    return 0
+  fi
+
+  printf '%s\n' "${hostport##*:}"
+}
+
+manage_local_postgres() {
+  local runtime_database_url=""
+  local host=""
+  local port=""
+
+  runtime_database_url="$(resolve_runtime_database_url)"
+  if [[ "$runtime_database_url" != postgres://* && "$runtime_database_url" != postgresql://* ]]; then
+    return 1
+  fi
+
+  host="$(database_host "$runtime_database_url")"
+  port="$(database_port "$runtime_database_url")"
+  [[ "$host" == "127.0.0.1" || "$host" == "localhost" ]] && [[ "$port" == "55432" || -z "$port" ]]
+}
+
+redact_database_url() {
+  local value="${1:-}"
+  if [[ "$value" != *://* ]]; then
+    printf '%s\n' "$value"
+    return 0
+  fi
+
+  local scheme=""
+  local rest=""
+  local authority=""
+  local suffix=""
+  local userinfo=""
+  local hostport=""
+  local username=""
+
+  scheme="${value%%://*}"
+  rest="${value#*://}"
+  authority="${rest%%/*}"
+  suffix=""
+  if [[ "$rest" == */* ]]; then
+    suffix="/${rest#*/}"
+  fi
+
+  if [[ "$authority" == *@* ]]; then
+    userinfo="${authority%@*}"
+    hostport="${authority##*@}"
+    username="${userinfo%%:*}"
+    if [[ "$userinfo" == *:* ]]; then
+      authority="${username}:***@$hostport"
+    else
+      authority="$userinfo@$hostport"
+    fi
+  fi
+
+  printf '%s://%s%s\n' "$scheme" "$authority" "$suffix"
+}
+
+postgres_target_summary() {
+  redact_database_url "$(resolve_runtime_database_url)"
+}
 
 ensure_dirs() {
   mkdir -p "$PID_DIR" "$LOG_DIR"
@@ -145,11 +277,11 @@ pid_status() {
 }
 
 rollup_rpc_up() {
-  curl -fsS --max-time 2 "http://127.0.0.1:26657/status" >/dev/null 2>&1
+  curl -fsS --max-time 2 "http://localhost:26657/status" >/dev/null 2>&1
 }
 
 rollup_rest_up() {
-  curl -fsS --max-time 2 "http://127.0.0.1:1317/cosmos/base/tendermint/v1beta1/node_info" >/dev/null 2>&1
+  curl -fsS --max-time 2 "http://localhost:1317/cosmos/base/tendermint/v1beta1/node_info" >/dev/null 2>&1
 }
 
 rollup_up() {
@@ -157,7 +289,7 @@ rollup_up() {
 }
 
 backend_up() {
-  curl -fsS --max-time 2 "http://127.0.0.1:8080/api/v1/health" >/dev/null 2>&1
+  curl -fsS --max-time 2 "http://localhost:8080/api/v1/health" >/dev/null 2>&1
 }
 
 backend_log_up() {
@@ -165,7 +297,7 @@ backend_log_up() {
   pid="$(pid_status "$BACKEND_PID_FILE")"
   [[ -n "$pid" ]] &&
     [[ -f "$BACKEND_LOG_FILE" ]] &&
-    grep -q "Server listening at http://127.0.0.1:${PORT:-8080}" "$BACKEND_LOG_FILE"
+    grep -Eq "Server listening at http://127\\.0\\.0\\.1:${PORT:-8080}|\\[startup\\] go backend listening on 0\\.0\\.0\\.0:${PORT:-8080}" "$BACKEND_LOG_FILE"
 }
 
 backend_ready() {
@@ -173,11 +305,11 @@ backend_ready() {
 }
 
 frontend_up() {
-  curl -fsS --max-time 5 "http://127.0.0.1:5173" >/dev/null 2>&1
+  curl -fsS --max-time 5 "http://localhost:5173" >/dev/null 2>&1
 }
 
 docs_up() {
-  curl -fsS --max-time 5 "http://127.0.0.1:4173" >/dev/null 2>&1
+  curl -fsS --max-time 5 "http://localhost:4173" >/dev/null 2>&1
 }
 
 postgres_container_id() {
@@ -186,6 +318,10 @@ postgres_container_id() {
 
 postgres_up() {
   local container_id=""
+  if ! manage_local_postgres; then
+    return 1
+  fi
+
   container_id="$(postgres_container_id)"
   if [[ -z "$container_id" ]]; then
     return 1
