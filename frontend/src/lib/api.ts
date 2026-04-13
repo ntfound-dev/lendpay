@@ -24,7 +24,7 @@ import type {
 } from '../types/domain'
 
 type JsonBody = Record<string, unknown> | undefined
-const API_REQUEST_TIMEOUT_MS = 8_000
+const API_REQUEST_TIMEOUT_MS = 15_000
 const API_GET_RETRY_COUNT = 2
 
 export type DemoLoanReviewResponse = {
@@ -77,7 +77,11 @@ const request = async <T>(
 
   for (let attempt = 0; attempt <= retryBudget; attempt += 1) {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS)
+    let didTimeout = false
+    const timeoutId = setTimeout(() => {
+      didTimeout = true
+      controller.abort()
+    }, API_REQUEST_TIMEOUT_MS)
     const abortFromUpstream = () => controller.abort()
 
     if (options.signal) {
@@ -113,11 +117,17 @@ const request = async <T>(
 
       return data as T
     } catch (error) {
-      if (attempt < retryBudget && isRetryableRequestError(error)) {
+      const abortedByUpstream = !didTimeout && Boolean(options.signal?.aborted)
+
+      if (attempt < retryBudget && isRetryableRequestError(error) && !abortedByUpstream) {
         continue
       }
 
       if (error instanceof Error && error.name === 'AbortError') {
+        if (abortedByUpstream) {
+          throw error
+        }
+
         throw new Error('Request timed out. Please retry.')
       }
 

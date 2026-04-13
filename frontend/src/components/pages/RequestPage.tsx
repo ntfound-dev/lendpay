@@ -33,6 +33,8 @@ import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { EmptyState } from '../shared/EmptyState'
 
+const REQUEST_TENOR_OPTIONS = [1, 3, 6] as const
+
 type EligibilityRow = {
   label: string
   status: string
@@ -194,7 +196,7 @@ export function RequestPage({
 
   const getRejectedReason = (request: LoanRequestState) => {
     if (request.status !== 'rejected') return null
-    if (!request.txHash) return 'Rejected — no onchain transaction found'
+    if (!request.onchainRequestId) return 'Rejected — no onchain request found'
     if ((score?.score ?? 0) < 600) return 'Rejected — credit score too low'
     return 'Rejected — did not meet approval criteria'
   }
@@ -205,11 +207,15 @@ export function RequestPage({
     return null
   }
 
-  const getRequestProofUrl = (txHash?: string) => buildRestTxInfoUrl(txHash) ?? buildRpcTxUrl(txHash)
+  const getRequestProofUrl = (request?: LoanRequestState | null) => {
+    if (!request?.onchainRequestId || !request.txHash) return null
+    return buildRestTxInfoUrl(request.txHash) ?? buildRpcTxUrl(request.txHash)
+  }
   const getApprovalProofUrl = (request: LoanRequestState) =>
-    activeLoan?.requestId === request.id
+    activeLoan?.requestId === request.id && activeLoan.routeMode === 'live'
       ? buildRestTxInfoUrl(activeLoan.txHashApprove) ?? buildRpcTxUrl(activeLoan.txHashApprove)
       : null
+  const pendingRequestAwaitingOnchainId = Boolean(pendingRequest && !pendingRequest.onchainRequestId)
 
   return (
     <div className={`checkout-layout ${checkoutMerchantReady ? '' : 'checkout-layout--single'}`}>
@@ -442,14 +448,23 @@ export function RequestPage({
         {requestBlockingMessage ? (
           <div className="checkout-gate-message checkout-gate-message--warning">
             <div>{requestBlockingMessage}</div>
+            {pendingRequestAwaitingOnchainId ? (
+              <div className="checkout-history__reason">
+                Waiting for the rollup to expose this request onchain before it can be cleared.
+              </div>
+            ) : null}
             {pendingRequest ? (
               <div className="card-action-row">
                 <Button
                   variant="secondary"
                   onClick={() => handleCancelPendingRequest(pendingRequest)}
-                  disabled={isCancellingPendingRequest}
+                  disabled={isCancellingPendingRequest || pendingRequestAwaitingOnchainId}
                 >
-                  {isCancellingPendingRequest ? 'Clearing pending request...' : 'Clear pending request'}
+                  {isCancellingPendingRequest
+                    ? 'Clearing pending request...'
+                    : pendingRequestAwaitingOnchainId
+                      ? 'Waiting for onchain request id'
+                      : 'Clear pending request'}
                 </Button>
                 {canRunPendingDemoReview ? (
                   <Button
@@ -459,10 +474,10 @@ export function RequestPage({
                     {isReviewingPendingRequest ? 'Running review...' : 'Run review now'}
                   </Button>
                 ) : null}
-                {getRequestProofUrl(pendingRequest.txHash) ? (
+                {getRequestProofUrl(pendingRequest) ? (
                   <a
                     className="checkout-proof-link"
-                    href={getRequestProofUrl(pendingRequest.txHash) ?? '#'}
+                    href={getRequestProofUrl(pendingRequest) ?? '#'}
                     target="_blank"
                     rel="noreferrer"
                   >
@@ -605,7 +620,7 @@ export function RequestPage({
               <div className="checkout-section checkout-section--tight">
                 <div className="checkout-section__label">Step 4 · Pick repayment period</div>
                 <div className="checkout-tenor-group">
-                  {[1, 3, 6].map((tenor) => (
+                  {REQUEST_TENOR_OPTIONS.map((tenor) => (
                     <button
                       key={tenor}
                       className={`checkout-tenor ${draft.tenorMonths === tenor ? 'checkout-tenor--active' : ''}`}
@@ -718,7 +733,7 @@ export function RequestPage({
                   <div className="checkout-history__row" key={request.id}>
                     <div className="checkout-history__copy">
                       <div className="checkout-history__title">
-                        #{parseNumericId(request.id) || request.id}
+                        #{request.onchainRequestId ?? parseNumericId(request.id) ?? request.id}
                       </div>
                       <div className="checkout-history__meta">
                         {formatCurrency(request.amount)} · {request.tenorMonths} month{request.tenorMonths > 1 ? 's' : ''} · {formatDate(request.submittedAt)} · {request.collateralAmount > 0 ? 'LEND locked' : 'No collateral'}
@@ -726,11 +741,16 @@ export function RequestPage({
                       {getRequestNote(request) ? (
                         <div className="checkout-history__reason">{getRequestNote(request)}</div>
                       ) : null}
-                      {request.txHash ? (
+                      {request.status === 'pending' && !request.onchainRequestId ? (
+                        <div className="checkout-history__reason">
+                          Waiting for the rollup to expose this request onchain before it can be cleared.
+                        </div>
+                      ) : null}
+                      {getRequestProofUrl(request) ? (
                         <div className="checkout-history__proofs">
                           <a
                             className="checkout-proof-link"
-                            href={getRequestProofUrl(request.txHash) ?? '#'}
+                            href={getRequestProofUrl(request) ?? '#'}
                             target="_blank"
                             rel="noreferrer"
                           >
@@ -770,9 +790,13 @@ export function RequestPage({
                           <Button
                             variant="secondary"
                             onClick={() => handleCancelPendingRequest(request)}
-                            disabled={isCancellingPendingRequest}
+                            disabled={isCancellingPendingRequest || !request.onchainRequestId}
                           >
-                            {isCancellingPendingRequest ? 'Clearing...' : 'Clear pending request'}
+                            {isCancellingPendingRequest
+                              ? 'Clearing...'
+                              : !request.onchainRequestId
+                                ? 'Waiting for onchain request id'
+                                : 'Clear pending request'}
                           </Button>
                           {canRunPendingDemoReview ? (
                             <Button

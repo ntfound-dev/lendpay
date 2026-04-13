@@ -53,10 +53,12 @@ import {
   getErrorMessage,
   getAppPostApprovalCopy,
   getProtocolEventBadge,
+  humanizeRequestError,
   isWalletSignInCancelledMessage,
   humanizeRepayError,
   nextTierBenefitCopy,
   nextTierLabel,
+  parseMoveAbort,
   parseNumericId,
   scoreStatusLabel,
   tierHoldingsThreshold,
@@ -158,6 +160,19 @@ const defaultMerchantDraft = {
 
 const interwovenGasPrice = GasPrice.fromString(`0.015${appEnv.nativeDenom}`)
 const INTERWOVEN_APPROVAL_TIMEOUT_MS = 45_000
+const REQUEST_TENOR_OPTIONS = [1, 3, 6] as const
+
+const getOnchainRequestNumber = (request?: LoanRequestState | null) =>
+  request?.onchainRequestId ? parseNumericId(request.onchainRequestId) : null
+
+const getOnchainLoanNumber = (loan?: LoanState | null) => {
+  if (!loan) return null
+  if (loan.onchainLoanId) return parseNumericId(loan.onchainLoanId)
+  if (loan.routeMode === 'live') return parseNumericId(loan.id)
+  return null
+}
+
+const getLoanDisplayId = (loan?: LoanState | null) => loan?.onchainLoanId ?? loan?.id ?? ''
 
 const isUserRejectedWalletError = (error: unknown) => {
   const message = getErrorMessage(error, '').toLowerCase()
@@ -307,6 +322,8 @@ function App() {
   const [showWalletRecovery, setShowWalletRecovery] = useState(false)
   const [walletRecoveryActionKey, setWalletRecoveryActionKey] = useState<string | null>(null)
   const borrowerSyncCacheRef = useRef<Map<string, { at: number; data: unknown }>>(new Map())
+  const autoReviewedRequestIdsRef = useRef<Set<string>>(new Set())
+  const autoClaimedPurchaseIdsRef = useRef<Set<string>>(new Set())
   const bridgeRecipientSeedRef = useRef<string | null>(null)
   const hasUserSelectedProfileRef = useRef(false)
   const requestTxBlockRef = useRef(requestTxBlock)
@@ -733,6 +750,11 @@ function App() {
   }, [submitTxBlock])
 
   useEffect(() => {
+    autoReviewedRequestIdsRef.current.clear()
+    autoClaimedPurchaseIdsRef.current.clear()
+  }, [initiaAddress])
+
+  useEffect(() => {
     if (!isConnected || !isInterwovenOpen || shouldKeepInterwovenDrawerOpen) {
       return
     }
@@ -869,7 +891,7 @@ function App() {
     if (!selectedProfile) return
 
     if (draft.tenorMonths > selectedProfile.maxTenorMonths) {
-      const allowedTenors = ([1, 3, 6] as const).filter(
+      const allowedTenors = REQUEST_TENOR_OPTIONS.filter(
         (tenor) => tenor <= selectedProfile.maxTenorMonths,
       )
       const nextTenor = allowedTenors[allowedTenors.length - 1]
@@ -986,6 +1008,17 @@ function App() {
     error instanceof Error && error.message === 'Transaction timed out'
   const isAbortError = (error: unknown) =>
     error instanceof Error && error.name === 'AbortError'
+  const isTxConfirmationPendingError = (error: unknown) =>
+    error instanceof ApiError &&
+    ['TX_CONFIRMATION_PENDING', 'REPAYMENT_TX_PENDING', 'ROLLUP_CONFIRMATION_UNAVAILABLE'].includes(
+      error.code ?? '',
+    )
+  const isRequestConfirmationPendingError = (error: unknown) =>
+    error instanceof ApiError && error.code === 'TX_CONFIRMATION_PENDING'
+  const shouldShowSubmittedTxToast = (error: unknown, txHash: string) =>
+    Boolean(txHash) && (isAbortError(error) || isTxConfirmationPendingError(error))
+  const submittedTxMessage = (txHash: string, noun = 'transaction') =>
+    `The ${noun} was broadcast${txHash ? `: ${formatTxHash(txHash)}` : ''}. LendPay is still waiting for final onchain confirmation. Refresh again in a moment.`
   const throwIfAborted = (signal?: AbortSignal) => {
     if (signal?.aborted) {
       throw new DOMException('The operation was aborted.', 'AbortError')
@@ -1047,6 +1080,7 @@ function App() {
     profiles: CreditProfileQuote[]
     requests: LoanRequestState[]
     score: CreditScoreState | null
+    viralDropPurchases: ViralDropPurchaseState[]
   }
 
   const syncBorrowerState = async (
@@ -1210,17 +1244,36 @@ function App() {
       profiles: nextProfiles,
       requests: nextRequests,
       score: nextScore ?? null,
+      viralDropPurchases: nextViralDrop.purchases,
     }
   }
 
   const syncProtocolAfterTx = async (token: string, txHash?: string) => {
     borrowerSyncCacheRef.current.clear()
+    let syncError: unknown = null
 
     if (apiEnabled) {
-      await lendpayApi.syncRewards(token, txHash)
+      try {
+        await lendpayApi.syncRewards(token, txHash)
+      } catch (error) {
+        syncError = error
+      }
     }
 
-    return syncBorrowerState(token)
+    try {
+      const syncedState = await syncBorrowerState(token)
+      if (syncError) {
+        throw syncError
+      }
+
+      return syncedState
+    } catch (error) {
+      if (syncError) {
+        throw syncError
+      }
+
+      throw error
+    }
   }
 
   useEffect(() => {
@@ -1570,17 +1623,19 @@ function App() {
         tone: 'success',
         title: input.successTitle,
         message: `${input.successMessage}${txHash ? ` ${formatTxHash(txHash)}` : ''}`,
+        layout: 'center',
       })
     } catch (error) {
       if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
         return
       }
 
-      if (txHash) {
+      if (shouldShowSubmittedTxToast(error, txHash)) {
         showToast({
           tone: 'warning',
           title: `${input.successTitle} submitted`,
-          message: `The transaction was broadcast${txHash ? `: ${formatTxHash(txHash)}` : ''}. The dashboard may take a moment to refresh.`,
+          message: submittedTxMessage(txHash),
+          layout: 'center',
         })
         return
       }
@@ -1597,7 +1652,11 @@ function App() {
     preview?: TxPreviewContent | false,
   ) => {
     await confirmWalletAction(messages, preview)
-    const autoSignReady = await ensureAutoSignPermission(messages)
+    // Auto-sign is now explicit opt-in so the first loan request goes straight to
+    // the actual Move transaction instead of detouring through wallet permission setup.
+    const autoSignReady = hasActiveAutoSignPermission
+      ? await ensureAutoSignPermission(messages)
+      : false
 
     const requestWithInterwovenDrawer = async () => {
       const requestTxBlockFn = requestTxBlockRef.current
@@ -2202,6 +2261,7 @@ function App() {
       })
 
       let approvalMode: 'preview' | 'live' | null = null
+      let approvalTxHash = ''
 
       if (appEnv.enableDemoApproval) {
         const approval = await lendpayApi.reviewLoanRequest(
@@ -2210,9 +2270,10 @@ function App() {
           'Auto-approval from borrower flow',
         )
         approvalMode = approval.mode
+        approvalTxHash = approval.txHash
       }
 
-      await syncProtocolAfterTx(token, txHash || undefined)
+      await syncProtocolAfterTx(token, approvalTxHash || txHash || undefined)
       setDraft(defaultDraft)
       setSelectedDropItemId('')
       setActivePage('loan')
@@ -2221,22 +2282,66 @@ function App() {
         tone: 'success',
         title: approvalMode ? 'Request approved' : 'Request submitted',
         message: approvalMode
-          ? selectedProfile?.requiresCollateral
-            ? `Collateral locked and app credit is live for ${selectedMerchantTitle} in ${approvalMode} mode.`
-            : `App credit is live for ${selectedMerchantTitle} in ${approvalMode} mode.`
+          ? approvalMode === 'preview'
+            ? selectedProfile?.requiresCollateral
+              ? `Collateral locked and a preview loan was created for ${selectedMerchantTitle}. Repayment can be tested locally, but app purchases still need a live onchain approval.`
+              : `A preview loan was created for ${selectedMerchantTitle}. Repayment can be tested locally, but app purchases still need a live onchain approval.`
+            : selectedProfile?.requiresCollateral
+              ? `Collateral locked and app credit is live for ${selectedMerchantTitle}.`
+              : `App credit is live for ${selectedMerchantTitle}.`
           : selectedProfile?.requiresCollateral
             ? `Collateral locked and credit request submitted for ${selectedMerchantTitle}${txHash ? `: ${formatTxHash(txHash)}` : '.'}`
             : `Credit request submitted for ${selectedMerchantTitle}${txHash ? `: ${formatTxHash(txHash)}` : '.'}`,
+        layout: 'center',
       })
     } catch (error) {
       if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
         return
       }
 
+      if (isRequestConfirmationPendingError(error) && txHash) {
+        showToast({
+          tone: 'warning',
+          title: 'Request submitted (onchain pending)',
+          message: `Your credit request was broadcast${txHash ? `: ${formatTxHash(txHash)}` : ''}. LendPay is still waiting for the rollup to expose the request id before the dashboard can lock it in.`,
+          layout: 'center',
+        })
+        return
+      }
+
+      if (shouldShowSubmittedTxToast(error, txHash)) {
+        showToast({
+          tone: 'warning',
+          title: 'Request submitted',
+          message: submittedTxMessage(txHash, 'credit request'),
+          layout: 'center',
+        })
+        return
+      }
+
+      const fallbackRequestErrorMessage = 'Loan request could not be submitted.'
+      const rawRequestErrorMessage = getErrorMessage(error, fallbackRequestErrorMessage)
+      const moveAbort = parseMoveAbort(rawRequestErrorMessage)
+      const isActiveCreditMoveAbort =
+        moveAbort?.moduleName === 'loan_book' && moveAbort.code === 59
+      const isProfileValidationMoveAbort =
+        moveAbort?.moduleName === 'profiles' &&
+        [8, 39, 40, 43].includes(moveAbort.code)
+
       if (error instanceof ApiError && error.status === 409) {
         const latestToken = sessionTokenRef.current
         if (latestToken) {
           await syncBorrowerState(latestToken).catch(() => undefined)
+        }
+      }
+
+      if (isActiveCreditMoveAbort) {
+        const latestToken = sessionTokenRef.current
+        if (latestToken) {
+          const latestState = await syncBorrowerState(latestToken).catch(() => null)
+          if (latestState?.loans.some((loan) => loan.status === 'active')) {
+            setActivePage('loan')
+          }
         }
       }
 
@@ -2246,12 +2351,24 @@ function App() {
             ? 'You already have active credit. Finish it on the Repay page before sending another request.'
             : error.code === 'PENDING_REQUEST_EXISTS'
               ? 'A credit request is already pending. Wait for a decision or clear the pending request first.'
-              : getErrorMessage(error, 'Loan request could not be submitted.')
-          : getErrorMessage(error, 'Loan request could not be submitted.')
+              : rawRequestErrorMessage
+          : humanizeRequestError(rawRequestErrorMessage)
 
       showToast({
-        tone: error instanceof ApiError && error.status === 409 ? 'warning' : 'danger',
-        title: error instanceof ApiError && error.status === 409 ? 'Request already in progress' : 'Request failed',
+        tone:
+          error instanceof ApiError && error.status === 409
+            ? 'warning'
+            : isActiveCreditMoveAbort || isProfileValidationMoveAbort
+              ? 'warning'
+              : 'danger',
+        title:
+          error instanceof ApiError && error.status === 409
+            ? 'Request already in progress'
+            : isActiveCreditMoveAbort
+              ? 'Credit already exists onchain'
+              : isProfileValidationMoveAbort
+                ? 'Request terms rejected onchain'
+              : 'Request failed',
         message: requestConflictMessage,
       })
     } finally {
@@ -2265,7 +2382,7 @@ function App() {
       return
     }
 
-    const numericRequestId = parseNumericId(request.id)
+    const numericRequestId = getOnchainRequestNumber(request)
     if (!numericRequestId) {
       showToast({
         tone: 'danger',
@@ -2285,6 +2402,7 @@ function App() {
     }
 
     setCancellingRequestId(request.id)
+    let txHash = ''
 
     try {
       const token = await ensureBackendSession()
@@ -2308,16 +2426,27 @@ function App() {
           { label: 'Network', value: appEnv.appchainId },
         ],
       })
-      const txHash = extractTxHash(result)
+      txHash = extractTxHash(result)
       await syncProtocolAfterTx(token, txHash || undefined)
 
       showToast({
         tone: 'success',
         title: 'Pending request cleared',
         message: `Request #${numericRequestId} was cancelled onchain${txHash ? `: ${formatTxHash(txHash)}` : '.'}`,
+        layout: 'center',
       })
     } catch (error) {
       if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
+        return
+      }
+
+      if (shouldShowSubmittedTxToast(error, txHash)) {
+        showToast({
+          tone: 'warning',
+          title: 'Cancellation submitted',
+          message: submittedTxMessage(txHash, 'cancellation'),
+          layout: 'center',
+        })
         return
       }
 
@@ -2342,6 +2471,7 @@ function App() {
     }
 
     setReviewingPendingRequestId(request.id)
+    let approvalTxHash = ''
 
     try {
       const token = await ensureBackendSession()
@@ -2350,6 +2480,7 @@ function App() {
         request.id,
         'Manual review from borrower recovery flow',
       )
+      approvalTxHash = approval.txHash
 
       await syncProtocolAfterTx(token, approval.txHash || undefined)
       setActivePage('loan')
@@ -2357,8 +2488,19 @@ function App() {
         tone: 'success',
         title: 'Request reviewed',
         message: `Pending request moved through operator review${approval.txHash ? `: ${formatTxHash(approval.txHash)}` : '.'}`,
+        layout: 'center',
       })
     } catch (error) {
+      if (shouldShowSubmittedTxToast(error, approvalTxHash)) {
+        showToast({
+          tone: 'warning',
+          title: 'Review submitted',
+          message: submittedTxMessage(approvalTxHash, 'review transaction'),
+          layout: 'center',
+        })
+        return
+      }
+
       showToast({
         tone: 'danger',
         title: 'Review failed',
@@ -2391,13 +2533,25 @@ function App() {
     let txHash = ''
 
     try {
-      if (!/^\d+$/.test(activeLoan.id)) {
-        throw new Error(
-          'This loan is stored locally but is not linked to a live onchain loan id. Refresh your account first.',
-        )
+      const token = await ensureBackendSession()
+      const numericLoanId = getOnchainLoanNumber(activeLoan)
+
+      if (!numericLoanId) {
+        const repayment = await lendpayApi.repayLoan(token, activeLoan.id)
+        await syncBorrowerState(token)
+        showToast({
+          tone: 'success',
+          title: 'Repayment confirmed',
+          message:
+            repayment.mode === 'live'
+              ? `Payment received${repayment.txHash ? `: ${formatTxHash(repayment.txHash)}` : '.'}`
+              : 'Payment status has been updated in preview mode.',
+          layout: 'center',
+        })
+        return
       }
 
-      if (activeLoan.txHashApprove) {
+      if (activeLoan.routeMode === 'live' && activeLoan.txHashApprove) {
         const approvalUrl = buildRestTxInfoUrl(activeLoan.txHashApprove)
         if (approvalUrl) {
           const approvalResponse = await fetch(approvalUrl)
@@ -2413,7 +2567,6 @@ function App() {
         throw new Error('Move package is not configured. Live repayment requires a real chain target.')
       }
 
-      const numericLoanId = parseNumericId(activeLoan.id) || 1
       const message = createRepayInstallmentMessage({
         functionName: appEnv.repayFunctionName,
         loanId: numericLoanId,
@@ -2428,7 +2581,7 @@ function App() {
         title: 'Repay next installment',
         subtitle: 'This sends your next due payment onchain for the active loan.',
         rows: [
-          { label: 'Loan', value: `#${activeLoan.id}` },
+          { label: 'Loan', value: `#${getLoanDisplayId(activeLoan)}` },
           { label: 'Due now', value: formatCurrency(nextInstallment.amount) },
           { label: 'Due date', value: formatDate(nextInstallment.dueAt) },
           { label: 'Outstanding after this step', value: formatCurrency(outstandingAmount) },
@@ -2439,10 +2592,8 @@ function App() {
       })
       txHash = extractTxHash(result)
 
-      const token = await ensureBackendSession()
-
       const repayment = await lendpayApi.repayLoan(token, activeLoan.id, txHash || undefined)
-      await syncProtocolAfterTx(token, txHash || undefined)
+      const syncedState = await syncProtocolAfterTx(token, txHash || undefined)
       showToast({
         tone: 'success',
         title: 'Repayment confirmed',
@@ -2450,9 +2601,31 @@ function App() {
           repayment.mode === 'live'
             ? `Payment received${repayment.txHash ? `: ${formatTxHash(repayment.txHash)}` : '.'}`
             : 'Payment status has been updated.',
+        layout: 'center',
       })
+
+      const claimablePurchase =
+        syncedState.viralDropPurchases.find(
+          (purchase) => purchase.collectibleClaimable && !purchase.collectibleClaimed,
+        ) ?? null
+      const hasRemainingActiveLoan = syncedState.loans.some((loan) => loan.status === 'active')
+
+      if (claimablePurchase && !hasRemainingActiveLoan) {
+        autoClaimedPurchaseIdsRef.current.add(claimablePurchase.id)
+        await handleClaimCollectible(claimablePurchase, { skipPreview: true })
+      }
     } catch (error) {
       if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
+        return
+      }
+
+      if (shouldShowSubmittedTxToast(error, txHash)) {
+        showToast({
+          tone: 'warning',
+          title: 'Repayment submitted',
+          message: `Repayment was submitted${txHash ? `: ${formatTxHash(txHash)}` : ''}. Refresh in a moment to see the updated status.`,
+          layout: 'center',
+        })
         return
       }
 
@@ -2485,6 +2658,16 @@ function App() {
       return
     }
 
+    if (!getOnchainLoanNumber(activeLoan)) {
+      showToast({
+        tone: 'warning',
+        title: 'Preview loan only',
+        message:
+          'This loan exists only in local preview state. Live app purchases need a real onchain approval before the rollup can see an active loan.',
+      })
+      return
+    }
+
     const merchantId = Number(item.merchantId ?? activeLoan.merchantId ?? latestRequest?.merchantId ?? 0)
     if (!Number.isFinite(merchantId) || merchantId <= 0) {
       showToast({
@@ -2496,6 +2679,7 @@ function App() {
     }
 
     setBuyingDropItemId(item.id)
+    let txHash = ''
 
     try {
       if (!isChainWriteReady) {
@@ -2532,7 +2716,7 @@ function App() {
         ],
         note: `If your wallet shows raw JSON, look for viral_drop::buy_item. The encoded fields in this request map to merchant #${merchantId} and item #${item.id}.`,
       })
-      const txHash = extractTxHash(result)
+      txHash = extractTxHash(result)
       const token = await ensureBackendSession()
       await syncProtocolAfterTx(token, txHash || undefined)
       const instantDelivery = activeLoan.collateralAmount >= item.instantCollateralRequired
@@ -2542,9 +2726,20 @@ function App() {
         message: instantDelivery
           ? `${item.name} receipt and collectible were delivered onchain${txHash ? `: ${formatTxHash(txHash)}` : '.'}`
           : `${item.name} receipt was minted onchain. The full collectible unlocks after full repayment${txHash ? `: ${formatTxHash(txHash)}` : '.'}`,
+        layout: 'center',
       })
     } catch (error) {
       if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
+        return
+      }
+
+      if (shouldShowSubmittedTxToast(error, txHash)) {
+        showToast({
+          tone: 'warning',
+          title: 'Purchase submitted',
+          message: submittedTxMessage(txHash, 'purchase transaction'),
+          layout: 'center',
+        })
         return
       }
 
@@ -2558,7 +2753,10 @@ function App() {
     }
   }
 
-  const handleClaimCollectible = async (purchase: ViralDropPurchaseState) => {
+  const handleClaimCollectible = async (
+    purchase: ViralDropPurchaseState,
+    options: { skipPreview?: boolean } = {},
+  ) => {
     if (purchase.collectibleClaimed) {
       showToast({
         tone: 'info',
@@ -2597,20 +2795,22 @@ function App() {
           purchaseId,
           sender: initiaAddress!,
         }),
-        preview: {
-          actionLabel: 'Open wallet signer',
-          eyebrow: 'Collectible claim',
-          title: `Claim ${purchase.itemName}`,
-          subtitle: 'This unlocks the final collectible for a fully repaid viral drop purchase.',
-          rows: [
-            { label: 'Purchase', value: `#${purchaseId}` },
-            { label: 'Item', value: purchase.itemName },
-            { label: 'Receipt', value: shortenAddress(purchase.receiptAddress) },
-            { label: 'Module', value: 'viral_drop::claim_collectible' },
-            { label: 'Network', value: appEnv.appchainId },
-          ],
-          note: `If your wallet shows raw JSON, look for viral_drop::claim_collectible. The encoded argument in this request points to purchase #${purchaseId}.`,
-        },
+        preview: options.skipPreview
+          ? false
+          : {
+              actionLabel: 'Open wallet signer',
+              eyebrow: 'Collectible claim',
+              title: `Claim ${purchase.itemName}`,
+              subtitle: 'This unlocks the final collectible for a fully repaid viral drop purchase.',
+              rows: [
+                { label: 'Purchase', value: `#${purchaseId}` },
+                { label: 'Item', value: purchase.itemName },
+                { label: 'Receipt', value: shortenAddress(purchase.receiptAddress) },
+                { label: 'Module', value: 'viral_drop::claim_collectible' },
+                { label: 'Network', value: appEnv.appchainId },
+              ],
+              note: `If your wallet shows raw JSON, look for viral_drop::claim_collectible. The encoded argument in this request points to purchase #${purchaseId}.`,
+            },
         successMessage: `${purchase.itemName} collectible was delivered to your wallet.`,
         successTitle: 'Collectible claimed',
       })
@@ -2622,6 +2822,69 @@ function App() {
       })
     }
   }
+
+  useEffect(() => {
+    if (
+      !pendingRequest ||
+      !pendingRequest.onchainRequestId ||
+      !canRunPendingDemoReview ||
+      !hasLoadedBorrowerState ||
+      !isConnected ||
+      activeLoan ||
+      isSubmittingRequest ||
+      Boolean(cancellingRequestId) ||
+      Boolean(reviewingPendingRequestId) ||
+      pendingProtocolAction
+    ) {
+      return
+    }
+
+    if (autoReviewedRequestIdsRef.current.has(pendingRequest.id)) {
+      return
+    }
+
+    autoReviewedRequestIdsRef.current.add(pendingRequest.id)
+    void handleReviewPendingRequest(pendingRequest)
+  }, [
+    activeLoan,
+    canRunPendingDemoReview,
+    cancellingRequestId,
+    hasLoadedBorrowerState,
+    isConnected,
+    isSubmittingRequest,
+    pendingProtocolAction,
+    pendingRequest,
+    reviewingPendingRequestId,
+  ])
+
+  useEffect(() => {
+    if (
+      !claimableDropPurchase ||
+      !hasLoadedBorrowerState ||
+      !isConnected ||
+      !hasActiveAutoSignPermission ||
+      activeLoan ||
+      isClaimingDropCollectible ||
+      pendingProtocolAction
+    ) {
+      return
+    }
+
+    if (autoClaimedPurchaseIdsRef.current.has(claimableDropPurchase.id)) {
+      return
+    }
+
+    autoClaimedPurchaseIdsRef.current.add(claimableDropPurchase.id)
+    void handleClaimCollectible(claimableDropPurchase, { skipPreview: true })
+  }, [
+    activeLoan,
+    claimableDropPurchase,
+    hasActiveAutoSignPermission,
+    hasLoadedBorrowerState,
+    isClaimingDropCollectible,
+    isConnected,
+    pendingProtocolAction,
+  ])
 
   const handleClaimLend = async () => {
     if (!rewards?.claimableLend) {
@@ -2833,6 +3096,7 @@ function App() {
 
     setPendingProtocolAction('claim-all')
     setShowWalletRecovery(false)
+    const txHashes: string[] = []
 
     try {
       const token = await ensureBackendSession()
@@ -2864,9 +3128,6 @@ function App() {
               ? 'If your wallet shows raw JSON next, look for rewards::claim_lend.'
               : 'If your wallet shows raw JSON next, look for staking::claim_rewards.',
       })
-
-      const txHashes: string[] = []
-
       if (claimableLend > 0) {
         const lendClaimMessage = createClaimLendMessage({
           functionName: 'claim_lend',
@@ -2899,9 +3160,20 @@ function App() {
         message: txHashes.length
           ? `Available rewards were claimed.${txHashes[0] ? ` ${formatTxHash(txHashes[0])}` : ''}`
           : 'Available rewards were claimed.',
+        layout: 'center',
       })
     } catch (error) {
       if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
+        return
+      }
+
+      if (txHashes[0] && shouldShowSubmittedTxToast(error, txHashes[0])) {
+        showToast({
+          tone: 'warning',
+          title: 'Rewards claim submitted',
+          message: submittedTxMessage(txHashes[0], 'reward claim'),
+          layout: 'center',
+        })
         return
       }
 
@@ -2941,12 +3213,23 @@ function App() {
       return
     }
 
+    const numericLoanId = getOnchainLoanNumber(activeLoan)
+    if (!numericLoanId) {
+      showToast({
+        tone: 'warning',
+        title: 'Preview loan only',
+        message:
+          'Outstanding fee settlement in LEND is only available for loans that already exist onchain.',
+      })
+      return
+    }
+
     try {
       await executeProtocolAction({
         actionKey: 'pay-fees',
         message: createRepayInstallmentMessage({
           functionName: 'pay_outstanding_fees_in_lend',
-          loanId: parseNumericId(activeLoan.id),
+          loanId: numericLoanId,
           moduleAddress: appEnv.packageAddress,
           moduleName: 'fee_engine',
           sender: initiaAddress!,
@@ -2958,11 +3241,11 @@ function App() {
           subtitle: 'This clears the current unpaid fee balance on your active loan using LEND.',
           rows: [
             { label: 'Fees due', value: formatCurrency(totalFeesDue) },
-            { label: 'Loan', value: `#${activeLoan.id}` },
+            { label: 'Loan', value: `#${getLoanDisplayId(activeLoan)}` },
             { label: 'Module', value: 'fee_engine::pay_outstanding_fees_in_lend' },
             { label: 'Network', value: appEnv.appchainId },
           ],
-          note: `If your wallet shows raw JSON, look for fee_engine::pay_outstanding_fees_in_lend. The encoded argument in this request points to loan #${activeLoan.id}.`,
+          note: `If your wallet shows raw JSON, look for fee_engine::pay_outstanding_fees_in_lend. The encoded argument in this request points to loan #${getLoanDisplayId(activeLoan)}.`,
         },
         successMessage: 'Outstanding fees were paid in LEND.',
         successTitle: 'Fees paid',
@@ -3928,13 +4211,6 @@ function App() {
 
   return (
     <div className="app-shell">
-      <div className="app-backdrop" aria-hidden="true">
-        <div className="app-backdrop__orb app-backdrop__orb--one" />
-        <div className="app-backdrop__orb app-backdrop__orb--two" />
-        <div className="app-backdrop__orb app-backdrop__orb--three" />
-        <div className="app-backdrop__mesh" />
-        <div className="app-backdrop__scan" />
-      </div>
       <Sidebar
         active={activePage}
         assistantDetail={assistantDetail}
@@ -3968,17 +4244,41 @@ function App() {
             {!isConnected ? (
               <>
                 <section className="lendpay-hero">
-                  <div className="lendpay-hero__badge">Built on Initia · MiniMove Rollup · AI-Powered</div>
+                  <div className="lendpay-hero__badge lendpay-hero__reveal lendpay-hero__reveal--1">
+                    <span className="lendpay-hero__badge-dot" aria-hidden="true" />
+                    Built on Initia · MiniMove Rollup · AI-Powered
+                  </div>
+                  <div
+                    className="lendpay-hero__orbit-wrap lendpay-hero__reveal lendpay-hero__reveal--2"
+                    aria-hidden="true"
+                  >
+                    <div className="lendpay-hero__ripple-ring lendpay-hero__ripple-ring--1" />
+                    <div className="lendpay-hero__ripple-ring lendpay-hero__ripple-ring--2" />
+                    <div className="lendpay-hero__ripple-ring lendpay-hero__ripple-ring--3" />
+                    <div className="lendpay-hero__orbit-ring lendpay-hero__orbit-ring--outer" />
+                    <div className="lendpay-hero__orbit-ring lendpay-hero__orbit-ring--inner" />
+                    <div className="lendpay-hero__orb lendpay-hero__orb--one" />
+                    <div className="lendpay-hero__orb lendpay-hero__orb--two" />
+                    <div className="lendpay-hero__orb lendpay-hero__orb--three" />
+                    <div className="lendpay-hero__orbit-center">
+                      <div className="lendpay-hero__orbit-core">
+                        <img src="/favicon.svg" alt="" />
+                      </div>
+                    </div>
+                  </div>
                   <h1 className="lendpay-hero__title">
-                    Pay later across
-                    <br />
-                    every Initia app
+                    <span className="lendpay-hero__title-line lendpay-hero__reveal lendpay-hero__reveal--3">
+                      Pay later across
+                    </span>
+                    <span className="lendpay-hero__title-accent lendpay-hero__reveal lendpay-hero__reveal--4">
+                      every Initia app
+                    </span>
                   </h1>
-                  <p className="lendpay-hero__subtitle">
+                  <p className="lendpay-hero__subtitle lendpay-hero__reveal lendpay-hero__reveal--5">
                     LendPay gives you a credit line based on your on-chain reputation. Use it at NFT drops,
                     games, and DeFi vaults across the Initia ecosystem with smaller purchases unlocked first.
                   </p>
-                  <div className="lendpay-hero__stats">
+                  <div className="lendpay-hero__stats lendpay-hero__reveal lendpay-hero__reveal--6">
                     <div className="hero-stat">
                       <strong>4</strong>
                       <span>Live apps</span>
@@ -3996,7 +4296,7 @@ function App() {
                       <span>Identity layer</span>
                     </div>
                   </div>
-                  <div className="hero-social-links">
+                  <div className="hero-social-links lendpay-hero__reveal lendpay-hero__reveal--7">
                     <a href={footerLinks.github} target="_blank" rel="noreferrer" className="hero-social-link">
                       GitHub
                     </a>
@@ -4022,37 +4322,37 @@ function App() {
                       Testnet Explorer
                     </a>
                   </div>
-                  <div className="lendpay-hero__features">
+                  <div className="lendpay-hero__features lendpay-hero__reveal lendpay-hero__reveal--8">
                     <div className="hero-feature">
-                      <span className="hero-feature__icon">◆</span>
+                      <span className="hero-feature__icon hero-feature__icon--blue">◆</span>
                       <div>
                         <strong>Reputation-based credit</strong>
                         <p>Your wallet history becomes your credit score</p>
                       </div>
                     </div>
                     <div className="hero-feature">
-                      <span className="hero-feature__icon">◆</span>
+                      <span className="hero-feature__icon hero-feature__icon--teal">⊞</span>
                       <div>
                         <strong>Cross-app spending</strong>
                         <p>Use credit at NFT, gaming, and DeFi apps</p>
                       </div>
                     </div>
                     <div className="hero-feature">
-                      <span className="hero-feature__icon">◆</span>
+                      <span className="hero-feature__icon hero-feature__icon--purple">↺</span>
                       <div>
                         <strong>Installment repayment</strong>
                         <p>Pay back in 1, 3, or 6 monthly installments</p>
                       </div>
                     </div>
                     <div className="hero-feature">
-                      <span className="hero-feature__icon">◆</span>
+                      <span className="hero-feature__icon hero-feature__icon--amber">⚡</span>
                       <div>
                         <strong>Auto-signing ready</strong>
                         <p>Payments can run automatically via Initia wallet</p>
                       </div>
                     </div>
                   </div>
-                  <div className="lendpay-hero__cta">
+                  <div className="lendpay-hero__cta lendpay-hero__reveal lendpay-hero__reveal--9">
                     <button
                       type="button"
                       className="hero-cta-btn"
@@ -4062,11 +4362,13 @@ function App() {
                     >
                       Connect wallet to start
                     </button>
-                    <span className="hero-cta-note">Free · No collateral required for starter credit</span>
+                    <span className="hero-cta-note">
+                      Free · <span>No collateral required</span> for starter credit
+                    </span>
                   </div>
                 </section>
 
-                <div className="wallet-gate">
+                <div className="wallet-gate lendpay-hero__reveal lendpay-hero__reveal--10">
                   <Card eyebrow="Wallet required" title="Connect your wallet to get started" className="wallet-gate__card">
                     <p className="wallet-gate__body">
                       LendPay starts working after it can read your wallet and rewards. Connect once,
@@ -4100,6 +4402,23 @@ function App() {
                     </div>
                   </Card>
                 </div>
+
+                <section className="preconnect-agent lendpay-hero__reveal lendpay-hero__reveal--11">
+                  <div className="preconnect-agent__header">
+                    <div className="preconnect-agent__avatar">AI</div>
+                    <div className="preconnect-agent__identity">
+                      <div className="preconnect-agent__label">LendPay Agent</div>
+                      <div className="preconnect-agent__status">
+                        <span className="preconnect-agent__status-dot" aria-hidden="true" />
+                        Waiting for wallet connection
+                      </div>
+                    </div>
+                  </div>
+                  <div className="preconnect-agent__message">
+                    <span className="preconnect-agent__message-line">{assistantDetail}</span>
+                    <span className="preconnect-agent__cursor" aria-hidden="true" />
+                  </div>
+                </section>
               </>
             ) : null}
 
