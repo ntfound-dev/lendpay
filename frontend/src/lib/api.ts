@@ -2,6 +2,8 @@ import { appEnv } from '../config/env'
 import type { AminoSignResponse } from '@cosmjs/amino'
 import type { PersonalSignChallengeResponse } from './auth'
 import type {
+  AgentGuideContextPayload,
+  AgentGuidanceState,
   ActivityItem,
   AuthResponse,
   CampaignState,
@@ -244,6 +246,28 @@ export const lendpayApi = {
       method: 'POST',
       token,
       body: {},
+    })
+  },
+
+  getAgentGuide(
+    token: string,
+    surface?: string,
+    signal?: AbortSignal,
+    context?: AgentGuideContextPayload,
+  ) {
+    const params = surface ? `?surface=${encodeURIComponent(surface)}` : ''
+    if (context) {
+      return request<AgentGuidanceState>('/api/v1/agent/guide', {
+        method: 'POST',
+        signal,
+        token,
+        body: context as JsonBody,
+      })
+    }
+
+    return request<AgentGuidanceState>(`/api/v1/agent/guide${params}`, {
+      signal,
+      token,
     })
   },
 

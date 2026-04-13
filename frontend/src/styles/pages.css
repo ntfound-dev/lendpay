@@ -563,6 +563,31 @@
   line-height: 1.6;
 }
 
+.agent-panel__checklist {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.agent-panel__checklist-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #475569;
+  font-size: 0.86rem;
+}
+
+.agent-panel__checklist-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.agent-panel__checklist-dot--done {
+  background: #1a6cf5;
+}
+
 .agent-panel__footer {
   display: flex;
   align-items: center;

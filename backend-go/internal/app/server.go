@@ -211,6 +211,8 @@ func (s *Server) Handler() http.Handler {
 	router.Get("/api/v1/score", s.handleGetScore)
 	router.Post("/api/v1/score/analyze", s.handleAnalyzeScore)
 	router.Get("/api/v1/score/history", s.handleScoreHistory)
+	router.Get("/api/v1/agent/guide", s.handleGetAgentGuide)
+	router.Post("/api/v1/agent/guide", s.handlePostAgentGuide)
 
 	router.Get("/api/v1/loan-requests", s.handleListLoanRequests)
 	router.Post("/api/v1/loan-requests", s.handleCreateLoanRequest)

@@ -1,4 +1,5 @@
 export type NavKey = 'overview' | 'analyze' | 'request' | 'loan' | 'rewards' | 'admin'
+export type AgentSurface = NavKey
 
 export type RiskBand = 'Low' | 'Medium' | 'High'
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
@@ -347,6 +348,53 @@ export interface ToastState {
   title: string
   message: string
   layout?: 'corner' | 'center'
+}
+
+export interface AgentChecklistItem {
+  label: string
+  done: boolean
+}
+
+export interface AgentGuidanceState {
+  surface: AgentSurface
+  provider: 'heuristic' | 'ollama' | string
+  model?: string
+  generatedAt: string
+  assistantLabel: string
+  assistantDetail: string
+  panelTitle: string
+  panelBody: string
+  recommendation: string
+  actionLabel?: string
+  actionKey?: string
+  confidence?: number
+  checklist: AgentChecklistItem[]
+}
+
+export interface AgentGuideRequestContext {
+  requestBlockingMessage?: string | null
+  hasSelectedApp?: boolean
+  selectedAppLabel?: string | null
+  hasSelectedProfile?: boolean
+  selectedProfileLabel?: string | null
+  checkoutReady?: boolean
+  monthlyPaymentUsd?: number | null
+  canSubmitRequest?: boolean
+  activeLoanPrincipalUsd?: number | null
+}
+
+export interface AgentGuideRepayContext {
+  claimableCollectibleName?: string | null
+  nextDueAmountUsd?: number | null
+  nextDueDate?: string | null
+  activeLoanPrincipalUsd?: number | null
+  hasActiveLoan?: boolean
+}
+
+export interface AgentGuideContextPayload {
+  surface?: AgentSurface
+  request?: AgentGuideRequestContext
+  repay?: AgentGuideRepayContext
 }
 
 export interface ReferralEntry {

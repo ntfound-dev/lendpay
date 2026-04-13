@@ -30,6 +30,7 @@ export default defineConfig({
           { text: 'Introduction', link: '/guide/introduction' },
           { text: 'Quickstart', link: '/guide/quickstart' },
           { text: 'Hackathon Readiness', link: '/guide/hackathon-readiness' },
+          { text: 'Agentic System', link: '/guide/agentic-system' },
           { text: 'Scoring Criteria', link: '/guide/scoring-criteria' },
           { text: 'Demo Video Script', link: '/guide/demo-video-script' },
           { text: 'Pitch Deck', link: '/guide/pitch-deck' },

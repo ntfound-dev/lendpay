@@ -55,7 +55,9 @@ func resolveRateLimitRule(method, rawURL string, cfg Config) rateLimitRule {
 		}
 	}
 
-	if strings.HasPrefix(path, "/api/v1/score/analyze") || strings.HasPrefix(path, "/api/v1/meta/ai") {
+	if strings.HasPrefix(path, "/api/v1/score/analyze") ||
+		strings.HasPrefix(path, "/api/v1/meta/ai") ||
+		strings.HasPrefix(path, "/api/v1/agent/guide") {
 		return rateLimitRule{
 			Bucket:      "ai",
 			Label:       "AI scoring",
