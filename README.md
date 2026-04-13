@@ -5,7 +5,7 @@ LendPay is an Initia MiniMove appchain for agent-guided credit across Initia app
 It combines:
 
 - a React frontend for app credit requests, live viral drop usage, repayment, rewards, and ecosystem activity
-- a TypeScript backend for sessions, underwriting, protocol sync, and operator actions
+- a Go backend for sessions, underwriting, protocol sync, and operator actions
 - Move smart contracts for requests, approvals, repayments, collateral, rewards, staking, governance, campaigns, and app rails
 
 ## Architecture At A Glance
@@ -17,7 +17,7 @@ It combines:
 Docs by layer:
 
 - frontend technical docs: [frontend/README.md](./frontend/README.md)
-- backend technical docs: [backend/README.md](./backend/README.md)
+- backend technical docs: [backend-go/README.md](./backend-go/README.md)
 - smart contract technical docs: [smarcontract/README.md](./smarcontract/README.md)
 - standalone docs site: [docs-site](./docs-site)
 
@@ -89,18 +89,18 @@ make logs
 
 ## Local URLs
 
-- frontend: `http://127.0.0.1:5173`
-- explorer: `http://127.0.0.1:5173/scan.html`
-- docs: `http://127.0.0.1:4173`
-- backend: `http://127.0.0.1:8080`
-- rollup RPC: `http://127.0.0.1:26657`
-- rollup REST: `http://127.0.0.1:1317`
+- frontend: `http://localhost:5173`
+- explorer: `http://localhost:5173/scan.html`
+- docs: `http://localhost:4173`
+- backend: `http://localhost:8080`
+- rollup RPC: `http://localhost:26657`
+- rollup REST: `http://localhost:1317`
 
 ## Local Demo Flow
 
 1. Run `make up`
-2. Open docs at `http://127.0.0.1:4173` if you want the product and architecture reference site
-3. Open `http://127.0.0.1:5173`
+2. Open docs at `http://localhost:4173` if you want the product and architecture reference site
+3. Open `http://localhost:5173`
 4. Connect wallet with InterwovenKit
 5. Analyze borrower profile
 6. Choose the live app and request credit
@@ -138,14 +138,14 @@ Current local bridge route published onchain:
 Recommended app hosting split:
 
 - frontend on Vercel from [`frontend`](./frontend)
-- backend on Railway from [`backend`](./backend)
+- backend on Railway from [`backend-go`](./backend-go)
 
 The frontend already includes [frontend/vercel.json](./frontend/vercel.json).
 
-The backend already includes:
+The backend now ships from:
 
-- [backend/Dockerfile](./backend/Dockerfile)
-- [backend/railway.json](./backend/railway.json)
+- [backend-go/Dockerfile](./backend-go/Dockerfile)
+- [backend-go/railway.json](./backend-go/railway.json)
 
 The rollup can also be packaged for Railway with Docker:
 

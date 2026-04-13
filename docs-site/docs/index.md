@@ -22,7 +22,7 @@ features:
   - title: Initia-native execution
     details: Requests, approvals, repayments, rewards, campaigns, and app-linked purchases execute on a MiniMove rollup.
   - title: Full-stack architecture
-    details: React frontend, Fastify backend, and Move contracts work together to keep UI state synced with the chain.
+    details: React frontend, Go backend, and Move contracts work together to keep UI state synced with the chain.
   - title: Real app flows
     details: LendPay is designed around a truthful borrower lifecycle, not just a dashboard mockup.
 ---
@@ -40,7 +40,7 @@ features:
 LendPay combines:
 
 - a React frontend for borrower onboarding, requests, repayment, rewards, and ecosystem views
-- a TypeScript backend for wallet auth, scoring, mirrored state, and operator actions
+- a Go backend for wallet auth, scoring, mirrored state, and operator actions
 - a Move package for protocol execution on a MiniMove rollup
 
 ## Core Borrower Flow

@@ -7,7 +7,7 @@ This page documents the most important backend routes exposed by LendPay and exp
 Local backend:
 
 ```bash
-http://127.0.0.1:8080
+http://localhost:8080
 ```
 
 Most application routes are prefixed with:
@@ -32,7 +32,7 @@ There are three route classes:
 ### 1. Ask for a login challenge
 
 ```bash
-curl -X POST http://127.0.0.1:8080/api/v1/auth/challenge \
+curl -X POST http://localhost:8080/api/v1/auth/challenge \
   -H 'content-type: application/json' \
   -d '{
     "address": "init1..."
@@ -63,7 +63,7 @@ For manual integration, the payload depends on the wallet signing mode:
 Personal-sign style example:
 
 ```bash
-curl -X POST http://127.0.0.1:8080/api/v1/auth/verify \
+curl -X POST http://localhost:8080/api/v1/auth/verify \
   -H 'content-type: application/json' \
   -d '{
     "address": "init1...",
@@ -84,7 +84,7 @@ That `token` is what you send in the `Authorization` header for borrower routes.
 ### 4. Use the bearer token on protected routes
 
 ```bash
-curl http://127.0.0.1:8080/api/v1/me \
+curl http://localhost:8080/api/v1/me \
   -H 'Authorization: Bearer <session-token>'
 ```
 
@@ -177,7 +177,7 @@ Use it when you want:
 Example:
 
 ```bash
-curl http://127.0.0.1:8080/api/v1/me \
+curl http://localhost:8080/api/v1/me \
   -H 'Authorization: Bearer <session-token>'
 ```
 
@@ -222,6 +222,11 @@ Request body:
 ```
 
 Use it after a reward-related onchain transaction if you want the backend mirror to refresh immediately.
+
+Important behavior:
+
+- if `txHash` is supplied, the backend waits for rollup confirmation before returning refreshed rewards
+- if the rollup cannot confirm yet, this route returns `TX_CONFIRMATION_PENDING`
 
 ### `GET /api/v1/me/activity`
 
@@ -276,7 +281,7 @@ Use it when you want:
 Example:
 
 ```bash
-curl -X POST http://127.0.0.1:8080/api/v1/score/analyze \
+curl -X POST http://localhost:8080/api/v1/score/analyze \
   -H 'Authorization: Bearer <session-token>'
 ```
 
@@ -339,8 +344,9 @@ Field meaning:
 
 Important behavior:
 
+- live credit requests require a `txHash` so the backend can confirm the onchain request
 - if `txHash` is provided and the rollup is readable, backend waits for the tx and syncs the real onchain request
-- if no live tx is provided, backend still validates policy and creates or updates the mirrored request state
+- if the rollup cannot confirm yet, this route returns `TX_CONFIRMATION_PENDING`
 
 ### `GET /api/v1/loan-requests/:id`
 
@@ -372,6 +378,11 @@ Returns the installment schedule for a loan.
 
 Returns fee state for a loan when it can be resolved from the current runtime.
 
+Important behavior:
+
+- live loans require rollup fee views; if rollup data is unavailable, this route returns `LOAN_FEES_UNAVAILABLE`
+- when rollup data is present but mismatched, this route returns `LOAN_FEES_MISMATCH`
+
 ### `POST /api/v1/loans/:id/repay`
 
 Request body:
@@ -384,7 +395,9 @@ Request body:
 
 Important behavior:
 
+- live repayments require a `txHash` so the backend can confirm the rollup transaction
 - if `txHash` is provided and the rollup is readable, backend waits for the live repayment tx and syncs the actual onchain loan state
+- if rollup confirmation is not yet available, this route returns `TX_CONFIRMATION_PENDING` or `REPAYMENT_TX_PENDING`
 - if not, backend can still update mirrored preview state depending on runtime mode
 
 Use it after a repayment action when you want borrower state to refresh immediately.
@@ -608,6 +621,13 @@ Returns AI provider status.
 
 Use it to check whether the local Ollama-backed analysis path is reachable.
 
+### `GET /api/v1/meta/metrics`
+
+Returns expvar JSON metrics. The repay counters appear under the `repay` map:
+
+- `confirmed_total`
+- `pending_total`
+
 ### `GET /api/v1/meta/chains`
 
 Returns the configured chain endpoints:
@@ -620,7 +640,7 @@ Returns the configured chain endpoints:
 Example:
 
 ```bash
-curl http://127.0.0.1:8080/api/v1/meta/chains
+curl http://localhost:8080/api/v1/meta/chains
 ```
 
 ## Error Handling

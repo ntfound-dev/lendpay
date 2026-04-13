@@ -7,7 +7,7 @@ It is best understood as a credit infrastructure layer, not just a loan screen.
 LendPay combines:
 
 - a React frontend for credit requests, live app usage, repayment, rewards, and ecosystem activity
-- a TypeScript backend for authentication, underwriting, state sync, and operator actions
+- a Go backend for authentication, underwriting, state sync, and operator actions
 - Move smart contracts for requests, approvals, repayments, collateral, rewards, campaigns, governance, and app rails
 
 Together, these layers turn one borrower journey into something the wider Initia ecosystem can actually reuse.

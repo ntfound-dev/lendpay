@@ -5,8 +5,8 @@ LendPay ships with real rollup evidence for the active `lendpay-4` package and t
 ## Current Runtime
 
 - Chain ID: `lendpay-4`
-- RPC: `http://127.0.0.1:26657`
-- REST: `http://127.0.0.1:1317`
+- RPC: `http://localhost:26657`
+- REST: `http://localhost:1317`
 - Package address: `0x5972A1C7118A8977852DC3307621535D5C1CDA63`
 - Base denom: `ulend`
 
