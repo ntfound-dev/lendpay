@@ -5,7 +5,9 @@ import { Badge } from '../ui/Badge'
 interface AgentPanelProps {
   actionLabel?: string
   body: string
+  checklist?: Array<{ done: boolean; label: string }>
   confidence?: number | null
+  engineLabel?: string
   onAction?: () => void
   recommendation: string
   title: string
@@ -14,7 +16,9 @@ interface AgentPanelProps {
 export function AgentPanel({
   actionLabel,
   body,
+  checklist,
   confidence,
+  engineLabel,
   onAction,
   recommendation,
   title,
@@ -29,7 +33,7 @@ export function AgentPanel({
       <div className="agent-panel__header">
         <div className="agent-panel__signal">
           <span className="agent-panel__signal-dot" aria-hidden="true" />
-          <span>Watching now</span>
+          <span>{engineLabel ?? 'Watching now'}</span>
         </div>
         {normalizedConfidence !== null ? (
           <Badge tone="info">Confidence {normalizedConfidence}%</Badge>
@@ -37,6 +41,17 @@ export function AgentPanel({
       </div>
 
       <div className="agent-panel__body">{body}</div>
+
+      {checklist?.length ? (
+        <div className="agent-panel__checklist">
+          {checklist.map((item) => (
+            <div className="agent-panel__checklist-item" key={item.label}>
+              <span className={`agent-panel__checklist-dot ${item.done ? 'agent-panel__checklist-dot--done' : ''}`} aria-hidden="true" />
+              <span>{item.label}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <div className="agent-panel__footer">
         <div className="agent-panel__recommendation">

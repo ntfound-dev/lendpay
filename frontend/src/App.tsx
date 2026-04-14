@@ -68,6 +68,10 @@ import {
   type RequestDraft,
 } from './lib/appHelpers'
 import type {
+  AgentGuideContextPayload,
+  AgentGuideRepayContext,
+  AgentGuideRequestContext,
+  AgentGuidanceState,
   ActivityItem,
   CampaignState,
   CreditProfileQuote,
@@ -112,6 +116,7 @@ import { useTxPreview } from './hooks/useTxPreview'
 
 
 type DataSection =
+  | 'agent'
   | 'activity'
   | 'campaigns'
   | 'faucet'
@@ -265,6 +270,7 @@ function App() {
   const [activePage, setActivePage] = useState<NavKey>('overview')
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [score, setScore] = useState<CreditScoreState | null>(null)
+  const [agentGuide, setAgentGuide] = useState<AgentGuidanceState | null>(null)
   const [rewards, setRewards] = useState<RewardsState | null>(null)
   const [requests, setRequests] = useState<LoanRequestState[]>([])
   const [loans, setLoans] = useState<LoanState[]>([])
@@ -932,6 +938,7 @@ function App() {
   const resetBorrowerState = () => {
     setProfile(null)
     setScore(null)
+    setAgentGuide(null)
     setRewards(null)
     setRequests([])
     setLoans([])
@@ -987,6 +994,46 @@ function App() {
 
     const data = await loader()
     return cacheBorrowerSection(key, data)
+  }
+  const loadAgentGuide = async (
+    token: string,
+    surface: NavKey,
+    signal?: AbortSignal,
+  ) => {
+    const cacheScope = initiaAddress ?? 'wallet'
+    const context = buildAgentGuideContext(surface)
+    return loadCachedBorrowerSection(`${cacheScope}:agent:${surface}`, 10_000, () =>
+      lendpayApi.getAgentGuide(token, surface, signal, context),
+    )
+  }
+  const buildAgentGuideContext = (surface: NavKey): AgentGuideContextPayload | undefined => {
+    if (surface === 'request') {
+      const requestContext: AgentGuideRequestContext = {
+        requestBlockingMessage: requestBlockingMessage ?? undefined,
+        hasSelectedApp: Boolean(selectedMerchant),
+        selectedAppLabel: selectedMerchant ? selectedMerchantTitle : undefined,
+        hasSelectedProfile: Boolean(selectedProfile),
+        selectedProfileLabel: selectedProfile ? formatProfileLabel(selectedProfile.label) : undefined,
+        checkoutReady: checkoutMerchantReady,
+        monthlyPaymentUsd: monthlyPaymentPreview ?? undefined,
+        canSubmitRequest: checkoutMerchantReady && !isSubmittingRequest && !requestBlockingMessage,
+        activeLoanPrincipalUsd: activeLoan?.principal ?? undefined,
+      }
+      return { surface, request: requestContext }
+    }
+
+    if (surface === 'loan') {
+      const repayContext: AgentGuideRepayContext = {
+        claimableCollectibleName: claimableDropPurchase?.itemName ?? undefined,
+        nextDueAmountUsd: nextDueItem?.amount ?? undefined,
+        nextDueDate: nextDueItem?.dueAt ?? undefined,
+        activeLoanPrincipalUsd: activeLoan?.principal ?? undefined,
+        hasActiveLoan: Boolean(activeLoan),
+      }
+      return { surface, repay: repayContext }
+    }
+
+    return undefined
   }
 
   const executeWithTimeout = async <T,>(txFn: () => Promise<T>, timeoutMs = 15_000): Promise<T> => {
@@ -1215,12 +1262,19 @@ function App() {
           'Fee details could not be loaded.',
         )
       : null
+    const nextAgentGuide = await loadOptionalSection(
+      'agent',
+      () => loadAgentGuide(token, activePage, signal),
+      null,
+      'Agent guidance could not be loaded.',
+    )
 
     throwIfAborted(signal)
     setProfile(profile)
     setRewards(profile.rewards)
     setUsername(profile.username ?? walletUsername ?? undefined)
     setScore(nextScore)
+    setAgentGuide(nextAgentGuide)
     setRequests(nextRequests)
     setLoans(nextLoans)
     setLoanFees(nextLoanFees)
@@ -1899,7 +1953,55 @@ function App() {
       window.removeEventListener('focus', handleWindowFocus)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [apiEnabled, hasLoadedBorrowerState, initiaAddress])
+  }, [activePage, apiEnabled, hasLoadedBorrowerState, initiaAddress])
+
+  useEffect(() => {
+    if (!apiEnabled || !initiaAddress || !hasLoadedBorrowerState) {
+      return
+    }
+
+    const reusableToken = sessionTokenRef.current ?? readPersistedSessionToken(initiaAddress)
+    if (!reusableToken) {
+      return
+    }
+
+    const controller = new AbortController()
+
+    const refreshSurfaceGuide = async () => {
+      try {
+        const nextGuide = await loadAgentGuide(reusableToken, activePage, controller.signal)
+        if (controller.signal.aborted) {
+          return
+        }
+
+        setAgentGuide(nextGuide)
+        setSectionErrors((current) => {
+          if (!current.agent) {
+            return current
+          }
+
+          const next = { ...current }
+          delete next.agent
+          return next
+        })
+      } catch (error) {
+        if (controller.signal.aborted || isAbortError(error) || isSessionAuthError(error)) {
+          return
+        }
+
+        setSectionErrors((current) => ({
+          ...current,
+          agent: getErrorMessage(error, 'Agent guidance could not be loaded.'),
+        }))
+      }
+    }
+
+    void refreshSurfaceGuide()
+
+    return () => {
+      controller.abort()
+    }
+  }, [activePage, apiEnabled, hasLoadedBorrowerState, initiaAddress])
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true)
@@ -3918,6 +4020,38 @@ function App() {
       )
     : 0
   const heroSafeSpendLabel = score ? formatCurrency(suggestedSpendToday) : '—'
+  const activeAgentGuide = agentGuide?.surface === activePage ? agentGuide : null
+  const visibleAgentGuide = activeAgentGuide
+  const activeAgentEngineLabel = visibleAgentGuide
+    ? visibleAgentGuide.provider === 'ollama'
+      ? visibleAgentGuide.model
+        ? `Ollama ${visibleAgentGuide.model}`
+        : 'Ollama planner'
+      : visibleAgentGuide.model ?? 'Heuristic planner'
+    : undefined
+  const resolveAgentGuideAction = (actionKey?: string) => {
+    switch (actionKey) {
+      case 'analyze_profile':
+        return handleAnalyze
+      case 'open_request':
+      case 'use_credit':
+        return () => setActivePage('request')
+      case 'submit_request':
+        return checkoutMerchantReady && !isSubmittingRequest ? handleRequestLoan : undefined
+      case 'repay_now':
+        return activeLoan ? handleRepay : () => setActivePage('loan')
+      case 'open_repay':
+        return () => setActivePage('loan')
+      case 'claim_collectible':
+        return claimableDropPurchase
+          ? () => void handleClaimCollectible(claimableDropPurchase)
+          : () => setActivePage('loan')
+      case 'claim_rewards':
+        return canClaimAvailableRewards ? handleClaimAvailableRewards : () => setActivePage('rewards')
+      default:
+        return undefined
+    }
+  }
   const overviewIdentityStrip =
     [
       verifiedUsername ?? (initiaAddress ? shortenAddress(initiaAddress) : null),
@@ -4154,6 +4288,16 @@ function App() {
     handleAgentPanelAction = activeLoan ? handleRepay : score ? () => setActivePage('request') : handleAnalyze
   }
 
+  if (visibleAgentGuide) {
+    const guidedAction = resolveAgentGuideAction(visibleAgentGuide.actionKey)
+    agentPanelTitle = visibleAgentGuide.panelTitle
+    agentPanelBody = visibleAgentGuide.panelBody
+    agentPanelRecommendation = visibleAgentGuide.recommendation
+    agentPanelConfidence = visibleAgentGuide.confidence ?? null
+    agentPanelActionLabel = guidedAction ? visibleAgentGuide.actionLabel : undefined
+    handleAgentPanelAction = guidedAction
+  }
+
   if (isConnected && !hasLoadedBorrowerState) {
     topbarTitleBadge = undefined
     topbarStatus = loadError
@@ -4179,6 +4323,8 @@ function App() {
           ? 'Waiting for sign-in'
           : 'Waiting for a retry'
         : 'Syncing live account data'
+    : visibleAgentGuide
+      ? visibleAgentGuide.assistantLabel
     : activePage === 'analyze'
       ? 'Profile status'
       : activePage === 'request'
@@ -4194,6 +4340,8 @@ function App() {
     ? 'Connect your wallet once and the agent will guide your next step.'
     : !hasLoadedBorrowerState
       ? loadError ?? 'Live borrower data is syncing from the API.'
+    : visibleAgentGuide
+      ? visibleAgentGuide.assistantDetail
     : activePage === 'admin'
       ? 'Track which apps, campaigns, and proposals are live around LendPay.'
       : agentPanelRecommendation
@@ -4451,7 +4599,9 @@ function App() {
               <AgentPanel
                 actionLabel={agentPanelActionLabel}
                 body={agentPanelBody}
+                checklist={visibleAgentGuide?.checklist}
                 confidence={agentPanelConfidence}
+                engineLabel={activeAgentEngineLabel}
                 onAction={handleAgentPanelAction}
                 recommendation={agentPanelRecommendation}
                 title={agentPanelTitle}

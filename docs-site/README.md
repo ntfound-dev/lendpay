@@ -2,6 +2,8 @@
 
 Standalone documentation website for LendPay.
 
+This site documents the product and the agent-guided UX layer. The live app now pulls a server-side agent guide (`/api/v1/agent/guide`) that can be optionally rewritten by Ollama for tone, while actions remain deterministic in the backend.
+
 ## Run locally
 
 ```bash
@@ -17,6 +19,12 @@ cd docs-site
 npm install
 npm run dev
 ```
+
+## Agent guide notes
+
+- The agent guide is generated in the backend and can be enhanced by a local Ollama runtime.
+- Model output is sanitized; the agent will never change actions, only narrative copy.
+- To enable Ollama in dev, set `AI_PROVIDER=ollama` and configure `OLLAMA_BASE_URL` + `OLLAMA_MODEL` in the backend.
 
 ## Build
 

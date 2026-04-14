@@ -12,6 +12,8 @@ LendPay combines:
 
 Together, these layers turn one borrower journey into something the wider Initia ecosystem can actually reuse.
 
+For the new server-side agent guide and how it is used in the UI, see [Agentic System](/guide/agentic-system).
+
 ## What Problem LendPay Solves
 
 Onchain users can already bridge, trade, and interact with apps, but they still cannot easily access simple consumer credit for real app experiences.

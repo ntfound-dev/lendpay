@@ -97,6 +97,7 @@ Important implementation behavior:
   This is used to sync backend mirrors after a real onchain transaction
 - some routes can return `preview` mode if the local runtime is not broadcasting live writes
 - the backend may do more work than a thin API, especially during first login and first score generation
+- the agent guide can accept optional context in a POST body for request/repay surfaces
 
 ## Auth
 
@@ -161,6 +162,95 @@ All routes below require:
 
 ```bash
 Authorization: Bearer <session-token>
+```
+
+### `GET /api/v1/agent/guide`
+
+Returns the agent guidance for a given UI surface.
+
+Query param:
+
+- `surface` (optional): `overview`, `analyze`, `request`, `loan`, `rewards`, `admin`
+
+Example:
+
+```bash
+curl "http://localhost:8080/api/v1/agent/guide?surface=overview" \
+  -H 'Authorization: Bearer <session-token>'
+```
+
+Example response:
+
+```json
+{
+  "surface": "overview",
+  "provider": "heuristic",
+  "model": "agent-planner-v1",
+  "generatedAt": "2026-04-14T10:10:00.000Z",
+  "assistantLabel": "Account summary",
+  "assistantDetail": "The agent is watching score 720, current limit, and the next action most likely to improve this account.",
+  "panelTitle": "You can safely work within a $1100 limit",
+  "panelBody": "Your current score is 720 with a medium risk band. The agent will keep steering toward the next healthiest step for this account.",
+  "recommendation": "Open Request and choose an app",
+  "actionLabel": "Use credit",
+  "actionKey": "open_request",
+  "confidence": 84,
+  "checklist": [
+    { "done": true, "label": "Wallet linked" },
+    { "done": true, "label": "Profile scored" },
+    { "done": false, "label": "Credit unlocked" },
+    { "done": true, "label": "Repayment current" }
+  ]
+}
+```
+
+### `POST /api/v1/agent/guide`
+
+Use this when the frontend has richer request/repay context (selected app, claimable collectible, etc).
+
+Example request:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/agent/guide \
+  -H 'content-type: application/json' \
+  -H 'Authorization: Bearer <session-token>' \
+  -d '{
+    "surface": "request",
+    "request": {
+      "hasSelectedApp": true,
+      "selectedAppLabel": "Initia Arcade",
+      "hasSelectedProfile": true,
+      "selectedProfileLabel": "Starter Pay-later",
+      "checkoutReady": true,
+      "monthlyPaymentUsd": 38.5,
+      "canSubmitRequest": true
+    }
+  }'
+```
+
+Example response:
+
+```json
+{
+  "surface": "request",
+  "provider": "heuristic",
+  "model": "agent-planner-v1",
+  "generatedAt": "2026-04-14T10:12:00.000Z",
+  "assistantLabel": "Credit request",
+  "assistantDetail": "Initia Arcade selected. The agent is ready to guide the request.",
+  "panelTitle": "Best fit today: Starter Pay-later",
+  "panelBody": "Your estimated monthly payment is $38.50. Keep the request within your current limit and aim for a clean first cycle.",
+  "recommendation": "Send your credit request",
+  "actionLabel": "Send credit request",
+  "actionKey": "submit_request",
+  "confidence": 86,
+  "checklist": [
+    { "done": true, "label": "Wallet linked" },
+    { "done": true, "label": "Profile scored" },
+    { "done": false, "label": "Credit unlocked" },
+    { "done": true, "label": "Repayment current" }
+  ]
+}
 ```
 
 ### `GET /api/v1/me`
