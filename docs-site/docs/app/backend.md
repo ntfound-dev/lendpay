@@ -273,6 +273,26 @@ Primary backend deploy files:
 - `backend-go/Dockerfile`
 - `backend-go/railway.json`
 
+Monorepo deploy note:
+
+- Railway must deploy the `backend-go/` service, not a retired Node or Prisma backend
+- preferred Railway setup without relying on Root Directory:
+  Root Directory: leave empty
+  Builder: `Dockerfile`
+  Dockerfile Path: `deploy/railway/backend/Dockerfile`
+  Watch Paths: `/backend-go/**`
+  Healthcheck Path: `/api/v1/health`
+  Config-as-code: `/deploy/railway/backend/railway.json`
+- alternative setup if the service is rooted inside `backend-go/`:
+  Root Directory: `backend-go`
+  Dockerfile Path: `Dockerfile`
+  Config-as-code: `/backend-go/railway.json`
+- do not use `backend/Dockerfile`
+- do not leave Root Directory empty while pointing at `backend-go/Dockerfile`, because that Dockerfile expects the build context to already be `backend-go/`
+- if Railway logs still mention Prisma, `prisma.user.findUnique()`, or `node_modules/@prisma/client`, the service is still attached to the old backend
+- expected Go startup log:
+  `[startup] go backend listening on 0.0.0.0:8080`
+
 ## Known Limits
 
 - several protocol and admin mutation routes still return preview responses

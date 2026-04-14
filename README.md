@@ -147,6 +147,21 @@ The backend now ships from:
 - [backend-go/Dockerfile](./backend-go/Dockerfile)
 - [backend-go/railway.json](./backend-go/railway.json)
 
+Railway monorepo note:
+
+- preferred Railway UI values for the backend service:
+  Root Directory: leave empty
+  Builder: `Dockerfile`
+  Dockerfile Path: `deploy/railway/backend/Dockerfile`
+  Watch Paths: `/backend-go/**`
+  Healthcheck Path: `/api/v1/health`
+  Config-as-code: `/deploy/railway/backend/railway.json`
+- alternative if the service Root Directory is `backend-go`:
+  Dockerfile Path: `Dockerfile`
+  Config-as-code: `/backend-go/railway.json`
+- do not use `backend/Dockerfile`
+- if Railway logs show Prisma or `prisma.user.findUnique()`, you are still deploying the retired backend instead of the Go backend
+
 The rollup can also be packaged for Railway with Docker:
 
 - [deploy/railway/deploy/Dockerfile](./deploy/railway/deploy/Dockerfile)

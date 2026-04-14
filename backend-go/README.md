@@ -283,6 +283,27 @@ Primary backend deploy files:
 - Dockerfile: [`backend-go/Dockerfile`](./Dockerfile)
 - Railway config: [`backend-go/railway.json`](./railway.json)
 
+Monorepo deploy note:
+
+- this repository contains multiple app surfaces, so the Railway backend service must point at `backend-go/`
+- if Railway still shows old Node or Prisma startup logs, that service is still deploying the retired backend and not this Go service
+- preferred Railway setup without relying on Root Directory:
+  Root Directory: leave empty
+  Builder: `Dockerfile`
+  Dockerfile Path: `deploy/railway/backend/Dockerfile`
+  Watch Paths: `/backend-go/**`
+  Healthcheck Path: `/api/v1/health`
+  Config-as-code: `/deploy/railway/backend/railway.json`
+- alternative setup if you want the service rooted inside `backend-go/`:
+  Root Directory: `backend-go`
+  Dockerfile Path: `Dockerfile`
+  Config-as-code: `/backend-go/railway.json`
+- do not use `backend/Dockerfile`
+- do not leave Root Directory empty while pointing at `backend-go/Dockerfile`, because that Dockerfile expects the build context to already be `backend-go/`
+- expected healthy Go startup logs include:
+  `[startup] go backend listening on 0.0.0.0:8080`
+  `/api/v1/health`
+
 ## Compatibility Notes
 
 - `backend-go/` is the single active backend implementation
