@@ -37,11 +37,23 @@ fi
 mkdir -p "$BIN_DIR" "$HOME_SEED_DIR"
 mkdir -p "$ARCHIVE_DIR"
 
-cp "$MINITIAD_SOURCE" "$BIN_DIR/minitiad"
+replace_runtime_file() {
+  local source_path="$1"
+  local destination_path="$2"
+
+  if [[ -e "$destination_path" ]]; then
+    chmod u+w "$destination_path" 2>/dev/null || true
+    rm -f "$destination_path"
+  fi
+
+  install -m 0755 "$source_path" "$destination_path"
+}
+
+replace_runtime_file "$MINITIAD_SOURCE" "$BIN_DIR/minitiad"
 
 for library in libcompiler.x86_64.so libmovevm.x86_64.so; do
   if [[ -f "$MINITIAD_SOURCE_DIR/$library" ]]; then
-    cp "$MINITIAD_SOURCE_DIR/$library" "$BIN_DIR/$library"
+    replace_runtime_file "$MINITIAD_SOURCE_DIR/$library" "$BIN_DIR/$library"
   fi
 done
 
@@ -54,7 +66,13 @@ rsync -a --delete \
   --exclude 'keyring-os/' \
   "$ROLLUP_HOME_SOURCE"/ "$HOME_SEED_DIR"/
 
-chmod +x "$BIN_DIR/minitiad"
+cat >"$HOME_SEED_DIR/.gitignore" <<'EOF'
+*
+!.gitignore
+!.gitkeep
+EOF
+
+: >"$HOME_SEED_DIR/.gitkeep"
 
 tar -czf "$BIN_ARCHIVE" -C "$BIN_DIR" .
 tar -czf "$HOME_SEED_ARCHIVE" -C "$HOME_SEED_DIR" .

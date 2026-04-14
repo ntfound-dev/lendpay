@@ -51,6 +51,13 @@ Recommended variables:
 - `MINITIAD_ARCHIVE_URL=<private tar.gz URL for minitiad + libs>`
 - `ROLLUP_HOME_SEED_ARCHIVE_URL=<private tar.gz URL for the rollup home seed>`
 
+Archive URL notes:
+
+- use a direct `http://` or `https://` download URL reachable from Railway
+- do not paste a local filesystem path such as `/mnt/...`
+- do not wrap the URL in quotes
+- do not use a GitHub HTML page, Drive share page, or any non-direct download page
+
 Useful checks after deploy:
 
 - RPC: `/status` on port `26657`

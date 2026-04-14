@@ -13,6 +13,11 @@ is_placeholder_url() {
   [[ -z "$url" || "$url" == "..." || "$url" == *"://..." || "$url" == *"ganti-"* ]]
 }
 
+is_valid_archive_url() {
+  local url="$1"
+  [[ "$url" =~ ^https?://[^[:space:]\'\"]+$ ]]
+}
+
 download_archive() {
   local url="$1"
   local destination="$2"
@@ -22,6 +27,12 @@ download_archive() {
   if is_placeholder_url "$url"; then
     echo "$label is not set to a real archive URL." >&2
     echo "Replace the placeholder value before deploying the rollup service." >&2
+    exit 1
+  fi
+
+  if ! is_valid_archive_url "$url"; then
+    echo "$label is not a valid direct archive URL." >&2
+    echo "Use an http(s) .tar.gz download URL reachable from Railway, without quotes or local file paths." >&2
     exit 1
   fi
 
