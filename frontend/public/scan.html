@@ -1513,10 +1513,12 @@
 
       function normalizeBlock(payload) {
         const block = payload.block || {}
+        const sdkBlock = payload.sdk_block || {}
         const header = block.header || {}
+        const sdkHeader = sdkBlock.header || {}
         const blockId = payload.block_id || {}
         const txs = Array.isArray(block.data && block.data.txs) ? block.data.txs : []
-        const proposerAddress = header.proposer_address || ''
+        const proposerAddress = sdkHeader.proposer_address || header.proposer_address || ''
 
         return {
           height: Number(header.height || 0),
@@ -1573,23 +1575,37 @@
       async function requestJson(path) {
         const controller = new AbortController()
         const timeoutId = window.setTimeout(() => controller.abort(), 8000)
+        const fallbackUrl = resolveRemoteScanFallback(path)
 
         try {
           let response = await fetch(path, { signal: controller.signal })
-          if (!response.ok && response.status === 404) {
-            const fallbackUrl = resolveRemoteScanFallback(path)
-            if (fallbackUrl) {
-              response = await fetch(fallbackUrl, { signal: controller.signal })
-            }
+          if (!response.ok && fallbackUrl) {
+            response = await fetch(fallbackUrl, { signal: controller.signal })
           }
           if (!response.ok) {
             throw new Error(`Request failed with ${response.status}`)
           }
 
+          const contentType = response.headers.get('content-type') || ''
+          if (!contentType.toLowerCase().includes('application/json')) {
+            if (fallbackUrl && !response.url.startsWith(PROD_SCAN_API_BASE)) {
+              response = await fetch(fallbackUrl, { signal: controller.signal })
+            }
+
+            const fallbackContentType = response.headers.get('content-type') || ''
+            if (!fallbackContentType.toLowerCase().includes('application/json')) {
+              throw new Error('Explorer endpoint returned a non-JSON response.')
+            }
+          }
+
           return await response.json()
         } catch (error) {
           if (error instanceof Error && error.name === 'AbortError') {
-            throw new Error('Request timed out while waiting for localhost:1317.')
+            throw new Error(
+              shouldUseRemoteScanFallback()
+                ? 'Request timed out while waiting for the Railway rollup explorer endpoint.'
+                : 'Request timed out while waiting for localhost:1317.',
+            )
           }
 
           if (error instanceof TypeError) {
