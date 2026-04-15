@@ -2016,6 +2016,22 @@ details[open] .dev-info-accordion__chevron {
     flex-direction: column;
   }
 
+  .agent-panel__hero {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-panel__header {
+    flex-direction: column;
+  }
+
+  .agent-panel__hero-aside {
+    justify-items: flex-start;
+  }
+
+  .agent-panel__recommendation {
+    width: 100%;
+  }
+
   .agent-autonomy-card__grid {
     grid-template-columns: 1fr;
   }
