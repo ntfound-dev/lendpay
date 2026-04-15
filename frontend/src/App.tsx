@@ -4362,7 +4362,7 @@ function App() {
   const canRenderConnectedPages = isConnected && hasLoadedBorrowerState
   const footerLinks = {
     github: 'https://github.com/ntfound-dev/lendpay',
-    docs: 'https://github.com/ntfound-dev/lendpay/tree/main/docs-site',
+    docs: 'https://lendpay-docs.vercel.app',
     discord: 'https://discord.gg/initia',
     x: 'https://x.com/InitiaFDN',
     explorer: '/scan.html',
