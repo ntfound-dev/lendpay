@@ -400,3 +400,13 @@ func initiaAddressFromPubKey(pubKey *ecdsa.PublicKey) (string, error) {
 
 	return bech32.Encode("init", fiveBitWords)
 }
+
+func isValidChallengeAddress(address string) bool {
+	trimmed := strings.TrimSpace(address)
+	if !strings.HasPrefix(strings.ToLower(trimmed), "init1") {
+		return false
+	}
+
+	_, err := decodeInitiaAddressBytes(trimmed)
+	return err == nil
+}

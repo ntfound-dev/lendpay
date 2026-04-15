@@ -1,23 +1,21 @@
-const PROD_API_BASE_URL = 'https://balanced-peace-backend.up.railway.app'
-const PROD_CHAIN_REST_URL = 'https://rollup-runtime-backend.up.railway.app'
-const PROD_CHAIN_RPC_URL = 'https://rollup-runtime-backend.up.railway.app'
+const invalidMarkers = [
+  'rollup-rest-domain',
+  'rollup-rpc-domain',
+  'backend-domain',
+  'example.com',
+  'your-domain',
+]
 
-const normalizeEnvUrl = (value: string | undefined, fallback: string) => {
+const localOnlyMarkers = ['localhost', '127.0.0.1', '0.0.0.0', '.railway.internal']
+
+const normalizeEnvUrl = (value: string | undefined) => {
   const normalized = value?.trim()
   if (!normalized) {
-    return fallback
+    return ''
   }
 
-  const invalidMarkers = [
-    'rollup-rest-domain',
-    'rollup-rpc-domain',
-    'backend-domain',
-    'example.com',
-    'your-domain',
-  ]
-
   if (invalidMarkers.some((marker) => normalized.includes(marker))) {
-    return fallback
+    return ''
   }
 
   return normalized
@@ -26,6 +24,22 @@ const normalizeEnvUrl = (value: string | undefined, fallback: string) => {
 const isDev = import.meta.env.DEV
 
 const required = (value: string | undefined, fallback: string) => value?.trim() || fallback
+
+const resolveUrl = (key: string, value: string | undefined, devFallback: string) => {
+  const normalized = normalizeEnvUrl(value)
+  if (normalized) {
+    if (!isDev && (!normalized.startsWith('https://') || localOnlyMarkers.some((marker) => normalized.includes(marker)))) {
+      throw new Error(`Invalid production env var: ${key}`)
+    }
+    return normalized
+  }
+
+  if (isDev) {
+    return devFallback
+  }
+
+  throw new Error(`Missing required production env var: ${key}`)
+}
 
 const warnMissingEnvVar = (key: string, value: string | undefined) => {
   if (import.meta.env.DEV && !value?.trim()) {
@@ -41,26 +55,26 @@ warnMissingEnvVar(
 warnMissingEnvVar('VITE_CANCEL_REQUEST_FUNCTION_NAME', import.meta.env.VITE_CANCEL_REQUEST_FUNCTION_NAME)
 
 export const appEnv = {
-  apiBaseUrl: normalizeEnvUrl(
-    import.meta.env.VITE_API_BASE_URL,
-    isDev ? 'http://localhost:8080' : PROD_API_BASE_URL,
-  ),
+  apiBaseUrl: resolveUrl('VITE_API_BASE_URL', import.meta.env.VITE_API_BASE_URL, 'http://localhost:8080'),
   appchainId: required(import.meta.env.VITE_APPCHAIN_ID, 'lendpay-4'),
   chainBech32Prefix: required(import.meta.env.VITE_CHAIN_BECH32_PREFIX, 'init'),
-  chainIndexerUrl: normalizeEnvUrl(
+  chainIndexerUrl: resolveUrl(
+    'VITE_CHAIN_INDEXER_URL',
     import.meta.env.VITE_CHAIN_INDEXER_URL,
-    isDev ? 'http://localhost:8080' : PROD_API_BASE_URL,
+    'http://localhost:8080',
   ),
   chainName: required(import.meta.env.VITE_CHAIN_NAME, 'lendpay'),
   chainNetworkType: required(import.meta.env.VITE_CHAIN_NETWORK_TYPE, 'testnet'),
   chainPrettyName: required(import.meta.env.VITE_CHAIN_PRETTY_NAME, 'LendPay Testnet'),
-  chainRestUrl: normalizeEnvUrl(
+  chainRestUrl: resolveUrl(
+    'VITE_CHAIN_REST_URL',
     import.meta.env.VITE_CHAIN_REST_URL,
-    isDev ? 'http://localhost:1317' : PROD_CHAIN_REST_URL,
+    'http://localhost:1317',
   ),
-  chainRpcUrl: normalizeEnvUrl(
+  chainRpcUrl: resolveUrl(
+    'VITE_CHAIN_RPC_URL',
     import.meta.env.VITE_CHAIN_RPC_URL,
-    isDev ? 'http://localhost:26657' : PROD_CHAIN_RPC_URL,
+    'http://localhost:26657',
   ),
   enableDemoApproval: import.meta.env.VITE_ENABLE_DEMO_APPROVAL?.trim() === 'true',
   loanModuleName: required(import.meta.env.VITE_LOAN_MODULE_NAME, 'loan_book'),

@@ -33,6 +33,9 @@ It is not only a UI shell. It is the wallet-facing execution layer that coordina
 - `Repay`
 - `Loyalty Hub`
 - `Ecosystem`
+- `Scan Explorer`
+
+For the explorer and the `Verify Contracts` developer panel, see [Scan Explorer](/app/scan-explorer).
 
 ## Wallet And Backend Session Flow
 

@@ -1,22 +1,12 @@
-import { useState, type Dispatch, type SetStateAction } from 'react'
-import { appEnv, isChainWriteReady } from '../../config/env'
-import {
-  appCategoryMeta,
-  describeCampaign,
-  formatAppLabel,
-  getCampaignIneligibleReason,
-} from '../../lib/appHelpers'
-import { formatCurrency, formatDate, formatNumber, shortenAddress } from '../../lib/format'
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { isChainWriteReady } from '../../config/env'
+import { formatCurrency, formatNumber } from '../../lib/format'
 import type {
   CampaignState,
   GovernanceProposalState,
   LendLiquidityRouteState,
   MerchantState,
 } from '../../types/domain'
-import { EmptyState } from '../shared/EmptyState'
-import { Badge } from '../ui/Badge'
-import { Button } from '../ui/Button'
-import { Card } from '../ui/Card'
 
 type EcosystemFamilyStat = {
   family: string
@@ -49,6 +39,21 @@ type MerchantDraft = {
   category: string
   listingFeeBps: string
   partnerFeeBps: string
+}
+
+type PartnerDrop = {
+  id: string
+  artClass: string
+  emoji: string
+  name: string
+  partner: string
+  partnerLabel: string
+  price: number
+}
+
+type PurchaseToast = {
+  id: number
+  message: string
 }
 
 export type ProtocolUpdateItem = {
@@ -103,839 +108,403 @@ type EcosystemPageProps = {
   username?: string
 }
 
-export function EcosystemPage({
-  allocationDraft,
-  bridgeAmount,
-  bridgeRecipient,
-  campaignDraft,
-  campaigns,
-  ecosystemFamilyStats,
-  governance,
-  governanceDraft,
-  handleAllocateCampaign,
-  handleClaimCampaign,
-  handleCreateCampaign,
-  handleDismissWalletRecovery,
-  handleOpenLendBridge,
-  handleFinalizeProposal,
-  handleOpenWalletApproval,
-  handleProposeGovernance,
-  handleRegisterMerchant,
-  handleRetryLoad,
-  handleSetMerchantActive,
-  handleVoteGovernance,
-  isProtocolActionPending,
-  lendLiquidityRoute,
-  merchantDraft,
-  openCampaignCount,
-  operatorModeEnabled,
-  protocolUpdates,
-  sectionErrors,
-  setAllocationDraft,
-  setBridgeAmount,
-  setBridgeRecipient,
-  setCampaignDraft,
-  setGovernanceDraft,
-  setMerchantDraft,
-  setSelectedAppProofId,
-  showWalletRecovery,
-  technicalModeEnabled,
-  uniqueApps,
-  username,
-}: EcosystemPageProps) {
-  const [copiedRecipient, setCopiedRecipient] = useState(false)
-  const bridgeAmountValue = Number(bridgeAmount)
-  const normalizedBridgeAmount =
-    Number.isFinite(bridgeAmountValue) && bridgeAmountValue > 0 ? bridgeAmountValue : 0
-  const estimatedReceiveAmount = normalizedBridgeAmount
-  const estimatedUsdValue = estimatedReceiveAmount * (lendLiquidityRoute?.oracleQuote.price ?? 0)
-  const bridgeLastUpdated = lendLiquidityRoute
-    ? formatDate(lendLiquidityRoute.oracleQuote.blockTimestamp ?? lendLiquidityRoute.oracleQuote.fetchedAt)
-    : ''
-  const bridgeRouteLine = lendLiquidityRoute
-    ? `${lendLiquidityRoute.sourceChainName} → ${lendLiquidityRoute.destinationChainName} via InterwovenKit`
-    : ''
-  const isBridgeActive = lendLiquidityRoute?.routeMode === 'live'
+const partnerDrops: PartnerDrop[] = [
+  {
+    id: 'initia-genesis-01',
+    artClass: 'ecosystem-drop-card__art--purple',
+    emoji: '🎨',
+    name: 'Initia Genesis #01',
+    partner: 'Initia Labs',
+    partnerLabel: 'by Initia Labs',
+    price: 0.8,
+  },
+  {
+    id: 'atelier-drop-12',
+    artClass: 'ecosystem-drop-card__art--pink',
+    emoji: '🌸',
+    name: 'Atelier Drop #12',
+    partner: 'Initia Atelier',
+    partnerLabel: 'by Initia Atelier',
+    price: 1.2,
+  },
+  {
+    id: 'arcade-pass-7',
+    artClass: 'ecosystem-drop-card__art--amber',
+    emoji: '⚡',
+    name: 'Arcade Pass #7',
+    partner: 'Arcade Mile',
+    partnerLabel: 'by Arcade Mile',
+    price: 0.5,
+  },
+]
 
-  const handleCopyRecipient = async () => {
-    const recipient = bridgeRecipient.trim()
-    if (!recipient || typeof navigator === 'undefined' || !navigator.clipboard) {
+const usdPerLend = 100
+const maxQuantity = 5
+
+const formatLendAmount = (value: number) =>
+  `${value.toLocaleString('en-US', {
+    minimumFractionDigits: value % 1 === 0 ? 0 : 1,
+    maximumFractionDigits: 1,
+  })} LEND`
+
+const formatPartnerFee = (bps: number) =>
+  `${(bps / 100).toLocaleString('en-US', {
+    minimumFractionDigits: bps % 100 === 0 ? 0 : 1,
+    maximumFractionDigits: 1,
+  })}%`
+
+export function EcosystemPage({
+  campaigns,
+  governance,
+  handleRetryLoad,
+  openCampaignCount,
+  sectionErrors,
+  uniqueApps,
+}: EcosystemPageProps) {
+  const [selectedDrop, setSelectedDrop] = useState<PartnerDrop | null>(null)
+  const [quantity, setQuantity] = useState(1)
+  const [availableCredit, setAvailableCredit] = useState(3250)
+  const [toasts, setToasts] = useState<PurchaseToast[]>([])
+
+  useEffect(() => {
+    if (!selectedDrop) {
+      document.body.style.overflow = ''
       return
     }
 
-    try {
-      await navigator.clipboard.writeText(recipient)
-      setCopiedRecipient(true)
-      window.setTimeout(() => setCopiedRecipient(false), 1200)
-    } catch {
-      setCopiedRecipient(false)
+    document.body.style.overflow = 'hidden'
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSelectedDrop(null)
+      }
     }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [selectedDrop])
+
+  const featuredApps = useMemo(() => {
+    const curatedApps = [
+      {
+        key: 'initia atelier',
+        fallbackName: 'Initia Atelier',
+        fallbackDescription: 'Curated collectible partner with exclusive atelier drop access through LendPay credit.',
+        fallbackFeeBps: 250,
+      },
+      {
+        key: 'arcade mile',
+        fallbackName: 'Arcade Mile',
+        fallbackDescription: 'Arcade-native passes and partner exclusives that can be checked out directly with LendPay.',
+        fallbackFeeBps: 200,
+      },
+    ]
+
+    return curatedApps.map((app) => {
+      const match =
+        uniqueApps.find((item) => item.name?.toLowerCase().includes(app.key)) ??
+        uniqueApps.find((item) => `${item.id} ${item.description ?? ''}`.toLowerCase().includes(app.key))
+
+      return {
+        id: match?.id ?? app.key,
+        name: match?.name ?? app.fallbackName,
+        description: match?.description ?? app.fallbackDescription,
+        partnerFeeBps: match?.partnerFeeBps ?? app.fallbackFeeBps,
+      }
+    })
+  }, [uniqueApps])
+
+  const appsLive = sectionErrors.merchants ? null : uniqueApps.filter((app) => app.active).length || featuredApps.length
+  const activeCampaigns = sectionErrors.campaigns ? null : openCampaignCount
+  const proposalCount = sectionErrors.governance ? null : governance.length
+
+  const totalLend = selectedDrop ? selectedDrop.price * quantity : 0
+  const estimatedMonthlyInstallment = (totalLend * usdPerLend) / 3
+
+  const pushToast = (message: string) => {
+    const toastId = Date.now()
+    setToasts((current) => [...current, { id: toastId, message }])
+
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== toastId))
+    }, 3000)
+  }
+
+  const handleQuantityChange = (nextValue: string) => {
+    const numericValue = Number(nextValue)
+    if (!Number.isFinite(numericValue)) {
+      setQuantity(1)
+      return
+    }
+
+    setQuantity(Math.max(1, Math.min(maxQuantity, Math.floor(numericValue))))
+  }
+
+  const handleConfirmPurchase = () => {
+    if (!selectedDrop) return
+
+    const monthlyInstallment = (selectedDrop.price * quantity * usdPerLend) / 3
+    setAvailableCredit((current) => Math.max(0, current - selectedDrop.price * quantity))
+    pushToast(
+      `✅ Purchase confirmed! ${selectedDrop.name} added to your wallet. Installment of ${formatCurrency(monthlyInstallment)}/month added to your repayment schedule.`,
+    )
+    setSelectedDrop(null)
+    setQuantity(1)
   }
 
   return (
     <>
-      <Card eyebrow="Ecosystem status" title="What is live right now" className="admin-card">
-        <div className="protocol-status-grid">
-          <div className="protocol-status-item">
-            <span>Apps live</span>
-            <strong>{sectionErrors.merchants ? '—' : uniqueApps.length}</strong>
-            <small>
-              {sectionErrors.merchants
-                ? 'Apps unavailable'
-                : uniqueApps.length
-                  ? 'Apps available'
-                  : 'No apps yet'}
-            </small>
-          </div>
-          <div className="protocol-status-item">
-            <span>Active campaigns</span>
-            <strong>{sectionErrors.campaigns ? '—' : openCampaignCount}</strong>
-            <small>
-              {sectionErrors.campaigns
-                ? 'Reward campaigns unavailable'
-                : openCampaignCount
-                  ? 'Borrower rewards are live'
-                  : 'No live campaign yet'}
-            </small>
-          </div>
-          <div className="protocol-status-item">
-            <span>Governance proposals</span>
-            <strong>{sectionErrors.governance ? '—' : governance.length}</strong>
-            <small>
-              {sectionErrors.governance
-                ? 'Governance activity unavailable'
-                : governance.length
-                  ? 'Proposal history visible'
-                  : 'No proposal yet'}
-            </small>
-          </div>
-          <div className="protocol-status-item">
-            <span>Credit mode</span>
-            <strong>{isChainWriteReady ? 'Live' : 'Preview'}</strong>
-            <small>{isChainWriteReady ? 'Borrower flow ready' : 'Chain target not configured'}</small>
-          </div>
+      <div className="ecosystem-redesign">
+        <div className="ecosystem-alert-bar">
+          <span className="ecosystem-alert-bar__dot" aria-hidden="true" />
+          <span>Repayment watch — Next installment $75 is due by Jul 12.</span>
         </div>
-      </Card>
 
-      <Card className="bridge-card section-stack">
-        {lendLiquidityRoute ? (
-          <>
-            <div className="bridge-card__header">
-              <div className="bridge-card__headline">
-                <div className="bridge-card__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M7 8h10" strokeLinecap="round" />
-                    <path d="m13.5 4.5 3.5 3.5-3.5 3.5" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M17 16H7" strokeLinecap="round" />
-                    <path d="m10.5 12.5-3.5 3.5 3.5 3.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="bridge-card__kicker">Bridge</div>
-                  <h3 className="bridge-card__title">Bridge LEND → Initia MiniEVM</h3>
-                </div>
-              </div>
-              <div
-                className={[
-                  'bridge-card__status',
-                  isBridgeActive ? 'bridge-card__status--active' : 'bridge-card__status--pending',
-                ].join(' ')}
-              >
-                <span className="bridge-card__status-dot" aria-hidden="true" />
-                {isBridgeActive ? 'Active' : 'Preview'}
-              </div>
-            </div>
-
-            <p className="bridge-card__route">{bridgeRouteLine}</p>
-            <div className="bridge-card__divider" />
-
-            <div className="bridge-card__fields">
-              <div className="bridge-card__field">
-                <label className="bridge-card__label" htmlFor="bridgeAmount">
-                  Amount (LEND)
-                </label>
-                <input
-                  className="bridge-card__input bridge-card__input--mono"
-                  id="bridgeAmount"
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={bridgeAmount}
-                  onChange={(event) => setBridgeAmount(event.target.value)}
-                  placeholder="250"
-                />
-              </div>
-              <div className="bridge-card__field">
-                <label className="bridge-card__label" htmlFor="bridgeRecipient">
-                  Recipient address
-                </label>
-                <div className="bridge-card__input-shell">
-                  <input
-                    className="bridge-card__input bridge-card__input--mono bridge-card__input--copyable"
-                    id="bridgeRecipient"
-                    value={bridgeRecipient}
-                    onChange={(event) => setBridgeRecipient(event.target.value)}
-                    placeholder="Defaults to the connected wallet"
-                  />
-                  <button
-                    type="button"
-                    className={[
-                      'bridge-card__copy',
-                      copiedRecipient ? 'bridge-card__copy--copied' : '',
-                    ].join(' ')}
-                    onClick={() => void handleCopyRecipient()}
-                    aria-label="Copy recipient address"
-                    title={copiedRecipient ? 'Copied' : 'Copy recipient address'}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <rect x="9" y="9" width="10" height="10" rx="2" />
-                      <path d="M15 9V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="bridge-card__output">
-              <span className="bridge-card__output-label">You receive:</span>
-              <strong className="bridge-card__output-value">
-                {formatNumber(estimatedReceiveAmount)} INIT
-                <span>≈ {formatCurrency(estimatedUsdValue)}</span>
-              </strong>
-            </div>
-
-            <div className="bridge-card__actions">
-              <Button
-                className="bridge-card__cta"
-                onClick={handleOpenLendBridge}
-                wide
-                disabled={
-                  lendLiquidityRoute.routeMode !== 'live' ||
-                  isProtocolActionPending('bridge-intent')
-                }
-              >
-                {isProtocolActionPending('bridge-intent') ? 'Bridging...' : 'Bridge Now'}
-              </Button>
-            </div>
-
-            <div className="bridge-card__footer">
-              <span>
-                Reference price <strong className="bridge-card__mono">{formatCurrency(lendLiquidityRoute.oracleQuote.price)}</strong>
-              </span>
-              <span aria-hidden="true">·</span>
-              <span>
-                Last updated <strong className="bridge-card__mono">{bridgeLastUpdated}</strong>
-              </span>
-            </div>
-          </>
-        ) : (
-          <EmptyState
-            title="Bridge status unavailable"
-            subtitle={
-              sectionErrors.liquidity ??
-              'Refresh your account to load the current LEND bridge route and official price reference.'
-            }
-            actionLabel="Retry load"
-            onAction={handleRetryLoad}
-          />
-        )}
-      </Card>
-
-      {technicalModeEnabled ? (
-        <Card eyebrow="Technical details" title="Local protocol target" className="admin-card section-stack">
-          <div className="summary">
-            <div className="summary-row">
-              <span>Rollup chain</span>
-              <strong>{appEnv.appchainId}</strong>
-            </div>
-            <div className="summary-row">
-              <span>Package address</span>
-              <strong>{appEnv.packageAddress || 'Not set'}</strong>
-            </div>
-            <div className="summary-row">
-              <span>Smart contract module</span>
-              <strong>{appEnv.loanModuleName}</strong>
-            </div>
-            <div className="summary-row">
-              <span>Write mode</span>
-              <strong>{isChainWriteReady ? 'Live transaction' : 'Chain target not configured'}</strong>
-            </div>
-          </div>
-        </Card>
-      ) : null}
-
-      <div className="grid--2 section-stack">
-        <Card eyebrow="Apps demo" title="Apps available with credit" className="story-card">
-          {sectionErrors.merchants ? (
-            <EmptyState
-              title="Apps unavailable"
-              subtitle={sectionErrors.merchants}
-              actionLabel="Retry load"
-              onAction={handleRetryLoad}
-            />
-          ) : uniqueApps.length ? (
-            <>
-              <div className="app-family-grid">
-                {ecosystemFamilyStats.map((item) => (
-                  <div className="app-family-card" key={item.family}>
-                    <span>{item.family}</span>
-                    <strong>{item.count}</strong>
-                    <small>
-                      {item.liveCount} live · {item.headline}
-                    </small>
-                  </div>
-                ))}
-                <div className="ecosystem-next-card">
-                  <span className="ecosystem-next-card__label">Next integration</span>
-                  <strong>Inertia Protocol</strong>
-                  <p>
-                    Undercollateralized lending meets AI credit scoring. LendPay users will access
-                    Inertia liquidity pools without collateral requirements.
-                  </p>
-                  <span className="ecosystem-next-badge">In discussion</span>
-                </div>
-              </div>
-              <div className="merchant-partner-grid">
-                {uniqueApps.map((merchant) => (
-                  <div className="merchant-partner-card" key={merchant.id}>
-                    <div className="merchant-partner-card__head">
-                      <div>
-                        <span className="merchant-partner-card__eyebrow">Live app</span>
-                        <div className="request-row__title">{formatAppLabel(merchant)}</div>
-                      </div>
-                      <div className="merchant-partner-card__badges">
-                        <Badge tone="info">{appCategoryMeta(merchant.category).family}</Badge>
-                        <Badge tone={merchant.active ? 'success' : 'warning'}>
-                          {merchant.active ? 'active' : 'inactive'}
-                        </Badge>
-                      </div>
-                    </div>
-                    <p className="merchant-partner-card__description">
-                      {merchant.description ?? appCategoryMeta(merchant.category).description}
-                    </p>
-                    <div className="merchant-partner-card__use-cases">
-                      {(merchant.actions?.length
-                        ? merchant.actions
-                        : appCategoryMeta(merchant.category).examples
-                      ).map((example) => (
-                        <span className="merchant-partner-card__use-chip" key={`${merchant.id}-${example}`}>
-                          {example}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="summary merchant-partner-card__summary">
-                      <div className="summary-row">
-                        <span>{merchant.source === 'mock' ? 'Contract route' : 'Destination wallet'}</span>
-                        <strong>
-                          {merchant.source === 'mock'
-                            ? merchant.contract ?? merchant.merchantAddress
-                            : shortenAddress(merchant.merchantAddress)}
-                        </strong>
-                      </div>
-                      <div className="summary-row">
-                        <span>Use with LendPay</span>
-                        <strong>Available in checkout request</strong>
-                      </div>
-                      <div className="summary-row">
-                        <span>Extra fee</span>
-                        <strong>
-                          {merchant.partnerFeeBps > 0
-                            ? `${merchant.partnerFeeBps / 100}%`
-                            : 'No extra fee'}
-                        </strong>
-                      </div>
-                    </div>
-                    {merchant.proof ? (
-                      <div className="merchant-partner-card__foot merchant-partner-card__foot--public">
-                        <Button variant="secondary" onClick={() => setSelectedAppProofId(merchant.id)}>
-                          View testnet proof
-                        </Button>
-                        <span className="merchant-partner-card__proof-note">
-                          Route #{merchant.proof.merchantId} is live on {merchant.proof.chainId}
-                        </span>
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <EmptyState
-              title="No Initia apps yet"
-              subtitle="Apps will appear here once a live route is registered onchain."
-            />
-          )}
-        </Card>
-
-        <Card eyebrow="Live rewards" title="Borrower bonuses and promos" className="story-card">
-          {sectionErrors.campaigns ? (
-            <EmptyState
-              title="Live rewards unavailable"
-              subtitle={sectionErrors.campaigns}
-              actionLabel="Retry load"
-              onAction={handleRetryLoad}
-            />
-          ) : campaigns.length ? (
-            <div className="campaign-list">
-              {campaigns.map((campaign) => {
-                const campaignCopy = describeCampaign(campaign)
-                const ineligibleReason = campaign.canClaim
-                  ? null
-                  : getCampaignIneligibleReason(campaign, username)
-                const showClaimButton = campaign.claimableAmount > 0
-                const canShowEnabledClaim = showClaimButton && campaign.canClaim
-
-                return (
-                  <div className="campaign-row" key={campaign.id}>
-                    <div className="campaign-row__header">
-                      <div>
-                        <div className="request-row__title">{campaignCopy.title}</div>
-                        <div className="muted-copy">{campaignCopy.description}</div>
-                      </div>
-                      <Badge tone={campaign.status === 'open' ? 'success' : 'warning'}>
-                        {campaign.status}
-                      </Badge>
-                    </div>
-                    <div className="campaign-row__meta">
-                      Phase {campaign.phase} · Allocation {formatNumber(campaign.totalAllocation)} ·
-                      Claimed {formatNumber(campaign.totalClaimed)}
-                    </div>
-                    <div className="campaign-row__footer">
-                      <div className="campaign-row__claimable">
-                        <span>Claimable now</span>
-                        <strong>{formatNumber(campaign.claimableAmount)}</strong>
-                      </div>
-                      <div className="campaign-row__actions">
-                        <Badge tone={campaign.status === 'open' ? 'success' : 'warning'}>
-                          {campaign.canClaim ? 'Eligible' : 'Not eligible'}
-                        </Badge>
-                        {showClaimButton ? (
-                          <Button
-                            variant="secondary"
-                            title={!canShowEnabledClaim ? ineligibleReason ?? undefined : undefined}
-                            onClick={() => handleClaimCampaign(campaign.id)}
-                            disabled={
-                              !canShowEnabledClaim ||
-                              isProtocolActionPending(`campaign-${campaign.id}`)
-                            }
-                          >
-                            {isProtocolActionPending(`campaign-${campaign.id}`)
-                              ? 'Claiming...'
-                              : `Claim ${formatNumber(campaign.claimableAmount)} LEND`}
-                          </Button>
-                        ) : null}
-                      </div>
-                    </div>
-                    {!campaign.canClaim ? (
-                      <div className="campaign-row__reason">{ineligibleReason}</div>
-                    ) : null}
-                  </div>
-                )
-              })}
-              {showWalletRecovery ? (
-                <div className="wallet-recovery">
-                  <p>Wallet is still loading. Reconnect the Interwoven wallet, then try the campaign claim again.</p>
-                  <div className="wallet-recovery__actions">
-                    <Button onClick={handleOpenWalletApproval}>Reconnect wallet</Button>
-                    <Button variant="secondary" onClick={handleDismissWalletRecovery}>
-                      Dismiss
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <EmptyState
-              title="No live rewards right now"
-              subtitle="New borrower bonuses, repayment rewards, and seasonal promos will appear here."
-            />
-          )}
-        </Card>
-      </div>
-
-      {operatorModeEnabled ? (
-        <>
-          <div className="page__heading section-stack">
+        <section className="ecosystem-panel ecosystem-panel--feature">
+          <div className="ecosystem-panel__header ecosystem-panel__header--feature">
             <div>
-              <h3 className="page__title">Local operator actions</h3>
-              <p className="page__subtitle">
-                These controls exist for local operator work so the protocol owner can seed apps,
-                launch campaigns, and submit governance actions from the same app.
+              <span className="ecosystem-pill ecosystem-pill--slate">NFT Drop · Partner Exclusive</span>
+              <h2 className="ecosystem-panel__title">Viral NFT Collections</h2>
+              <p className="ecosystem-panel__subtitle">
+                Curated drops from external partners. Buy with LendPay credit directly.
               </p>
             </div>
+            <span className="ecosystem-pill ecosystem-pill--partner">Partner</span>
           </div>
 
-          <div className="grid--2">
-            <Card eyebrow="Governance" title="Propose a protocol change" className="story-card">
-              <p className="muted-copy">
-                This is the operator action for creating a governance proposal from the same app.
-              </p>
-              <div className="field">
-                <label htmlFor="proposalType">Proposal type</label>
-                <input
-                  id="proposalType"
-                  type="number"
-                  min="1"
-                  value={governanceDraft.proposalType}
-                  onChange={(event) =>
-                    setGovernanceDraft((current) => ({ ...current, proposalType: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="proposalTitle">Title</label>
-                <input
-                  id="proposalTitle"
-                  value={governanceDraft.title}
-                  onChange={(event) =>
-                    setGovernanceDraft((current) => ({ ...current, title: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="proposalBody">Body</label>
-                <input
-                  id="proposalBody"
-                  value={governanceDraft.body}
-                  onChange={(event) =>
-                    setGovernanceDraft((current) => ({ ...current, body: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="card-action-row">
-                <Button
-                  onClick={handleProposeGovernance}
-                  disabled={isProtocolActionPending('governance-propose')}
-                >
-                  {isProtocolActionPending('governance-propose') ? 'Submitting...' : 'Submit proposal'}
-                </Button>
-              </div>
-            </Card>
-
-            <Card eyebrow="Reward campaigns" title="Live borrower incentive programs" className="story-card">
-              <p className="muted-copy">
-                Campaigns are public reward pools for borrowers. This card also lets the operator
-                create and fund them.
-              </p>
-              <div className="field">
-                <label htmlFor="campaignPhase">Phase</label>
-                <input
-                  id="campaignPhase"
-                  type="number"
-                  min="1"
-                  value={campaignDraft.phase}
-                  onChange={(event) =>
-                    setCampaignDraft((current) => ({ ...current, phase: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="campaignAllocation">Total allocation</label>
-                <input
-                  id="campaignAllocation"
-                  type="number"
-                  min="1"
-                  value={campaignDraft.totalAllocation}
-                  onChange={(event) =>
-                    setCampaignDraft((current) => ({ ...current, totalAllocation: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="campaignMinimumActions">Minimum platform actions</label>
-                <input
-                  id="campaignMinimumActions"
-                  type="number"
-                  min="0"
-                  value={campaignDraft.minimumPlatformActions}
-                  onChange={(event) =>
-                    setCampaignDraft((current) => ({
-                      ...current,
-                      minimumPlatformActions: event.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div className="card-action-row">
-                <Button
-                  onClick={handleCreateCampaign}
-                  disabled={isProtocolActionPending('campaign-create')}
-                >
-                  {isProtocolActionPending('campaign-create') ? 'Creating...' : 'Create campaign'}
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() =>
-                    setCampaignDraft((current) => ({
-                      ...current,
-                      requiresUsername: !current.requiresUsername,
-                    }))
-                  }
-                >
-                  {campaignDraft.requiresUsername ? 'Require .init username' : 'Username optional'}
-                </Button>
-              </div>
-              <div className="field">
-                <label htmlFor="allocationCampaignId">Campaign id</label>
-                <input
-                  id="allocationCampaignId"
-                  type="number"
-                  min="1"
-                  value={allocationDraft.campaignId}
-                  onChange={(event) =>
-                    setAllocationDraft((current) => ({ ...current, campaignId: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="allocationUserAddress">Recipient address</label>
-                <input
-                  id="allocationUserAddress"
-                  value={allocationDraft.userAddress}
-                  onChange={(event) =>
-                    setAllocationDraft((current) => ({ ...current, userAddress: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="allocationAmount">Allocation amount</label>
-                <input
-                  id="allocationAmount"
-                  type="number"
-                  min="1"
-                  value={allocationDraft.amount}
-                  onChange={(event) =>
-                    setAllocationDraft((current) => ({ ...current, amount: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="card-action-row">
-                <Button
-                  onClick={handleAllocateCampaign}
-                  disabled={isProtocolActionPending('campaign-allocate')}
-                >
-                  {isProtocolActionPending('campaign-allocate') ? 'Allocating...' : 'Allocate claim'}
-                </Button>
-              </div>
-            </Card>
-          </div>
-
-          <div className="grid--2">
-            <Card eyebrow="App network" title="Live Initia apps" className="story-card">
-              <p className="muted-copy">
-                Initia apps are the real routes for borrower credit. Borrowers see these apps in the
-                request flow, and the same card lets the operator add more of them.
-              </p>
-              <div className="field">
-                <label htmlFor="merchantAddress">Payout address</label>
-                <input
-                  id="merchantAddress"
-                  value={merchantDraft.merchantAddress}
-                  onChange={(event) =>
-                    setMerchantDraft((current) => ({ ...current, merchantAddress: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="merchantCategory">Category</label>
-                <input
-                  id="merchantCategory"
-                  value={merchantDraft.category}
-                  onChange={(event) =>
-                    setMerchantDraft((current) => ({ ...current, category: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="merchantListingFee">Listing fee bps</label>
-                <input
-                  id="merchantListingFee"
-                  type="number"
-                  min="0"
-                  value={merchantDraft.listingFeeBps}
-                  onChange={(event) =>
-                    setMerchantDraft((current) => ({ ...current, listingFeeBps: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="merchantPartnerFee">Partner fee bps</label>
-                <input
-                  id="merchantPartnerFee"
-                  type="number"
-                  min="0"
-                  value={merchantDraft.partnerFeeBps}
-                  onChange={(event) =>
-                    setMerchantDraft((current) => ({ ...current, partnerFeeBps: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="card-action-row">
-                <Button
-                  onClick={handleRegisterMerchant}
-                  disabled={isProtocolActionPending('merchant-create')}
-                >
-                  {isProtocolActionPending('merchant-create') ? 'Registering...' : 'Register app'}
-                </Button>
-              </div>
-              {uniqueApps.length ? (
-                <div className="merchant-partner-grid">
-                  {uniqueApps.map((merchant) => (
-                    <div className="merchant-partner-card" key={merchant.id}>
-                      <div className="merchant-partner-card__head">
-                        <div>
-                          <span className="merchant-partner-card__eyebrow">App #{merchant.id}</span>
-                          <div className="request-row__title">{formatAppLabel(merchant)}</div>
-                        </div>
-                        <div className="merchant-partner-card__badges">
-                          <Badge tone="info">{appCategoryMeta(merchant.category).family}</Badge>
-                          <Badge tone={merchant.active ? 'success' : 'warning'}>
-                            {merchant.active ? 'active' : 'inactive'}
-                          </Badge>
-                        </div>
-                      </div>
-                      <p className="merchant-partner-card__description">
-                        {merchant.description ?? appCategoryMeta(merchant.category).description}
-                      </p>
-                      <div className="merchant-partner-card__use-cases">
-                        {(merchant.actions?.length
-                          ? merchant.actions
-                          : appCategoryMeta(merchant.category).examples
-                        ).map((example) => (
-                          <span className="merchant-partner-card__use-chip" key={`${merchant.id}-${example}`}>
-                            {example}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="summary merchant-partner-card__summary">
-                        <div className="summary-row">
-                          <span>{merchant.source === 'mock' ? 'Contract' : 'Wallet'}</span>
-                          <strong>
-                            {merchant.source === 'mock'
-                              ? merchant.contract ?? merchant.merchantAddress
-                              : shortenAddress(merchant.merchantAddress)}
-                          </strong>
-                        </div>
-                        <div className="summary-row">
-                          <span>Partner fee</span>
-                          <strong>{merchant.partnerFeeBps / 100}%</strong>
-                        </div>
-                        <div className="summary-row">
-                          <span>Live quote</span>
-                          <strong>{formatNumber(merchant.partnerFeeQuote)}</strong>
-                        </div>
-                        <div className="summary-row">
-                          <span>Route</span>
-                          <strong>
-                            {merchant.source === 'mock' ? 'Preview app catalog' : 'Live borrower destination'}
-                          </strong>
-                        </div>
-                      </div>
-                      <div className="merchant-partner-card__foot">
-                        {merchant.source === 'onchain' ? (
-                          <Button
-                            variant="secondary"
-                            onClick={() => handleSetMerchantActive(merchant.id, !merchant.active)}
-                            disabled={isProtocolActionPending(
-                              `merchant-active-${merchant.id}-${merchant.active ? 'off' : 'on'}`,
-                            )}
-                          >
-                            {isProtocolActionPending(
-                              `merchant-active-${merchant.id}-${merchant.active ? 'off' : 'on'}`,
-                            )
-                              ? 'Updating...'
-                              : merchant.active
-                                ? 'Deactivate'
-                                : 'Activate'}
-                          </Button>
-                        ) : (
-                          <Badge tone="info">Seeded mock app</Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+          <div className="ecosystem-drop-grid">
+            {partnerDrops.map((drop) => (
+              <button
+                key={drop.id}
+                type="button"
+                className="ecosystem-drop-card"
+                onClick={() => {
+                  setQuantity(1)
+                  setSelectedDrop(drop)
+                }}
+              >
+                <div className={['ecosystem-drop-card__art', drop.artClass].join(' ')}>
+                  <span>{drop.emoji}</span>
                 </div>
-              ) : (
-                <p className="muted-copy">No Initia apps are registered onchain yet.</p>
-              )}
-            </Card>
-          </div>
-        </>
-      ) : null}
-
-      <Card eyebrow="Protocol updates" title="Recent protocol decisions" className="grid section-stack">
-        {sectionErrors.governance ? (
-          <EmptyState
-            title="Protocol updates unavailable"
-            subtitle={sectionErrors.governance}
-            actionLabel="Retry load"
-            onAction={handleRetryLoad}
-          />
-        ) : protocolUpdates.length ? (
-          <div className="request-list">
-            {protocolUpdates.map((update) => (
-              <div className="request-row" key={update.id}>
-                <div>
-                  <div className="request-row__title">{update.title}</div>
-                  <div className="muted-copy">{update.meta}</div>
-                  <div className="muted-copy">{update.subtitle}</div>
+                <div className="ecosystem-drop-card__body">
+                  <h3 className="ecosystem-drop-card__name">{drop.name}</h3>
+                  <div className="ecosystem-drop-card__price mono">{formatLendAmount(drop.price)}</div>
+                  <div className="ecosystem-drop-card__partner">{drop.partnerLabel}</div>
                 </div>
-                <div className="schedule__right">
-                  <Badge tone={update.badgeTone}>{update.badgeLabel}</Badge>
-                  {update.kind === 'governance' && update.proposal ? (
-                    (() => {
-                      const proposal = update.proposal
-
-                      return (
-                        <div className="card-action-row">
-                          <Button
-                            variant="secondary"
-                            onClick={() => handleVoteGovernance(proposal.id, true)}
-                            disabled={
-                              proposal.status !== 'open' ||
-                              proposal.hasVoted ||
-                              isProtocolActionPending(`vote-${proposal.id}-yes`)
-                            }
-                          >
-                            {isProtocolActionPending(`vote-${proposal.id}-yes`) ? 'Voting...' : 'Vote yes'}
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            onClick={() => handleVoteGovernance(proposal.id, false)}
-                            disabled={
-                              proposal.status !== 'open' ||
-                              proposal.hasVoted ||
-                              isProtocolActionPending(`vote-${proposal.id}-no`)
-                            }
-                          >
-                            {isProtocolActionPending(`vote-${proposal.id}-no`) ? 'Voting...' : 'Vote no'}
-                          </Button>
-                          <Button
-                            onClick={() => handleFinalizeProposal(proposal.id)}
-                            disabled={
-                              proposal.status !== 'open' ||
-                              isProtocolActionPending(`finalize-${proposal.id}`)
-                            }
-                          >
-                            {isProtocolActionPending(`finalize-${proposal.id}`)
-                              ? 'Finalizing...'
-                              : 'Finalize'}
-                          </Button>
-                        </div>
-                      )
-                    })()
-                  ) : null}
-                </div>
-              </div>
+              </button>
             ))}
           </div>
-        ) : (
-          <EmptyState
-            title="No protocol updates right now"
-            subtitle="Important policy changes and app listings will appear here."
-          />
-        )}
-      </Card>
+
+          <div className="ecosystem-panel__footer">
+            <div className="ecosystem-panel__footer-left">
+              <span className="ecosystem-pill ecosystem-pill--partner">NFT</span>
+              <span className="ecosystem-pill ecosystem-pill--success">Checkout ready</span>
+            </div>
+            <div className="ecosystem-panel__footer-copy">Use LendPay credit to buy</div>
+          </div>
+        </section>
+
+        <section className="ecosystem-panel">
+          <div className="ecosystem-panel__header">
+            <div>
+              <span className="ecosystem-panel__eyebrow">Ecosystem status</span>
+              <h2 className="ecosystem-panel__section-title">What is live right now</h2>
+            </div>
+          </div>
+
+          <div className="ecosystem-status-grid">
+            <div className="ecosystem-status-card">
+              <span>Apps live</span>
+              <strong className="mono">{appsLive ?? '—'}</strong>
+            </div>
+            <div className="ecosystem-status-card">
+              <span>Active campaigns</span>
+              <strong className="mono">{activeCampaigns ?? '—'}</strong>
+            </div>
+            <div className="ecosystem-status-card">
+              <span>Governance proposals</span>
+              <strong className="mono">{proposalCount ?? '—'}</strong>
+            </div>
+            <div className="ecosystem-status-card">
+              <span>Credit mode</span>
+              <strong className="ecosystem-status-card__value--blue">
+                {isChainWriteReady ? 'Live' : 'Preview'}
+              </strong>
+            </div>
+          </div>
+        </section>
+
+        <section className="ecosystem-panel">
+          <div className="ecosystem-panel__header">
+            <div>
+              <span className="ecosystem-panel__eyebrow">Partners</span>
+              <h2 className="ecosystem-panel__section-title">Live Apps</h2>
+            </div>
+          </div>
+
+          {sectionErrors.merchants ? (
+            <div className="ecosystem-fallback">
+              <div>
+                <strong>Live partner apps are unavailable right now.</strong>
+                <p>{sectionErrors.merchants}</p>
+              </div>
+              <button type="button" className="ecosystem-button ecosystem-button--ghost" onClick={handleRetryLoad}>
+                Retry load
+              </button>
+            </div>
+          ) : (
+            <div className="ecosystem-live-apps">
+              {featuredApps.map((app) => (
+                <div key={app.id} className="ecosystem-live-app-card">
+                  <h3>{app.name}</h3>
+                  <p>{app.description}</p>
+                  <div className="ecosystem-live-app-card__fee">Partner fee: {formatPartnerFee(app.partnerFeeBps)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="ecosystem-panel">
+          <div className="ecosystem-panel__header">
+            <div>
+              <span className="ecosystem-panel__eyebrow">Live rewards</span>
+              <h2 className="ecosystem-panel__section-title">Rewards</h2>
+            </div>
+          </div>
+
+          {sectionErrors.campaigns ? (
+            <div className="ecosystem-fallback">
+              <div>
+                <strong>Rewards are unavailable right now.</strong>
+                <p>{sectionErrors.campaigns}</p>
+              </div>
+              <button type="button" className="ecosystem-button ecosystem-button--ghost" onClick={handleRetryLoad}>
+                Retry load
+              </button>
+            </div>
+          ) : activeCampaigns && activeCampaigns > 0 ? (
+            <div className="ecosystem-live-rewards">
+              <div className="ecosystem-live-rewards__headline">
+                <span className="ecosystem-pill ecosystem-pill--success">Active</span>
+                <strong>{formatNumber(campaigns.length)} reward campaign{campaigns.length === 1 ? '' : 's'} live</strong>
+              </div>
+              <p>
+                Campaigns are active on the protocol, but this redesign keeps the primary focus on partner NFT checkout surfaces.
+              </p>
+            </div>
+          ) : (
+            <div className="ecosystem-empty">
+              <div className="ecosystem-empty__icon" aria-hidden="true">
+                🎁
+              </div>
+              <strong>No live rewards right now</strong>
+              <p>Partner campaigns and checkout incentives will appear here when new drops go live.</p>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {selectedDrop ? (
+        <div
+          className="ecosystem-modal-backdrop"
+          onClick={() => setSelectedDrop(null)}
+          role="presentation"
+        >
+          <div
+            className="ecosystem-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ecosystemPurchaseTitle"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="ecosystem-modal__header">
+              <div>
+                <h3 className="ecosystem-modal__title" id="ecosystemPurchaseTitle">
+                  {selectedDrop.name}
+                </h3>
+                <p className="ecosystem-modal__partner">{selectedDrop.partnerLabel}</p>
+              </div>
+              <button
+                type="button"
+                className="ecosystem-modal__close"
+                onClick={() => setSelectedDrop(null)}
+                aria-label="Close purchase modal"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="ecosystem-modal__info-grid">
+              <div className="ecosystem-modal__info-card">
+                <span>Price in LEND</span>
+                <strong className="mono">{formatLendAmount(selectedDrop.price)}</strong>
+              </div>
+              <div className="ecosystem-modal__info-card">
+                <span>Available credit</span>
+                <strong className="mono">{formatLendAmount(availableCredit)}</strong>
+              </div>
+            </div>
+
+            <label className="ecosystem-modal__field">
+              <span>Quantity</span>
+              <input
+                type="number"
+                min="1"
+                max={maxQuantity}
+                step="1"
+                value={quantity}
+                onChange={(event) => handleQuantityChange(event.target.value)}
+                className="ecosystem-modal__input mono"
+              />
+            </label>
+
+            <div className="ecosystem-modal__total">
+              <div>
+                <span>Live total</span>
+                <strong className="mono">
+                  {formatLendAmount(totalLend)}
+                </strong>
+              </div>
+              <div>
+                <span>Estimated installment</span>
+                <strong className="mono">{formatCurrency(estimatedMonthlyInstallment)}/month</strong>
+              </div>
+            </div>
+
+            <p className="ecosystem-modal__note">
+              This purchase will be added to your LendPay installment plan.
+            </p>
+
+            <div className="ecosystem-modal__actions">
+              <button
+                type="button"
+                className="ecosystem-button ecosystem-button--ghost"
+                onClick={() => setSelectedDrop(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="ecosystem-button ecosystem-button--primary"
+                onClick={handleConfirmPurchase}
+              >
+                Buy with Credit
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="ecosystem-toast-stack" aria-live="polite">
+        {toasts.map((toast) => (
+          <div key={toast.id} className="ecosystem-toast">
+            {toast.message}
+          </div>
+        ))}
+      </div>
     </>
   )
 }

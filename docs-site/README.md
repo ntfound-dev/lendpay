@@ -32,3 +32,15 @@ npm run dev
 cd docs-site
 npm run build
 ```
+
+## Vercel
+
+This docs app is separate from the main frontend app.
+
+Use a second Vercel project for `docs-site` with:
+
+- Root Directory: `docs-site`
+- Build Command: `npm run build`
+- Output Directory: `docs/.vitepress/dist`
+
+This folder now includes [`vercel.json`](./vercel.json) for that setup.

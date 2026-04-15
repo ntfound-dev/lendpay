@@ -12,6 +12,7 @@ import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { LoanSchedule } from '../loans/LoanSchedule'
+import { AgentAutonomyCard } from '../shared/AgentAutonomyCard'
 import { EmptyState } from '../shared/EmptyState'
 
 type UnlockRow = {
@@ -23,6 +24,9 @@ type UnlockRow = {
 type RepayPageProps = {
   activeLoan: LoanState | null
   activeLoanDropItems: ViralDropItemState[]
+  autoRepayEnabled: boolean
+  autoSignPreferenceEnabled: boolean
+  autoSignSessionExpiresAt: Date | null
   buyingDropItemId: string | null
   checkoutAppMeta: AppCategoryMeta
   checkoutDueLabel: string
@@ -35,11 +39,16 @@ type RepayPageProps = {
   handleBuyViralDrop: (item: ViralDropItemState) => void | Promise<void>
   handleClaimFaucet: () => void | Promise<void>
   handleClaimCollectible: (purchase: ViralDropPurchaseState) => void | Promise<void>
+  handleDisableAutoRepay: () => void
+  handleDisableAutoSignPreference: () => void
   handleDismissWalletRecovery: () => void | Promise<void>
+  handleEnableAutoRepay: () => void | Promise<void>
+  handleEnableAutoSign: () => void | Promise<void>
   handleOpenWalletApproval: () => void | Promise<void>
   handlePayFeesInLend: () => void | Promise<void>
   handleRepay: () => void | Promise<void>
   handleRetryLoad: () => void | Promise<void>
+  hasActiveAutoSignPermission: boolean
   isClaimingFaucet: boolean
   isClaimingDropCollectible: boolean
   isProtocolActionPending: (key: string) => boolean
@@ -64,6 +73,9 @@ type RepayPageProps = {
 export function RepayPage({
   activeLoan,
   activeLoanDropItems,
+  autoRepayEnabled,
+  autoSignPreferenceEnabled,
+  autoSignSessionExpiresAt,
   buyingDropItemId,
   checkoutAppMeta,
   checkoutDueLabel,
@@ -76,11 +88,16 @@ export function RepayPage({
   handleBuyViralDrop,
   handleClaimFaucet,
   handleClaimCollectible,
+  handleDisableAutoRepay,
+  handleDisableAutoSignPreference,
   handleDismissWalletRecovery,
+  handleEnableAutoRepay,
+  handleEnableAutoSign,
   handleOpenWalletApproval,
   handlePayFeesInLend,
   handleRepay,
   handleRetryLoad,
+  hasActiveAutoSignPermission,
   isClaimingFaucet,
   isClaimingDropCollectible,
   isProtocolActionPending,
@@ -244,6 +261,22 @@ export function RepayPage({
           </p>
         )}
       </Card>
+
+      {activeLoan || hasActiveAutoSignPermission || autoRepayEnabled ? (
+        <AgentAutonomyCard
+          autoRepayEnabled={autoRepayEnabled}
+          autoSignPreferenceEnabled={autoSignPreferenceEnabled}
+          autoSignSessionExpiresAt={autoSignSessionExpiresAt}
+          hasActiveAutoSignPermission={hasActiveAutoSignPermission}
+          isBusy={isRepaying}
+          nextDueAmount={nextDueItem?.amount ?? null}
+          nextDueAt={nextDueItem?.dueAt ?? null}
+          onDisableAutoRepay={handleDisableAutoRepay}
+          onDisableAutoSignPreference={handleDisableAutoSignPreference}
+          onEnableAutoRepay={handleEnableAutoRepay}
+          onEnableAutoSign={handleEnableAutoSign}
+        />
+      ) : null}
 
       {faucet?.enabled ? (
         <Card

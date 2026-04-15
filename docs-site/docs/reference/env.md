@@ -15,6 +15,7 @@ Source file:
 ```bash
 frontend/.env
 frontend/.env.example
+frontend/.env.production.example
 ```
 
 Most important variables:
@@ -51,6 +52,7 @@ Most important variables:
 Important rule:
 
 - frontend package address and function names must match the deployed Move package actually running on the rollup
+- production frontend builds should set real hosted URLs explicitly instead of relying on fallback defaults
 
 ## Backend
 

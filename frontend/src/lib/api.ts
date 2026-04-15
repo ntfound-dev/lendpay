@@ -464,7 +464,13 @@ export const lendpayApi = {
   },
 
   repayLoan(token: string, loanId: string, txHash?: string) {
-    return request<{ loan: LoanState; txHash: string; mode: 'preview' | 'live' }>(
+    return request<{
+      loan: LoanState
+      txHash: string
+      mode: 'preview' | 'live'
+      pending?: boolean
+      message?: string
+    }>(
       `/api/v1/loans/${loanId}/repay`,
       {
         method: 'POST',

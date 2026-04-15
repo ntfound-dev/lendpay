@@ -160,13 +160,13 @@ func (s *Server) Handler() http.Handler {
 	router.Get("/api/v1/meta/ai", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, s.ollama.GetStatus(r.Context(), false))
 	})
-	router.Get("/api/v1/meta/metrics", expvar.Handler().ServeHTTP)
+	router.Get("/api/v1/meta/metrics", s.handleGetMetrics)
 
 	router.Get("/api/v1/meta/chains", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"l1RestUrl":     s.cfg.InitiaL1RestURL,
-			"rollupRestUrl": s.cfg.RollupRESTURL,
-			"rollupRpcUrl":  s.cfg.RollupRPCURL,
+			"rollupRestUrl": s.cfg.PublicRollupRESTURL,
+			"rollupRpcUrl":  s.cfg.PublicRollupRPCURL,
 			"rollupChainId": s.cfg.RollupChainID,
 		})
 	})
@@ -315,10 +315,10 @@ func (s *Server) handleCreateChallenge(w http.ResponseWriter, r *http.Request) {
 	}
 
 	address := strings.TrimSpace(body.Address)
-	if len(address) < 10 {
+	if !isValidChallengeAddress(address) {
 		writeAppError(w, &appError{
 			Code:       "VALIDATION_ERROR",
-			Message:    "Address is required.",
+			Message:    "A valid Initia wallet address is required.",
 			StatusCode: http.StatusBadRequest,
 		})
 		return
@@ -968,6 +968,15 @@ func (s *Server) handleGetLendLiquidityRoute(w http.ResponseWriter, r *http.Requ
 		TransferMethod:  "ibc_hooks",
 		WalletHandler:   "interwovenkit",
 	})
+}
+
+func (s *Server) handleGetMetrics(w http.ResponseWriter, r *http.Request) {
+	if _, appErr := s.requireOperator(r); appErr != nil {
+		writeAppError(w, appErr)
+		return
+	}
+
+	expvar.Handler().ServeHTTP(w, r)
 }
 
 func (s *Server) handlePreviewProtocolAction(action string) http.HandlerFunc {
@@ -3388,6 +3397,24 @@ func (s *Server) repayLoan(ctx context.Context, user userRow, loanID, txHash str
 
 		updatedRow, appErr := s.confirmLiveRepayment(ctx, row, user.InitiaAddress, repaymentHash)
 		if appErr != nil {
+			if isPendingRepaymentError(appErr) {
+				currentLoan, mapErr := mapLoan(row)
+				if mapErr != nil {
+					return nil, &appError{
+						Code:       "DATABASE_ERROR",
+						Message:    "Loan could not be loaded.",
+						StatusCode: http.StatusInternalServerError,
+					}
+				}
+
+				return map[string]any{
+					"loan":    currentLoan,
+					"message": appErr.Message,
+					"mode":    currentLoan.RouteMode,
+					"pending": true,
+					"txHash":  repaymentHash,
+				}, nil
+			}
 			return nil, appErr
 		}
 
@@ -3513,6 +3540,14 @@ func (s *Server) repayLoan(ctx context.Context, user userRow, loanID, txHash str
 		"mode":   updatedLoan.RouteMode,
 		"txHash": repaymentHash,
 	}, nil
+}
+
+func isPendingRepaymentError(err *appError) bool {
+	if err == nil {
+		return false
+	}
+
+	return err.Code == "TX_CONFIRMATION_PENDING" || err.Code == "REPAYMENT_TX_PENDING"
 }
 
 func (s *Server) confirmLiveRepayment(ctx context.Context, row loanRow, borrowerAddress, txHash string) (loanRow, *appError) {

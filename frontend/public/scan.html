@@ -838,6 +838,95 @@
         flex-wrap: wrap;
       }
 
+      .contract-call-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .contract-call {
+        display: grid;
+        gap: 14px;
+        padding: 16px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.01)),
+          #171717;
+      }
+
+      .contract-call__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .contract-call__title-wrap {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .contract-call__eyebrow,
+      .contract-call__meta-label {
+        color: var(--text-muted);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .contract-call__target {
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.96rem;
+        font-weight: 600;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+      }
+
+      .contract-call__badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0.48rem 0.7rem;
+        border-radius: 999px;
+        border: 1px solid rgba(0, 212, 200, 0.18);
+        background: rgba(0, 212, 200, 0.08);
+        color: var(--accent);
+        font-size: 0.76rem;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      .contract-call__grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr);
+        gap: 12px;
+      }
+
+      .contract-call__meta {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .contract-call__meta-value {
+        min-width: 0;
+        color: var(--text-soft);
+      }
+
+      .contract-call__meta-value--mono {
+        font-family: var(--mono);
+        overflow-wrap: anywhere;
+      }
+
+      .contract-call__footnote {
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
       .button {
         display: inline-flex;
         align-items: center;
@@ -939,12 +1028,17 @@
         }
 
         .metrics,
-        .modal__stats {
+        .modal__stats,
+        .contract-call__grid {
           grid-template-columns: 1fr;
         }
 
         .modal__row {
           grid-template-columns: 1fr;
+        }
+
+        .contract-call {
+          padding: 14px;
         }
       }
     </style>
@@ -984,7 +1078,7 @@
             <span>Live height</span>
             <strong id="sidebarHeight">...</strong>
           </div>
-          <a class="sidebar__doc" href="https://github.com/ntfound-dev/lendpay/tree/main/docs-site" target="_blank" rel="noreferrer">
+          <a class="sidebar__doc" href="https://lendpay-docs.vercel.app" target="_blank" rel="noreferrer">
             View doc ↗
           </a>
         </div>
@@ -1043,8 +1137,9 @@
 
     <script>
       const API_BASE = `${window.location.origin}/scan-api`
+      const PROD_SCAN_API_BASE = 'https://rollup-runtime-backend.up.railway.app'
       const DEFAULT_CHAIN_ID = 'lendpay-4'
-      const DOCS_URL = 'https://github.com/ntfound-dev/lendpay/tree/main/docs-site'
+      const DOCS_URL = 'https://lendpay-docs.vercel.app'
       const SAVED_ACCOUNTS_KEY = 'lendpay_scan_saved_accounts'
       const ACTIVE_ACCOUNT_KEY = 'lendpay_scan_active_account'
       const state = {
@@ -1512,10 +1607,12 @@
 
       function normalizeBlock(payload) {
         const block = payload.block || {}
+        const sdkBlock = payload.sdk_block || {}
         const header = block.header || {}
+        const sdkHeader = sdkBlock.header || {}
         const blockId = payload.block_id || {}
         const txs = Array.isArray(block.data && block.data.txs) ? block.data.txs : []
-        const proposerAddress = header.proposer_address || ''
+        const proposerAddress = sdkHeader.proposer_address || header.proposer_address || ''
 
         return {
           height: Number(header.height || 0),
@@ -1545,25 +1642,71 @@
         return query.length >= 10 && /[a-zA-Z]/.test(query)
       }
 
+      function shouldUseRemoteScanFallback() {
+        const host = window.location.hostname.toLowerCase()
+        return host !== 'localhost' && host !== '127.0.0.1'
+      }
+
+      function resolveRemoteScanFallback(path) {
+        if (!shouldUseRemoteScanFallback()) {
+          return null
+        }
+
+        try {
+          const url = new URL(path, window.location.origin)
+          if (!url.pathname.startsWith('/scan-api/')) {
+            return null
+          }
+
+          const fallbackUrl = new URL(url.pathname.replace(/^\/scan-api/, ''), PROD_SCAN_API_BASE)
+          fallbackUrl.search = url.search
+          return fallbackUrl.toString()
+        } catch {
+          return null
+        }
+      }
+
       async function requestJson(path) {
         const controller = new AbortController()
         const timeoutId = window.setTimeout(() => controller.abort(), 8000)
+        const fallbackUrl = resolveRemoteScanFallback(path)
 
         try {
-          const response = await fetch(path, { signal: controller.signal })
+          let response = await fetch(path, { signal: controller.signal })
+          if (!response.ok && fallbackUrl) {
+            response = await fetch(fallbackUrl, { signal: controller.signal })
+          }
           if (!response.ok) {
             throw new Error(`Request failed with ${response.status}`)
+          }
+
+          const contentType = response.headers.get('content-type') || ''
+          if (!contentType.toLowerCase().includes('application/json')) {
+            if (fallbackUrl && !response.url.startsWith(PROD_SCAN_API_BASE)) {
+              response = await fetch(fallbackUrl, { signal: controller.signal })
+            }
+
+            const fallbackContentType = response.headers.get('content-type') || ''
+            if (!fallbackContentType.toLowerCase().includes('application/json')) {
+              throw new Error('Explorer endpoint returned a non-JSON response.')
+            }
           }
 
           return await response.json()
         } catch (error) {
           if (error instanceof Error && error.name === 'AbortError') {
-            throw new Error('Request timed out while waiting for localhost:1317.')
+            throw new Error(
+              shouldUseRemoteScanFallback()
+                ? 'Request timed out while waiting for the Railway rollup explorer endpoint.'
+                : 'Request timed out while waiting for localhost:1317.',
+            )
           }
 
           if (error instanceof TypeError) {
             throw new Error(
-              'Could not reach the local explorer proxy at /scan-api. Make sure the LendPay frontend and rollup REST service are running.',
+              shouldUseRemoteScanFallback()
+                ? 'Could not reach the rollup explorer endpoint. Check the Vercel rewrite or the Railway rollup runtime domain.'
+                : 'Could not reach the local explorer proxy at /scan-api. Make sure the LendPay frontend and rollup REST service are running.',
             )
           }
 
@@ -2297,20 +2440,63 @@
                 <div class="modal__summary">No dedicated contract verifier endpoint is configured yet. This panel shows recent package, module, and function activity so developers can verify call surfaces manually.</div>
                 <section class="modal__section">
                   <h3 class="modal__section-title">Recent contract calls</h3>
-                  <div class="modal__rows">
+                  <div class="contract-call-list">
                     ${
                       contractRows.length
                         ? contractRows
-                            .map(
-                              (tx) => `
-                                <div class="modal__row">
-                                  <div class="modal__row-label">${escapeHtml(tx.action)}</div>
-                                  <div class="modal__row-value">
-                                    ${createCopyableMarkup(tx.moduleAddress, { display: `${truncateMiddle(tx.moduleAddress, 10, 8)} · ${tx.moduleName}::${tx.functionName}`, className: ' modal__mono' })}
+                            .map((tx, index) => {
+                              const hasModule = tx.moduleName && tx.moduleName !== '—'
+                              const hasFunction = tx.functionName && tx.functionName !== '—'
+                              const targetLabel =
+                                hasModule || hasFunction
+                                  ? `${hasModule ? tx.moduleName : 'move'}::${hasFunction ? tx.functionName : 'execute'}`
+                                  : tx.action
+                              const packageDisplay =
+                                tx.moduleAddress && tx.moduleAddress !== '—'
+                                  ? truncateMiddle(tx.moduleAddress, 12, 10)
+                                  : '—'
+                              const shouldShowObservedAction = tx.action && tx.action !== targetLabel
+
+                              return `
+                                <article class="contract-call">
+                                  <div class="contract-call__head">
+                                    <div class="contract-call__title-wrap">
+                                      <span class="contract-call__eyebrow">Call ${String(index + 1).padStart(2, '0')}</span>
+                                      <div class="contract-call__target">${escapeHtml(targetLabel)}</div>
+                                    </div>
+                                    <span class="contract-call__badge">${escapeHtml(state.network)}</span>
                                   </div>
-                                </div>
-                              `,
-                            )
+                                  <div class="contract-call__grid">
+                                    <div class="contract-call__meta">
+                                      <span class="contract-call__meta-label">Package</span>
+                                      <div class="contract-call__meta-value">
+                                        ${createCopyableMarkup(tx.moduleAddress, { display: packageDisplay, className: ' modal__mono' })}
+                                      </div>
+                                    </div>
+                                    <div class="contract-call__meta">
+                                      <span class="contract-call__meta-label">Module</span>
+                                      <div class="contract-call__meta-value contract-call__meta-value--mono">${escapeHtml(tx.moduleName || '—')}</div>
+                                    </div>
+                                    <div class="contract-call__meta">
+                                      <span class="contract-call__meta-label">Function</span>
+                                      <div class="contract-call__meta-value contract-call__meta-value--mono">${escapeHtml(tx.functionName || '—')}</div>
+                                    </div>
+                                  </div>
+                                  ${
+                                    shouldShowObservedAction
+                                      ? `
+                                        <div class="contract-call__footnote">
+                                          <div class="contract-call__meta">
+                                            <span class="contract-call__meta-label">Observed action</span>
+                                            <div class="contract-call__meta-value contract-call__meta-value--mono">${escapeHtml(tx.action)}</div>
+                                          </div>
+                                        </div>
+                                      `
+                                      : ''
+                                  }
+                                </article>
+                              `
+                            })
                             .join('')
                         : '<div class="empty-state">No contract calls are available yet.</div>'
                     }
