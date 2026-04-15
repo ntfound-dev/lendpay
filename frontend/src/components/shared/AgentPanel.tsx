@@ -2,6 +2,8 @@ import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { Badge } from '../ui/Badge'
 
+export type AgentPanelTone = 'default' | 'success' | 'warning' | 'danger'
+
 interface AgentPanelProps {
   actionLabel?: string
   body: string
@@ -10,7 +12,9 @@ interface AgentPanelProps {
   engineLabel?: string
   onAction?: () => void
   recommendation: string
+  statusLabel?: string
   title: string
+  tone?: AgentPanelTone
 }
 
 export function AgentPanel({
@@ -21,7 +25,9 @@ export function AgentPanel({
   engineLabel,
   onAction,
   recommendation,
+  statusLabel,
   title,
+  tone = 'default',
 }: AgentPanelProps) {
   const normalizedConfidence =
     typeof confidence === 'number'
@@ -32,7 +38,7 @@ export function AgentPanel({
   const hasChecklist = checklistItems.length > 0
 
   return (
-    <Card eyebrow="LendPay Agent" title={title} className="agent-panel">
+    <Card eyebrow="LendPay Agent" title={title} className={`agent-panel agent-panel--${tone}`}>
       <div className="agent-panel__hero">
         <div className="agent-panel__hero-main">
           <div className="agent-panel__header">
@@ -42,6 +48,7 @@ export function AgentPanel({
                 <span>{actionLabel ? 'Ready to act' : 'Watching now'}</span>
               </div>
               <span className="agent-panel__engine-pill">{engineLabel ?? 'Live planner'}</span>
+              {statusLabel ? <span className="agent-panel__status-pill">{statusLabel}</span> : null}
             </div>
             {normalizedConfidence !== null ? (
               <Badge tone="info">Confidence {normalizedConfidence}%</Badge>

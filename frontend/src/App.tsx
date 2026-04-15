@@ -100,7 +100,7 @@ import { Topbar } from './components/layout/Topbar'
 import { MobileNav } from './components/layout/MobileNav'
 import { Button } from './components/ui/Button'
 import { Card } from './components/ui/Card'
-import { AgentPanel } from './components/shared/AgentPanel'
+import { AgentPanel, type AgentPanelTone } from './components/shared/AgentPanel'
 import { EmptyState } from './components/shared/EmptyState'
 import { OverviewPage } from './components/pages/OverviewPage'
 import { ProfilePage, type ScoreBreakdownRow } from './components/pages/ProfilePage'
@@ -4269,6 +4269,8 @@ function App() {
     'Once your profile is live, LendPay Agent will explain the safest next move for your account.'
   let agentPanelRecommendation = 'Connect and refresh your profile'
   let agentPanelConfidence: number | null = null
+  let agentPanelTone: AgentPanelTone = 'default'
+  let agentPanelStatusLabel = 'Waiting for wallet'
   let agentPanelActionLabel: string | undefined = undefined
   let handleAgentPanelAction: (() => void) | undefined = undefined
 
@@ -4304,6 +4306,8 @@ function App() {
         : 'Keep activity clean and refresh after your next onchain action'
       : 'Refresh your profile'
     agentPanelConfidence = null
+    agentPanelTone = score ? (score.risk === 'High' ? 'warning' : 'success') : 'default'
+    agentPanelStatusLabel = score ? `${score.risk} risk profile` : 'Analysis needed'
     agentPanelActionLabel = isAnalyzing ? undefined : 'Re-analyze'
     handleAgentPanelAction = isAnalyzing ? undefined : handleAnalyze
   } else if (activePage === 'request') {
@@ -4361,6 +4365,14 @@ function App() {
           : 'Send your credit request'
         : 'Pick one app in Request'
     agentPanelConfidence = null
+    agentPanelTone = requestBlockingMessage ? 'warning' : checkoutMerchantReady ? 'success' : 'default'
+    agentPanelStatusLabel = requestBlockingMessage
+      ? activeLoan
+        ? 'Credit already in motion'
+        : 'Request under review'
+      : checkoutMerchantReady
+        ? 'Ready to request'
+        : 'App selection needed'
     agentPanelActionLabel = requestBlockingMessage
       ? activeLoan
         ? 'Open Repay'
@@ -4429,6 +4441,36 @@ function App() {
         : 'Use the approved balance in your app'
       : 'Open Request when you are ready'
     agentPanelConfidence = null
+    const nextDueTimestamp = nextDueItem ? new Date(nextDueItem.dueAt).getTime() : null
+    const isRepaymentPastDue =
+      nextDueTimestamp !== null && Number.isFinite(nextDueTimestamp) && nextDueTimestamp < Date.now()
+    const isRepaymentDueSoon =
+      nextDueTimestamp !== null &&
+      Number.isFinite(nextDueTimestamp) &&
+      nextDueTimestamp >= Date.now() &&
+      nextDueTimestamp - Date.now() <= 3 * 24 * 60 * 60 * 1000
+    agentPanelTone = claimableDropPurchase
+      ? 'success'
+      : activeLoan
+        ? latestDropPurchase
+          ? isRepaymentPastDue
+            ? 'danger'
+            : isRepaymentDueSoon
+              ? 'warning'
+              : 'success'
+          : 'default'
+        : 'default'
+    agentPanelStatusLabel = claimableDropPurchase
+      ? 'Collectible unlocked'
+      : activeLoan
+        ? latestDropPurchase
+          ? isRepaymentPastDue
+            ? 'Payment needs attention'
+            : isRepaymentDueSoon
+              ? 'Due soon'
+              : 'Repayment current'
+          : 'Balance ready to use'
+        : 'No live repayment yet'
     agentPanelActionLabel = claimableDropPurchase
       ? isClaimingDropCollectible
         ? undefined
@@ -4458,6 +4500,8 @@ function App() {
       : 'Each clean repayment and repeat purchase adds more trust to your account and moves you closer to better terms.'
     agentPanelRecommendation = canClaimAvailableRewards ? `Claim ${formatNumber(claimableRewardsTotal)} LEND from your rewards balance` : 'Use credit and repay on time'
     agentPanelConfidence = null
+    agentPanelTone = canClaimAvailableRewards ? 'success' : 'default'
+    agentPanelStatusLabel = canClaimAvailableRewards ? 'Rewards ready' : 'Benefits compounding'
     agentPanelActionLabel = canClaimAvailableRewards ? `Claim ${formatNumber(claimableRewardsTotal)} LEND` : 'Use credit'
     handleAgentPanelAction = canClaimAvailableRewards ? handleClaimAvailableRewards : () => setActivePage('request')
   } else if (activePage === 'admin') {
@@ -4495,6 +4539,24 @@ function App() {
       : 'Once your profile is refreshed, LendPay Agent will recommend the safest spend amount for this account.'
     agentPanelRecommendation = activeLoan ? 'Repay the next installment' : 'Open Request and choose an app'
     agentPanelConfidence = null
+    agentPanelTone = activeLoan
+      ? nextDueItem
+        ? 'warning'
+        : 'success'
+      : score
+        ? score.risk === 'Low'
+          ? 'success'
+          : score.risk === 'High'
+            ? 'warning'
+            : 'default'
+        : 'default'
+    agentPanelStatusLabel = activeLoan
+      ? nextDueItem
+        ? 'Repayment watch active'
+        : 'Account current'
+      : score
+        ? `${score.risk} risk profile`
+        : 'Profile refresh needed'
     agentPanelActionLabel = activeLoan ? 'Repay now' : score ? 'Use credit' : 'Refresh profile'
     handleAgentPanelAction = activeLoan ? handleRepay : score ? () => setActivePage('request') : handleAnalyze
   }
@@ -4505,6 +4567,8 @@ function App() {
     agentPanelBody = visibleAgentGuide.panelBody
     agentPanelRecommendation = visibleAgentGuide.recommendation
     agentPanelConfidence = visibleAgentGuide.confidence ?? null
+    agentPanelTone = visibleAgentGuide.actionKey === 'repay_now' ? 'warning' : 'default'
+    agentPanelStatusLabel = visibleAgentGuide.actionKey === 'repay_now' ? 'Planner sees a repayment move' : 'Planner guidance live'
     agentPanelActionLabel = guidedAction ? visibleAgentGuide.actionLabel : undefined
     handleAgentPanelAction = guidedAction
   }
@@ -4519,6 +4583,8 @@ function App() {
     agentPanelRecommendation = canUseInterwovenAutoSign
       ? 'Pause auto-repay anytime if you want to go back to manual approvals'
       : 'Refresh InterwovenKit auto-sign to keep autonomy live'
+    agentPanelTone = canUseInterwovenAutoSign ? 'success' : 'warning'
+    agentPanelStatusLabel = canUseInterwovenAutoSign ? 'Autonomous repayment armed' : 'Autonomy waiting on wallet'
     agentPanelActionLabel = canUseInterwovenAutoSign ? 'Pause auto-repay' : 'Enable auto-sign'
     handleAgentPanelAction = canUseInterwovenAutoSign
       ? handleDisableAutonomousRepay
@@ -4540,6 +4606,12 @@ function App() {
     topbarSecondaryLabel = undefined
     handleTopbarPrimaryAction = loadError ? () => void handleRetryLoad() : undefined
     handleTopbarSecondaryAction = undefined
+    agentPanelTone = loadError ? 'warning' : 'default'
+    agentPanelStatusLabel = loadError
+      ? isWalletSignInCancelledMessage(loadError)
+        ? 'Waiting for sign-in'
+        : 'Load retry needed'
+      : 'Syncing borrower state'
   }
 
   const assistantLabel = !isConnected
@@ -4831,7 +4903,9 @@ function App() {
                 engineLabel={activeAgentEngineLabel}
                 onAction={handleAgentPanelAction}
                 recommendation={agentPanelRecommendation}
+                statusLabel={agentPanelStatusLabel}
                 title={agentPanelTitle}
+                tone={agentPanelTone}
               />
             ) : null}
 
