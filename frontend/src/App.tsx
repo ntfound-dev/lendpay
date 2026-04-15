@@ -4906,7 +4906,7 @@ function App() {
               </Card>
             ) : null}
 
-            {canRenderConnectedPages && activePage !== 'admin' ? (
+            {canRenderConnectedPages && activePage !== 'admin' && activePage !== 'overview' ? (
               <AgentPanel
                 actionLabel={agentPanelActionLabel}
                 body={agentPanelBody}
