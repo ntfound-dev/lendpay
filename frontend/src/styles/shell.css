@@ -268,8 +268,9 @@
   min-height: 74px;
   padding: 20px 28px 16px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-  background: rgba(13, 17, 23, 0.74);
+  background: rgba(9, 17, 31, 0.92);
   backdrop-filter: blur(20px);
+  box-shadow: 0 18px 40px rgba(2, 8, 20, 0.22);
 }
 
 .topbar__left {
@@ -388,7 +389,7 @@
   padding: 18px 20px;
   border: 1px solid var(--border);
   border-radius: 24px;
-  background: rgba(15, 23, 42, 0.7);
+  background: var(--surface-panel);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(18px);
   transition:
@@ -405,7 +406,7 @@
 
 .card--primary,
 .card--secondary {
-  background: #ffffff;
+  background: var(--surface-panel-strong);
 }
 
 .metric-card,
@@ -413,7 +414,7 @@
 .history-card,
 .identity-card {
   border: 1px solid var(--border);
-  background: rgba(15, 23, 42, 0.68);
+  background: var(--surface-panel);
   box-shadow: var(--shadow-soft);
 }
 
@@ -561,26 +562,26 @@
 }
 
 .badge--success {
-  background: #e8f7ec;
-  color: #15803d;
+  background: rgba(52, 211, 153, 0.14);
+  color: #86efac;
 }
 
 .badge--warning {
-  background: #fff7e8;
-  color: #b45309;
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
 }
 
 .badge--danger {
-  background: #fef2f2;
-  color: #dc2626;
+  background: rgba(248, 113, 113, 0.14);
+  color: #fca5a5;
 }
 
 .badge--info {
-  background: #eef4ff;
-  color: #1a6cf5;
+  background: rgba(79, 140, 255, 0.14);
+  color: #b9d2ff;
 }
 
 .badge--neutral {
-  background: #f8fafc;
-  color: #475569;
+  background: rgba(148, 163, 184, 0.12);
+  color: #c8d3e2;
 }

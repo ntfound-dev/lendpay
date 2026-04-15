@@ -2310,3 +2310,431 @@ details[open] .dev-info-accordion__chevron {
     opacity: 1;
   }
 }
+
+/* Dashboard theme unification: keep product pages on one dark, readable system. */
+
+.agent-panel,
+.agent-autonomy-card,
+.profile-score-card,
+.profile-breakdown-card,
+.profile-terms-card,
+.profile-next-step-card,
+.profile-identity-card,
+.checkout-card,
+.checkout-eligibility-card,
+.checkout-summary-card,
+.checkout-history-card,
+.request-app-card,
+.drop-item-card,
+.checkout-product-card,
+.loyalty-hero-card,
+.loyalty-panel,
+.loyalty-benefits-card,
+.voucher-card,
+.referral-code-box,
+.explorer-result-item {
+  border-color: var(--border);
+  background: var(--surface-panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.agent-panel {
+  --agent-accent: #8ab4ff;
+  --agent-accent-soft: rgba(79, 140, 255, 0.22);
+  --agent-surface-glow: rgba(79, 140, 255, 0.18);
+  --agent-surface-fade: rgba(79, 140, 255, 0.08);
+  --agent-orb: rgba(52, 211, 153, 0.12);
+  --agent-hero-border: rgba(96, 165, 250, 0.2);
+  --agent-hero-surface: rgba(13, 23, 39, 0.92);
+  --agent-signal-surface: rgba(255, 255, 255, 0.04);
+  --agent-signal-ring: rgba(148, 163, 184, 0.18);
+  --agent-signal-text: var(--text-strong);
+  --agent-signal-dot: #34d399;
+  --agent-engine-surface: rgba(245, 158, 11, 0.12);
+  --agent-engine-text: #fbbf24;
+  --agent-status-surface: rgba(79, 140, 255, 0.12);
+  --agent-status-text: #b9d2ff;
+  --agent-aside-surface: linear-gradient(180deg, rgba(26, 36, 58, 0.98), rgba(12, 21, 35, 0.98));
+  --agent-avatar-start: #4f8cff;
+  --agent-avatar-end: #34d399;
+  background:
+    radial-gradient(circle at top right, var(--agent-surface-glow), rgba(255, 255, 255, 0) 34%),
+    linear-gradient(135deg, var(--agent-surface-fade), rgba(255, 255, 255, 0) 28%),
+    var(--surface-panel-strong);
+}
+
+.agent-panel--success {
+  --agent-accent: #86efac;
+  --agent-engine-surface: rgba(52, 211, 153, 0.12);
+  --agent-engine-text: #86efac;
+  --agent-status-surface: rgba(52, 211, 153, 0.1);
+  --agent-status-text: #bbf7d0;
+  --agent-avatar-start: #22c55e;
+  --agent-avatar-end: #14b8a6;
+}
+
+.agent-panel--warning {
+  --agent-accent: #fbbf24;
+  --agent-accent-soft: rgba(245, 158, 11, 0.24);
+  --agent-surface-glow: rgba(245, 158, 11, 0.14);
+  --agent-surface-fade: rgba(245, 158, 11, 0.08);
+  --agent-engine-surface: rgba(245, 158, 11, 0.14);
+  --agent-engine-text: #fbbf24;
+  --agent-status-surface: rgba(251, 191, 36, 0.12);
+  --agent-status-text: #fde68a;
+  --agent-avatar-start: #f59e0b;
+  --agent-avatar-end: #d97706;
+}
+
+.agent-panel--danger {
+  --agent-accent: #fda4af;
+  --agent-accent-soft: rgba(248, 113, 113, 0.24);
+  --agent-surface-glow: rgba(248, 113, 113, 0.12);
+  --agent-surface-fade: rgba(248, 113, 113, 0.08);
+  --agent-engine-surface: rgba(248, 113, 113, 0.12);
+  --agent-engine-text: #fda4af;
+  --agent-status-surface: rgba(248, 113, 113, 0.12);
+  --agent-status-text: #fecdd3;
+  --agent-avatar-start: #fb7185;
+  --agent-avatar-end: #ef4444;
+}
+
+.agent-panel__hero {
+  background:
+    linear-gradient(135deg, rgba(17, 29, 47, 0.96), rgba(10, 19, 33, 0.98)),
+    var(--surface-panel);
+}
+
+.agent-panel .card__title,
+.agent-panel__body,
+.agent-panel__recommendation strong,
+.metric-card__value,
+.repay-cta-card__title,
+.profile-breakdown__label,
+.profile-breakdown__meta strong,
+.profile-terms__value,
+.profile-terms__value--large,
+.profile-next-step-card__stat strong,
+.profile-identity-card__name,
+.checkout-builder__title,
+.checkout-section__label,
+.request-app-card__top strong,
+.drop-item-card__title,
+.checkout-product-card__title,
+.checkout-product-card__limit,
+.loyalty-hero-card__name,
+.loyalty-benefits-card__tier,
+.loyalty-benefits-card__held,
+.voucher-card strong,
+.loyalty-benefits-list__row strong {
+  color: var(--text-strong);
+}
+
+.agent-panel__body,
+.agent-panel__recommendation small,
+.profile-card__meta,
+.profile-breakdown__points,
+.profile-breakdown__value,
+.profile-breakdown__meta span,
+.profile-terms__row span,
+.profile-next-step-card__body,
+.profile-identity-card__subline,
+.checkout-section__hint,
+.request-app-card__body,
+.drop-item-card__copy,
+.checkout-product-card__copy,
+.loyalty-hero-card__streak,
+.loyalty-hero-card__note,
+.loyalty-panel__lead,
+.loyalty-panel__hint,
+.voucher-card p,
+.voucher-card small,
+.loyalty-benefits-list__row span,
+.loyalty-benefits-list__row small {
+  color: var(--text-muted);
+}
+
+.agent-panel__checklist-item,
+.agent-panel__recommendation,
+.agent-autonomy-card__item,
+.profile-next-step-card__stat,
+.profile-identity-card__wallet,
+.checkout-select,
+.checkout-inline-input,
+.checkout-amount-card,
+.checkout-chip,
+.checkout-tenor,
+.checkout-gate-message,
+.request-app-card--selected,
+.drop-item-card--selected,
+.checkout-product-card--selected,
+.loyalty-panel__note,
+.loyalty-lend-stat,
+.voucher-card,
+.referral-code-box {
+  border-color: rgba(120, 145, 180, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.agent-panel__checklist-item {
+  color: var(--text-muted);
+}
+
+.agent-panel__checklist-item--done {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.2);
+  color: #bbf7d0;
+}
+
+.agent-panel__recommendation span,
+.agent-autonomy-card__item span,
+.profile-next-step-card__stat span,
+.profile-identity-card__wallet span,
+.loyalty-lend-stat span,
+.voucher-card__topline {
+  color: var(--text-faint);
+}
+
+.agent-autonomy-card {
+  background:
+    linear-gradient(135deg, rgba(79, 140, 255, 0.08), rgba(255, 255, 255, 0) 42%),
+    var(--surface-panel-strong);
+}
+
+.agent-autonomy-card__intro,
+.agent-autonomy-card__item small,
+.agent-autonomy-card__footnote {
+  color: var(--text-muted);
+}
+
+.agent-autonomy-card__item strong,
+.checkout-amount-card__currency,
+.checkout-amount-card__input {
+  color: var(--text-strong);
+}
+
+.overview-hero-card {
+  border-color: rgba(79, 140, 255, 0.24);
+  background:
+    radial-gradient(circle at top right, rgba(79, 140, 255, 0.22), transparent 30%),
+    linear-gradient(135deg, #112644 0%, #0c1b30 58%, #091321 100%);
+  box-shadow: var(--shadow);
+}
+
+.overview-pill--success {
+  background: rgba(52, 211, 153, 0.14);
+  color: #bbf7d0;
+}
+
+.overview-pill--info {
+  background: rgba(79, 140, 255, 0.16);
+  color: #c7dbff;
+}
+
+.metric-card__label,
+.repay-cta-card__subtitle {
+  color: var(--text-muted);
+}
+
+.metric-card__tag--success {
+  background: rgba(52, 211, 153, 0.14);
+  color: #bbf7d0;
+}
+
+.metric-card__tag--danger {
+  background: rgba(248, 113, 113, 0.14);
+  color: #fecdd3;
+}
+
+.metric-card__tag--warning {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fde68a;
+}
+
+.repay-cta-card {
+  border-color: rgba(79, 140, 255, 0.24);
+  background: var(--surface-panel-strong);
+}
+
+.repay-cta-card__progress,
+.profile-breakdown__bar,
+.loyalty-benefits-card__progress {
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.profile-score-card,
+.profile-breakdown-card,
+.profile-terms-card,
+.profile-next-step-card,
+.profile-identity-card {
+  background: var(--surface-panel);
+}
+
+.score-ring__track {
+  stroke: rgba(148, 163, 184, 0.18);
+}
+
+.score-ring__content strong,
+.referral-code {
+  color: var(--text-strong);
+}
+
+.profile-next-step-card {
+  border-left-color: var(--primary);
+}
+
+.profile-identity-card__avatar,
+.loyalty-hero-card__avatar {
+  background: rgba(79, 140, 255, 0.16);
+  color: #c7dbff;
+}
+
+.profile-terms__value--identity,
+.profile-identity-card__wallet strong,
+.request-app-card__foot,
+.voucher-card__discount,
+.referral-code {
+  color: #8ab4ff;
+}
+
+.checkout-card,
+.checkout-eligibility-card,
+.checkout-summary-card,
+.checkout-history-card {
+  background: var(--surface-panel);
+}
+
+.checkout-select,
+.checkout-inline-input,
+.checkout-amount-card,
+.checkout-tenor {
+  border-color: rgba(120, 145, 180, 0.2);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-strong);
+}
+
+.checkout-select:focus,
+.checkout-inline-input:focus,
+.checkout-amount-card__input:focus {
+  border-color: rgba(79, 140, 255, 0.5);
+  box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.12);
+}
+
+.checkout-chip,
+.checkout-tenor {
+  color: #c7dbff;
+}
+
+.checkout-chip--active,
+.checkout-tenor[aria-pressed='true'] {
+  background: rgba(79, 140, 255, 0.14);
+  border-color: rgba(79, 140, 255, 0.28);
+}
+
+.checkout-gate-message {
+  border-left-color: var(--primary);
+  color: #c7dbff;
+}
+
+.checkout-gate-message--warning {
+  border-left-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  color: #fde68a;
+}
+
+.request-app-card:hover,
+.drop-item-card:hover,
+.checkout-product-card:hover {
+  border-color: rgba(79, 140, 255, 0.3);
+  box-shadow: var(--shadow-soft);
+}
+
+.drop-item-card__art {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.checkout-product-card--locked {
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(120, 145, 180, 0.14);
+}
+
+.checkout-product-card__access--ready {
+  color: #86efac;
+}
+
+.checkout-product-card__access--locked {
+  color: var(--text-faint);
+}
+
+.repayment-card__receipt-title {
+  color: var(--text-strong);
+}
+
+.repayment-card__receipt-note {
+  color: #c7dbff;
+}
+
+.loyalty-hero-card,
+.loyalty-panel,
+.loyalty-benefits-card {
+  background: var(--surface-panel);
+}
+
+.loyalty-panel__note {
+  color: #c7dbff;
+}
+
+.loyalty-panel__note--warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fde68a;
+}
+
+.loyalty-benefits-card__distance,
+.loyalty-info-strip,
+.tier-progress__labels {
+  color: var(--text-muted);
+}
+
+.loyalty-benefits-card__progress-fill,
+.tier-progress__fill,
+.repay-cta-card__progress-fill {
+  background: linear-gradient(90deg, #4f8cff, #60a5fa);
+}
+
+.voucher-card--unlocked {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.14), rgba(255, 255, 255, 0.03));
+  border-color: rgba(52, 211, 153, 0.22);
+}
+
+.voucher-card--next {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(255, 255, 255, 0.03));
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.referral-code-box {
+  border-color: rgba(79, 140, 255, 0.24);
+}
+
+.referral-apply input {
+  border-color: rgba(120, 145, 180, 0.2);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-strong);
+}
+
+.referral-row__points span {
+  color: var(--text-faint);
+}
+
+.empty-state__icon {
+  background: rgba(79, 140, 255, 0.14);
+  color: #8ab4ff;
+}
+
+.empty-state__title {
+  color: var(--text-strong);
+}
+
+.empty-state__subtitle {
+  color: var(--text-muted);
+}

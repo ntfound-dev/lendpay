@@ -1,26 +1,32 @@
 :root {
   --bg: #0d1117;
   --bg-radial:
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 28%),
-    radial-gradient(circle at 14% 10%, rgba(37, 99, 235, 0.14), transparent 18%),
-    linear-gradient(180deg, #0d1117 0%, #0f1623 52%, #0b1220 100%);
-  --surface: rgba(15, 23, 42, 0.78);
-  --surface-raised: rgba(15, 23, 42, 0.9);
-  --surface-soft: rgba(30, 41, 59, 0.68);
-  --surface-hero: #0f172a;
-  --surface-glass: rgba(15, 23, 42, 0.72);
-  --border: rgba(148, 163, 184, 0.16);
-  --border-strong: rgba(59, 130, 246, 0.34);
-  --primary: #3b82f6;
-  --success: #22c55e;
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.2), transparent 26%),
+    radial-gradient(circle at 16% 8%, rgba(14, 165, 233, 0.1), transparent 22%),
+    linear-gradient(180deg, #09111f 0%, #0b1423 48%, #08111d 100%);
+  --surface: rgba(13, 22, 38, 0.9);
+  --surface-raised: rgba(16, 28, 46, 0.96);
+  --surface-soft: rgba(24, 36, 58, 0.84);
+  --surface-hero: #0d1a2b;
+  --surface-glass: rgba(11, 19, 33, 0.82);
+  --surface-panel:
+    linear-gradient(180deg, rgba(16, 27, 45, 0.98), rgba(9, 17, 31, 0.98));
+  --surface-panel-strong:
+    linear-gradient(180deg, rgba(17, 30, 50, 0.99), rgba(10, 18, 32, 0.99));
+  --surface-panel-soft:
+    linear-gradient(180deg, rgba(20, 32, 52, 0.9), rgba(12, 20, 34, 0.88));
+  --border: rgba(120, 145, 180, 0.2);
+  --border-strong: rgba(96, 165, 250, 0.42);
+  --primary: #4f8cff;
+  --success: #34d399;
   --warning: #f59e0b;
-  --danger: #ef4444;
-  --text-strong: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-faint: #64748b;
-  --shadow: 0 20px 48px rgba(2, 6, 23, 0.34);
-  --shadow-soft: 0 16px 40px rgba(2, 6, 23, 0.24);
-  --shadow-glow: 0 0 0 1px rgba(59, 130, 246, 0.18), 0 18px 48px rgba(59, 130, 246, 0.12);
+  --danger: #f87171;
+  --text-strong: #f4f8ff;
+  --text-muted: #9fb2ca;
+  --text-faint: #6f829b;
+  --shadow: 0 24px 56px rgba(1, 7, 18, 0.42);
+  --shadow-soft: 0 18px 40px rgba(1, 7, 18, 0.3);
+  --shadow-glow: 0 0 0 1px rgba(79, 140, 255, 0.2), 0 18px 48px rgba(37, 99, 235, 0.16);
   --radius-xl: 28px;
   --radius-lg: 22px;
   --radius-md: 18px;
