@@ -5179,10 +5179,15 @@ function App() {
                 campaignDraft={campaignDraft}
                 campaigns={campaigns}
                 ecosystemFamilyStats={ecosystemFamilyStats}
+                faucet={faucet}
+                faucetAvailabilityLabel={faucetAvailabilityLabel}
+                faucetClaimAmountLabel={faucetClaimAmountLabel}
+                faucetTxUrl={faucetTxUrl ?? buildRpcTxUrl(faucet?.txHash) ?? null}
                 governance={governance}
                 governanceDraft={governanceDraft}
                 handleAllocateCampaign={handleAllocateCampaign}
                 handleClaimCampaign={handleClaimCampaign}
+                handleClaimFaucet={handleClaimFaucet}
                 handleCreateCampaign={handleCreateCampaign}
                 handleDismissWalletRecovery={handleDismissWalletRecovery}
                 handleFinalizeProposal={handleFinalizeProposal}
@@ -5193,9 +5198,11 @@ function App() {
                 handleRetryLoad={handleRetryLoad}
                 handleSetMerchantActive={handleSetMerchantActive}
                 handleVoteGovernance={handleVoteGovernance}
+                isClaimingFaucet={isClaimingFaucet}
                 isProtocolActionPending={isProtocolActionPending}
                 lendLiquidityRoute={lendLiquidityRoute}
                 merchantDraft={merchantDraft}
+                needsTestnetFunds={needsTestnetFunds}
                 openCampaignCount={openCampaignCount}
                 operatorModeEnabled={operatorModeEnabled}
                 protocolUpdates={protocolUpdates}
