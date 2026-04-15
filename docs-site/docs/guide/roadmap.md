@@ -62,6 +62,7 @@ What should ship here:
 - segmented risk policy for new, active, and established wallets
 - repayment-led line growth
 - better late-payment and default handling
+- first formal design pass for bounded agentic paylater policy, identity checks, and validation gates
 - reserve-first treasury policy
 - operator tooling, monitoring, and recovery flows
 - cleaner borrower status and payment visibility in the app
@@ -147,6 +148,7 @@ What success looks like:
 - `EVM` contract docs are placeholders
 - `Wasm` contract docs are placeholders
 - bridge-driven `LEND` liquidity expansion beyond the current local preview route is future work
+- agentic paylater for AI agents is a forward-looking design direction, not a live product claim
 - multi-VM messaging should not be used as if it were already shipped
 
 ## The Short Version
@@ -162,6 +164,7 @@ The sensible order is:
 ## Related Docs
 
 - [Business Model](/guide/business-model)
+- [Agentic Paylater On Initia](/guide/agentic-paylater)
 - [Risk And Growth](/guide/risk-growth)
 - [Move Contract](/app/smartcontract)
 - [EVM Contract (Soon)](/app/evm-contract)

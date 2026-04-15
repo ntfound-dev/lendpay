@@ -12,7 +12,7 @@ body,
 
 body {
   margin: 0;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-body);
   background: var(--bg);
   color: var(--text-strong);
   letter-spacing: -0.01em;
@@ -60,7 +60,7 @@ a {
 
 .page__title {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-display);
   font-size: 1.5rem;
 }
 
@@ -122,7 +122,7 @@ a {
   color: var(--primary);
   font-size: 12px;
   font-weight: 700;
-  font-family: var(--font-mono, 'IBM Plex Mono');
+  font-family: var(--font-mono);
 }
 
 .wallet-gate__step strong {

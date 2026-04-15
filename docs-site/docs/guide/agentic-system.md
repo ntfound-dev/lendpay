@@ -142,9 +142,24 @@ The agent system stays safe and explainable because:
 - the borrower can switch LendPay back to manual approvals at any time
 - the backend and chain remain the final source of truth
 
+## Next Direction
+
+LendPay may later expand from borrower-approved auto-repay into a more structured agentic paylater model for AI-assisted checkout and agent-operated app flows.
+
+That future direction should be read as product design work, not as a live feature claim.
+
+The intended framing is:
+
+- agent identity, reputation, and validation act as trust inputs
+- Initia and `Move` remain the credit execution and bounded-spending rail
+- autonomy stays narrow, explicit, and wallet-permissioned
+
+See [Agentic Paylater On Initia](/guide/agentic-paylater) for the forward-looking design note.
+
 ## Related Docs
 
 - [Scoring Criteria](/guide/scoring-criteria)
+- [Agentic Paylater On Initia](/guide/agentic-paylater)
 - [Architecture](/guide/architecture)
 - [Frontend](/app/frontend)
 - [Backend](/app/backend)

@@ -3973,6 +3973,9 @@ function App() {
   const heroScoreLabel = score ? `Score ${formatNumber(score.score)}` : 'Score pending'
   const heroDueDate = nextDueItem?.dueAt ? formatDate(nextDueItem.dueAt) : 'No payment due'
   const heroDueAmount = nextDueItem?.amount ?? null
+  const heroDueDateShort = nextDueItem?.dueAt
+    ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(nextDueItem.dueAt))
+    : 'No payment due'
   const currentTier = rewards?.tier ?? null
   const nextTier = nextTierLabel(currentTier)
   const heldLendAmount = rewards?.heldLend ?? 0
@@ -4263,6 +4266,11 @@ function App() {
     ]
       .filter(Boolean)
       .join(' · ') || 'Identity not available'
+  const repaymentWatchDetail = nextDueItem
+    ? `Next installment ${formatCurrency(nextDueItem.amount)} is due by ${heroDueDateShort}`
+    : activeLoan
+      ? 'The active credit line is current and no installment is marked due right now.'
+      : 'No active installment is waiting on this account.'
 
   let agentPanelTitle = 'Connect your wallet to unlock guided credit'
   let agentPanelBody =
@@ -4622,6 +4630,8 @@ function App() {
           ? 'Waiting for sign-in'
           : 'Waiting for a retry'
         : 'Syncing live account data'
+    : activePage === 'overview' && activeLoan
+      ? 'Repayment watch'
     : visibleAgentGuide
       ? visibleAgentGuide.assistantLabel
     : activePage === 'analyze'
@@ -4639,6 +4649,8 @@ function App() {
     ? 'Connect your wallet once and the agent will guide your next step.'
     : !hasLoadedBorrowerState
       ? loadError ?? 'Live borrower data is syncing from the API.'
+    : activePage === 'overview' && activeLoan
+      ? repaymentWatchDetail
     : visibleAgentGuide
       ? visibleAgentGuide.assistantDetail
     : activePage === 'admin'
@@ -4946,7 +4958,9 @@ function App() {
                 autoSignSessionExpiresAt={autoSignSessionExpiresAt}
                 canClaimAvailableRewards={canClaimAvailableRewards}
                 claimableRewardsLabel={overviewClaimableRewardsLabel}
+                claimableRewardsValue={rewards ? claimableRewardsTotal : null}
                 combinedActivities={combinedActivities}
+                creditLimitValue={score?.limitUsd ?? null}
                 handleDisableAutoRepay={handleDisableAutonomousRepay}
                 handleDisableAutoSignPreference={handleDisableAutoSignPreference}
                 handleClaimAvailableRewards={handleClaimAvailableRewards}
@@ -4962,6 +4976,7 @@ function App() {
                 installmentsLabel={installmentsLabel}
                 isClaimingRewards={isProtocolActionPending('claim-all')}
                 isRepaying={isRepaying}
+                outstandingValue={activeLoan ? outstandingAmount : null}
                 outstandingLabel={outstandingLabel}
                 overviewIdentityStrip={overviewIdentityStrip}
                 progressPercent={progressPercent}
@@ -4969,6 +4984,7 @@ function App() {
                 rewardsStatusLabel={overviewRewardsStatusLabel}
                 score={score}
                 sectionErrors={sectionErrors}
+                walletBalanceValue={walletNativeBalance}
                 walletNativeBalanceLabel={walletNativeBalanceLabel}
                 walletTagLabel={walletTagLabel}
               />
