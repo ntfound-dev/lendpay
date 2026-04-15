@@ -624,6 +624,7 @@ export function RequestPage({
                     <button
                       key={tenor}
                       className={`checkout-tenor ${draft.tenorMonths === tenor ? 'checkout-tenor--active' : ''}`}
+                      aria-pressed={draft.tenorMonths === tenor}
                       onClick={() =>
                         setDraft((current) => ({
                           ...current,
