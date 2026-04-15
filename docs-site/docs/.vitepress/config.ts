@@ -46,6 +46,7 @@ export default defineConfig({
         text: 'App Stack',
         items: [
           { text: 'Frontend', link: '/app/frontend' },
+          { text: 'Scan Explorer', link: '/app/scan-explorer' },
           { text: 'Backend', link: '/app/backend' },
           { text: 'Rollup', link: '/app/rollup' },
           { text: 'Move Contract', link: '/app/smartcontract' },
