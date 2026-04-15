@@ -1,5 +1,11 @@
 {
   "framework": "vite",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/scan-api/:path*",
+      "destination": "https://rollup-runtime-backend.up.railway.app/:path*"
+    }
+  ]
 }

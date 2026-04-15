@@ -107,6 +107,7 @@ fi
 rm -f "$ROLLUP_HOME/app.log"
 find "$ROLLUP_HOME/config" -maxdepth 1 -type f -name 'write-file-atomic-*' -delete 2>/dev/null || true
 
-export LD_LIBRARY_PATH="/opt/minitiad${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+RUNTIME_LIB_DIR="$(dirname "$MINITIAD_BIN")"
+export LD_LIBRARY_PATH="${RUNTIME_LIB_DIR}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 exec "$MINITIAD_BIN" start --home "$ROLLUP_HOME"

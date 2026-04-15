@@ -1043,6 +1043,7 @@
 
     <script>
       const API_BASE = `${window.location.origin}/scan-api`
+      const PROD_SCAN_API_BASE = 'https://rollup-runtime-backend.up.railway.app'
       const DEFAULT_CHAIN_ID = 'lendpay-4'
       const DOCS_URL = 'https://github.com/ntfound-dev/lendpay/tree/main/docs-site'
       const SAVED_ACCOUNTS_KEY = 'lendpay_scan_saved_accounts'
@@ -1545,12 +1546,42 @@
         return query.length >= 10 && /[a-zA-Z]/.test(query)
       }
 
+      function shouldUseRemoteScanFallback() {
+        const host = window.location.hostname.toLowerCase()
+        return host !== 'localhost' && host !== '127.0.0.1'
+      }
+
+      function resolveRemoteScanFallback(path) {
+        if (!shouldUseRemoteScanFallback()) {
+          return null
+        }
+
+        try {
+          const url = new URL(path, window.location.origin)
+          if (!url.pathname.startsWith('/scan-api/')) {
+            return null
+          }
+
+          const fallbackUrl = new URL(url.pathname.replace(/^\/scan-api/, ''), PROD_SCAN_API_BASE)
+          fallbackUrl.search = url.search
+          return fallbackUrl.toString()
+        } catch {
+          return null
+        }
+      }
+
       async function requestJson(path) {
         const controller = new AbortController()
         const timeoutId = window.setTimeout(() => controller.abort(), 8000)
 
         try {
-          const response = await fetch(path, { signal: controller.signal })
+          let response = await fetch(path, { signal: controller.signal })
+          if (!response.ok && response.status === 404) {
+            const fallbackUrl = resolveRemoteScanFallback(path)
+            if (fallbackUrl) {
+              response = await fetch(fallbackUrl, { signal: controller.signal })
+            }
+          }
           if (!response.ok) {
             throw new Error(`Request failed with ${response.status}`)
           }
@@ -1563,7 +1594,9 @@
 
           if (error instanceof TypeError) {
             throw new Error(
-              'Could not reach the local explorer proxy at /scan-api. Make sure the LendPay frontend and rollup REST service are running.',
+              shouldUseRemoteScanFallback()
+                ? 'Could not reach the rollup explorer endpoint. Check the Vercel rewrite or the Railway rollup runtime domain.'
+                : 'Could not reach the local explorer proxy at /scan-api. Make sure the LendPay frontend and rollup REST service are running.',
             )
           }
 

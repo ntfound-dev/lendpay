@@ -2695,6 +2695,17 @@ function App() {
       txHash = extractTxHash(result)
 
       const repayment = await lendpayApi.repayLoan(token, activeLoan.id, txHash || undefined)
+      if (repayment.pending) {
+        showToast({
+          tone: 'warning',
+          title: 'Repayment submitted',
+          message:
+            repayment.message ||
+            `Repayment was submitted${txHash ? `: ${formatTxHash(txHash)}` : ''}. Refresh in a moment to see the updated status.`,
+          layout: 'center',
+        })
+        return
+      }
       const syncedState = await syncProtocolAfterTx(token, txHash || undefined)
       showToast({
         tone: 'success',

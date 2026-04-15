@@ -54,6 +54,8 @@ type Config struct {
 	RollupNativeDenom        string
 	RollupNativeSymbol       string
 	RollupOperatorMnemonic   string
+	PublicRollupRESTURL      string
+	PublicRollupRPCURL       string
 	RollupRESTURL            string
 	RollupRPCURL             string
 }
@@ -64,6 +66,8 @@ func LoadConfig() Config {
 		"postgresql://postgres:postgres@127.0.0.1:55432/lendpay_dev?schema=public",
 	))
 	directDatabaseURL := normalizeDatabaseURL(getEnv("DIRECT_DATABASE_URL", ""))
+	rollupRESTURL := getEnv("ROLLUP_REST_URL", "http://localhost:1317")
+	rollupRPCURL := getEnv("ROLLUP_RPC_URL", "http://localhost:26657")
 
 	return Config{
 		ApproveFunctionName:      getEnv("APPROVE_FUNCTION_NAME", "approve_request"),
@@ -112,8 +116,10 @@ func LoadConfig() Config {
 		RollupNativeDenom:        getEnv("ROLLUP_NATIVE_DENOM", "ulend"),
 		RollupNativeSymbol:       getEnv("ROLLUP_NATIVE_SYMBOL", "LEND"),
 		RollupOperatorMnemonic:   getEnv("ROLLUP_OPERATOR_MNEMONIC", ""),
-		RollupRESTURL:            getEnv("ROLLUP_REST_URL", "http://localhost:1317"),
-		RollupRPCURL:             getEnv("ROLLUP_RPC_URL", "http://localhost:26657"),
+		PublicRollupRESTURL:      resolvePublicServiceURL(getEnv("PUBLIC_ROLLUP_REST_URL", ""), rollupRESTURL),
+		PublicRollupRPCURL:       resolvePublicServiceURL(getEnv("PUBLIC_ROLLUP_RPC_URL", ""), rollupRPCURL),
+		RollupRESTURL:            rollupRESTURL,
+		RollupRPCURL:             rollupRPCURL,
 	}
 }
 
@@ -209,4 +215,43 @@ func normalizeDatabaseURL(databaseURL string) string {
 	default:
 		return databaseURL
 	}
+}
+
+func resolvePublicServiceURL(explicitValue, configuredValue string) string {
+	explicitValue = strings.TrimSpace(explicitValue)
+	if explicitValue != "" {
+		return explicitValue
+	}
+
+	configuredValue = strings.TrimSpace(configuredValue)
+	if configuredValue == "" {
+		return ""
+	}
+
+	parsedURL, err := url.Parse(configuredValue)
+	if err != nil {
+		return configuredValue
+	}
+
+	hostname := strings.TrimSpace(parsedURL.Hostname())
+	if !strings.HasSuffix(hostname, ".railway.internal") {
+		return configuredValue
+	}
+
+	serviceName := strings.TrimSuffix(hostname, ".railway.internal")
+	if serviceName == "" {
+		return ""
+	}
+
+	serviceEnvKey := "RAILWAY_SERVICE_" + strings.ToUpper(strings.ReplaceAll(serviceName, "-", "_")) + "_URL"
+	serviceURL := strings.TrimSpace(os.Getenv(serviceEnvKey))
+	if serviceURL == "" {
+		return ""
+	}
+
+	if strings.HasPrefix(serviceURL, "http://") || strings.HasPrefix(serviceURL, "https://") {
+		return serviceURL
+	}
+
+	return "https://" + serviceURL
 }

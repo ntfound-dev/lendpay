@@ -236,6 +236,16 @@ Important Vercel envs:
 - `VITE_NATIVE_SYMBOL`
 - `VITE_CANCEL_REQUEST_FUNCTION_NAME`
 
+Production example:
+
+- copy `frontend/.env.production.example`
+- `VITE_API_BASE_URL=https://balanced-peace-backend.up.railway.app`
+- `VITE_CHAIN_RPC_URL=https://rollup-runtime-backend.up.railway.app`
+- `VITE_CHAIN_REST_URL=https://rollup-runtime-backend.up.railway.app`
+- `VITE_CHAIN_INDEXER_URL=https://balanced-peace-backend.up.railway.app`
+
+Production builds now require those URL env vars explicitly and no longer fall back to hardcoded Railway domains.
+
 ## Troubleshooting
 
 - wallet reconnect feels lost after refresh: confirm the backend is still reachable and the wallet extension session is still alive
