@@ -2221,7 +2221,7 @@ details[open] .dev-info-accordion__chevron {
 
   .mobile-nav {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 8px;
     position: fixed;
     right: 12px;

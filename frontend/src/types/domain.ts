@@ -1,4 +1,4 @@
-export type NavKey = 'overview' | 'analyze' | 'request' | 'loan' | 'rewards' | 'admin'
+export type NavKey = 'overview' | 'analyze' | 'request' | 'loan' | 'rewards' | 'admin' | 'bridge'
 export type AgentSurface = NavKey
 
 export type RiskBand = 'Low' | 'Medium' | 'High'
