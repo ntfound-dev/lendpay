@@ -6,18 +6,27 @@ import type {
   RewardsState,
 } from '../../types/domain'
 import { ActivityFeed } from '../shared/ActivityFeed'
+import { AgentAutonomyCard } from '../shared/AgentAutonomyCard'
 import { EmptyState } from '../shared/EmptyState'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 
 type OverviewPageProps = {
   activeLoan: LoanState | null
+  autoRepayEnabled: boolean
+  autoSignPreferenceEnabled: boolean
+  autoSignSessionExpiresAt: Date | null
   canClaimAvailableRewards: boolean
   claimableRewardsLabel: string
   combinedActivities: ActivityItem[]
+  handleDisableAutoRepay: () => void
+  handleDisableAutoSignPreference: () => void
   handleClaimAvailableRewards: () => void | Promise<void>
+  handleEnableAutoRepay: () => void | Promise<void>
+  handleEnableAutoSign: () => void | Promise<void>
   handleRepay: () => void | Promise<void>
   handleRetryLoad: () => void | Promise<void>
+  hasActiveAutoSignPermission: boolean
   heroAprLabel: string
   heroDueAmount: number | null
   heroDueDate: string
@@ -38,12 +47,20 @@ type OverviewPageProps = {
 
 export function OverviewPage({
   activeLoan,
+  autoRepayEnabled,
+  autoSignPreferenceEnabled,
+  autoSignSessionExpiresAt,
   canClaimAvailableRewards,
   claimableRewardsLabel,
   combinedActivities,
+  handleDisableAutoRepay,
+  handleDisableAutoSignPreference,
   handleClaimAvailableRewards,
+  handleEnableAutoRepay,
+  handleEnableAutoSign,
   handleRepay,
   handleRetryLoad,
+  hasActiveAutoSignPermission,
   heroAprLabel,
   heroDueAmount,
   heroDueDate,
@@ -149,6 +166,21 @@ export function OverviewPage({
           </Button>
         </div>
       </Card>
+
+      {activeLoan || hasActiveAutoSignPermission || autoRepayEnabled ? (
+        <AgentAutonomyCard
+          autoRepayEnabled={autoRepayEnabled}
+          autoSignPreferenceEnabled={autoSignPreferenceEnabled}
+          autoSignSessionExpiresAt={autoSignSessionExpiresAt}
+          hasActiveAutoSignPermission={hasActiveAutoSignPermission}
+          nextDueAmount={heroDueAmount}
+          nextDueAt={activeLoan?.schedule.find((item) => item.status === 'due')?.dueAt ?? null}
+          onDisableAutoRepay={handleDisableAutoRepay}
+          onDisableAutoSignPreference={handleDisableAutoSignPreference}
+          onEnableAutoRepay={handleEnableAutoRepay}
+          onEnableAutoSign={handleEnableAutoSign}
+        />
+      ) : null}
 
       <Card eyebrow="Recent activity" title="Account activity" className="history-card section-stack">
         {sectionErrors.activity ? (

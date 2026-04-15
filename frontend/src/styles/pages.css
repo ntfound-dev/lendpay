@@ -617,6 +617,76 @@
   font-weight: 500;
 }
 
+.agent-autonomy-card {
+  border: 1px solid #bfdbfe;
+  background:
+    linear-gradient(135deg, rgba(26, 108, 245, 0.07), rgba(255, 255, 255, 0) 42%),
+    #ffffff;
+}
+
+.agent-autonomy-card__intro {
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.agent-autonomy-card__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.agent-autonomy-card__item {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.agent-autonomy-card__item span {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.agent-autonomy-card__item strong {
+  color: #0f172a;
+  font-size: 0.98rem;
+  font-weight: 500;
+}
+
+.agent-autonomy-card__item small {
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.agent-autonomy-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.agent-autonomy-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.agent-autonomy-card__footnote {
+  margin-top: 14px;
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
 .overview-hero-card {
   padding: 18px;
   border-color: #0a2540;

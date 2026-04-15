@@ -2016,6 +2016,15 @@ details[open] .dev-info-accordion__chevron {
     flex-direction: column;
   }
 
+  .agent-autonomy-card__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-autonomy-card__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .protocol-status-grid {
     grid-template-columns: 1fr;
   }
