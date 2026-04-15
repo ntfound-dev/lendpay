@@ -3345,6 +3345,150 @@
   }
 }
 
+.ecosystem-redesign {
+  border-color: rgba(79, 140, 255, 0.18);
+  background:
+    radial-gradient(circle at top right, rgba(79, 140, 255, 0.12), transparent 24%),
+    linear-gradient(180deg, rgba(13, 22, 38, 0.96) 0%, rgba(9, 17, 31, 0.98) 100%);
+  box-shadow: var(--shadow);
+}
+
+.ecosystem-alert-bar {
+  border-color: rgba(79, 140, 255, 0.18);
+  background: rgba(79, 140, 255, 0.1);
+  color: #c7dbff;
+}
+
+.ecosystem-alert-bar__dot {
+  background: #60a5fa;
+}
+
+.ecosystem-panel {
+  border-color: rgba(120, 145, 180, 0.18);
+  background: var(--surface-panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.ecosystem-panel--feature {
+  background:
+    radial-gradient(circle at top right, rgba(79, 140, 255, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(17, 29, 47, 0.98), rgba(10, 18, 32, 0.98));
+}
+
+.ecosystem-panel__eyebrow,
+.ecosystem-panel__subtitle,
+.ecosystem-panel__footer-copy,
+.ecosystem-status-card span,
+.ecosystem-live-app-card p,
+.ecosystem-empty p,
+.ecosystem-live-rewards p,
+.ecosystem-fallback p,
+.ecosystem-modal__info-card span,
+.ecosystem-modal__total span,
+.ecosystem-modal__field span,
+.ecosystem-modal__note {
+  color: var(--text-muted);
+}
+
+.ecosystem-panel__title,
+.ecosystem-panel__section-title,
+.ecosystem-drop-card__name,
+.ecosystem-drop-card__price,
+.ecosystem-status-card strong,
+.ecosystem-live-app-card h3,
+.ecosystem-empty strong,
+.ecosystem-live-rewards strong,
+.ecosystem-fallback strong,
+.ecosystem-modal__title,
+.ecosystem-modal__info-card strong,
+.ecosystem-modal__total strong {
+  color: var(--text-strong);
+}
+
+.ecosystem-pill--slate {
+  background: rgba(148, 163, 184, 0.12);
+  color: #d6deea;
+}
+
+.ecosystem-pill--partner {
+  background: rgba(236, 72, 153, 0.16);
+  border-color: rgba(236, 72, 153, 0.2);
+  color: #f9a8d4;
+}
+
+.ecosystem-pill--success {
+  background: rgba(52, 211, 153, 0.14);
+  border-color: rgba(52, 211, 153, 0.18);
+  color: #bbf7d0;
+}
+
+.ecosystem-drop-card,
+.ecosystem-status-card,
+.ecosystem-live-app-card,
+.ecosystem-empty,
+.ecosystem-live-rewards,
+.ecosystem-fallback,
+.ecosystem-modal__info-card,
+.ecosystem-modal__total {
+  border-color: rgba(120, 145, 180, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.ecosystem-drop-card:hover {
+  border-color: rgba(79, 140, 255, 0.3);
+  box-shadow: var(--shadow-soft);
+}
+
+.ecosystem-drop-card__art--purple {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.28), rgba(79, 70, 229, 0.12));
+}
+
+.ecosystem-drop-card__art--pink {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.28), rgba(190, 24, 93, 0.12));
+}
+
+.ecosystem-drop-card__art--amber {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.28), rgba(180, 83, 9, 0.12));
+}
+
+.ecosystem-drop-card__partner,
+.ecosystem-status-card__value--blue,
+.ecosystem-live-app-card__fee,
+.ecosystem-modal__partner {
+  color: #8ab4ff;
+}
+
+.ecosystem-button--primary {
+  background: linear-gradient(135deg, #4f8cff, #2563eb);
+  color: #fff;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.24);
+}
+
+.ecosystem-button--ghost {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(120, 145, 180, 0.18);
+  color: var(--text-strong);
+}
+
+.ecosystem-modal {
+  background: var(--surface-panel-strong);
+  box-shadow: var(--shadow);
+}
+
+.ecosystem-modal__close,
+.ecosystem-modal__input {
+  border-color: rgba(120, 145, 180, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-strong);
+}
+
+.ecosystem-modal__input:focus {
+  outline: none;
+  border-color: rgba(79, 140, 255, 0.44);
+  box-shadow: 0 0 0 4px rgba(79, 140, 255, 0.1);
+}
+
 .protocol-status-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
