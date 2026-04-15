@@ -2667,6 +2667,56 @@ details[open] .dev-info-accordion__chevron {
   color: var(--text-faint);
 }
 
+.summary-row span:first-child,
+.checkout-summary-card__total span,
+.checkout-summary-card__row span,
+.checkout-history__meta,
+.checkout-inline-note,
+.checkout-inline-note,
+.muted-copy {
+  color: var(--text-muted);
+}
+
+.checkout-eligibility__row span {
+  color: #d6deea;
+}
+
+.summary-row strong,
+.checkout-summary-card__total strong,
+.checkout-summary-card__row strong,
+.checkout-history__title,
+.request-row__title,
+.request-row__amount {
+  color: var(--text-strong);
+}
+
+.checkout-submit__info,
+.checkout-summary-card__callout {
+  border-left-color: var(--primary);
+  background: rgba(79, 140, 255, 0.12);
+  color: #c7dbff;
+}
+
+.checkout-history__row {
+  border-top-color: rgba(120, 145, 180, 0.18);
+}
+
+.checkout-summary-card__total strong {
+  color: #8ab4ff;
+}
+
+.checkout-history__reason {
+  color: #fda4af;
+}
+
+.checkout-proof-link {
+  color: #8ab4ff;
+}
+
+.checkout-proof-link:hover {
+  color: #c7dbff;
+}
+
 .repayment-card__receipt-title {
   color: var(--text-strong);
 }
@@ -2694,6 +2744,28 @@ details[open] .dev-info-accordion__chevron {
 .loyalty-info-strip,
 .tier-progress__labels {
   color: var(--text-muted);
+}
+
+.loyalty-panel .card__title,
+.loyalty-panel .card__eyebrow,
+.loyalty-panel__hint,
+.loyalty-panel__note,
+.loyalty-info-strip {
+  color: var(--text-muted);
+}
+
+.loyalty-lend-stat span {
+  color: var(--text-faint);
+}
+
+.loyalty-lend-stat strong,
+.referral-code,
+.campaign-row__claimable strong {
+  color: var(--text-strong);
+}
+
+.loyalty-panel__actions .button {
+  color: #ffffff;
 }
 
 .loyalty-benefits-card__progress-fill,

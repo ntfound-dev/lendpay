@@ -1877,6 +1877,16 @@
   font-weight: 400;
 }
 
+.checkout-select {
+  color-scheme: dark;
+}
+
+.checkout-select option,
+.checkout-select optgroup {
+  background: #0f1b2f;
+  color: #f4f8ff;
+}
+
 .checkout-select:focus,
 .checkout-inline-input:focus,
 .checkout-amount-card__input:focus {
@@ -2276,9 +2286,9 @@
 }
 
 .activity-feed__label {
-  color: #0f172a;
+  color: var(--text-strong);
   font-size: 0.92rem;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .activity-feed__count {
@@ -2286,10 +2296,10 @@
   align-items: center;
   padding: 4px 8px;
   border-radius: 999px;
-  background: #eff6ff;
-  color: #1a6cf5;
+  background: rgba(79, 140, 255, 0.14);
+  color: #c7dbff;
   font-size: 0.74rem;
-  font-weight: 500;
+  font-weight: 700;
   line-height: 1;
 }
 
@@ -2358,15 +2368,15 @@
 
 .activity-feed__detail {
   margin-top: 3px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.84rem;
   line-height: 1.5;
 }
 
 .activity-feed__time {
-  color: #94a3b8;
+  color: var(--text-faint);
   font-size: 0.78rem;
-  font-weight: 400;
+  font-weight: 500;
   white-space: nowrap;
 }
 
