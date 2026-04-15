@@ -20,9 +20,9 @@ It is intentionally lighter than a full public block explorer.
 
 The point is to expose the most useful live data for LendPay product work, debugging, demos, and hackathon review.
 
-## Update Cadence
+## Ongoing Development
 
-This page will be updated periodically as `LendPay Scan` evolves.
+`LendPay Scan` will be developed further on a regular basis, and this page will keep tracking those improvements.
 
 That includes:
 
