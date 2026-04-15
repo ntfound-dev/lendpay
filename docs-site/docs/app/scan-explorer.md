@@ -20,6 +20,19 @@ It is intentionally lighter than a full public block explorer.
 
 The point is to expose the most useful live data for LendPay product work, debugging, demos, and hackathon review.
 
+## Update Cadence
+
+This page will be updated periodically as `LendPay Scan` evolves.
+
+That includes:
+
+- new tabs or data surfaces
+- richer proof and verification panels
+- account and device-state improvements
+- future NFT and explorer integrations
+
+So treat this page as a living reference for the current explorer UI, not a frozen specification.
+
 ## Route And Data Source
 
 Production route:
