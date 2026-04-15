@@ -2738,3 +2738,181 @@ details[open] .dev-info-accordion__chevron {
 .empty-state__subtitle {
   color: var(--text-muted);
 }
+
+.bridge-card {
+  color: var(--text-strong);
+  background: var(--surface-panel-strong);
+  border-color: rgba(79, 140, 255, 0.18);
+  box-shadow: var(--shadow-soft);
+}
+
+.bridge-card:hover {
+  border-color: rgba(79, 140, 255, 0.28);
+  box-shadow: var(--shadow-glow);
+}
+
+.bridge-card__kicker,
+.bridge-card__route,
+.bridge-card__footer,
+.bridge-card__label,
+.bridge-card__output-label,
+.bridge-card__output-value span {
+  color: var(--text-muted);
+}
+
+.bridge-card__title,
+.bridge-card__output-value {
+  color: var(--text-strong);
+}
+
+.bridge-card__status {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(120, 145, 180, 0.2);
+  color: var(--text-muted);
+}
+
+.bridge-card__status--active {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.2);
+  color: #bbf7d0;
+}
+
+.bridge-card__status--pending {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: #fde68a;
+}
+
+.bridge-card__icon {
+  color: #8ab4ff;
+  background: rgba(79, 140, 255, 0.14);
+  border-color: rgba(79, 140, 255, 0.18);
+}
+
+.bridge-card__input,
+.referral-apply input {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-strong);
+  border-color: rgba(120, 145, 180, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.bridge-card__input:focus,
+.referral-apply input:focus {
+  border-color: rgba(79, 140, 255, 0.44);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 4px rgba(79, 140, 255, 0.1);
+}
+
+.bridge-card__copy {
+  color: #8ab4ff;
+}
+
+.bridge-card__copy:hover,
+.bridge-card__copy--copied {
+  background: rgba(79, 140, 255, 0.12);
+  color: #c7dbff;
+}
+
+.bridge-card__output {
+  border-color: rgba(79, 140, 255, 0.16);
+  background:
+    linear-gradient(180deg, rgba(19, 31, 49, 0.96), rgba(13, 21, 36, 0.96));
+}
+
+.app-family-card,
+.ecosystem-next-card,
+.app-purpose-card__next,
+.explorer-result-item,
+.referral-code-box,
+.leaderboard-tabs,
+.leaderboard-tab--active,
+.leaderboard-row--me {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(120, 145, 180, 0.18);
+}
+
+.app-family-card,
+.ecosystem-next-card strong,
+.app-purpose-card__title,
+.app-purpose-card__next strong,
+.referral-row__points strong,
+.leaderboard-tab--active,
+.leaderboard-row__meta strong {
+  color: var(--text-strong);
+}
+
+.app-family-card span,
+.app-family-card small,
+.ecosystem-next-card p,
+.app-purpose-card__examples-label,
+.app-purpose-card__examples-note,
+.referral-row__points span,
+.leaderboard-tab,
+.leaderboard-row__meta {
+  color: var(--text-muted);
+}
+
+.app-purpose-chip,
+.merchant-partner-card__use-chip {
+  background: rgba(79, 140, 255, 0.14);
+  border-color: rgba(79, 140, 255, 0.18);
+  color: #c7dbff;
+}
+
+.merchant-partner-card__description,
+.merchant-partner-card__proof-note {
+  color: var(--text-muted);
+}
+
+.faucet-card {
+  border-color: rgba(79, 140, 255, 0.18);
+  background: var(--surface-panel-strong);
+}
+
+.faucet-card__body,
+.faucet-card__meta,
+.faucet-card__link {
+  color: var(--text-muted);
+}
+
+.faucet-card__amount {
+  color: var(--text-strong);
+}
+
+.voucher-nft-card {
+  background: var(--surface-panel);
+}
+
+.voucher-nft-card strong,
+.voucher-nft-card p,
+.voucher-nft-card small {
+  color: var(--text-strong);
+}
+
+.voucher-nft-card p,
+.voucher-nft-card small {
+  color: var(--text-muted);
+}
+
+.referral-row__points strong,
+.leaderboard-row__meta strong {
+  color: var(--text-strong);
+}
+
+.leaderboard-tabs {
+  padding: 4px;
+}
+
+.leaderboard-tab {
+  color: var(--text-muted);
+}
+
+.leaderboard-tab--active {
+  color: var(--text-strong);
+}
+
+.leaderboard-row--me {
+  border: 1px solid rgba(79, 140, 255, 0.18);
+}
