@@ -838,6 +838,95 @@
         flex-wrap: wrap;
       }
 
+      .contract-call-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .contract-call {
+        display: grid;
+        gap: 14px;
+        padding: 16px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.01)),
+          #171717;
+      }
+
+      .contract-call__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .contract-call__title-wrap {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .contract-call__eyebrow,
+      .contract-call__meta-label {
+        color: var(--text-muted);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .contract-call__target {
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.96rem;
+        font-weight: 600;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+      }
+
+      .contract-call__badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0.48rem 0.7rem;
+        border-radius: 999px;
+        border: 1px solid rgba(0, 212, 200, 0.18);
+        background: rgba(0, 212, 200, 0.08);
+        color: var(--accent);
+        font-size: 0.76rem;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      .contract-call__grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr);
+        gap: 12px;
+      }
+
+      .contract-call__meta {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .contract-call__meta-value {
+        min-width: 0;
+        color: var(--text-soft);
+      }
+
+      .contract-call__meta-value--mono {
+        font-family: var(--mono);
+        overflow-wrap: anywhere;
+      }
+
+      .contract-call__footnote {
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
       .button {
         display: inline-flex;
         align-items: center;
@@ -939,12 +1028,17 @@
         }
 
         .metrics,
-        .modal__stats {
+        .modal__stats,
+        .contract-call__grid {
           grid-template-columns: 1fr;
         }
 
         .modal__row {
           grid-template-columns: 1fr;
+        }
+
+        .contract-call {
+          padding: 14px;
         }
       }
     </style>
@@ -2346,20 +2440,63 @@
                 <div class="modal__summary">No dedicated contract verifier endpoint is configured yet. This panel shows recent package, module, and function activity so developers can verify call surfaces manually.</div>
                 <section class="modal__section">
                   <h3 class="modal__section-title">Recent contract calls</h3>
-                  <div class="modal__rows">
+                  <div class="contract-call-list">
                     ${
                       contractRows.length
                         ? contractRows
-                            .map(
-                              (tx) => `
-                                <div class="modal__row">
-                                  <div class="modal__row-label">${escapeHtml(tx.action)}</div>
-                                  <div class="modal__row-value">
-                                    ${createCopyableMarkup(tx.moduleAddress, { display: `${truncateMiddle(tx.moduleAddress, 10, 8)} · ${tx.moduleName}::${tx.functionName}`, className: ' modal__mono' })}
+                            .map((tx, index) => {
+                              const hasModule = tx.moduleName && tx.moduleName !== '—'
+                              const hasFunction = tx.functionName && tx.functionName !== '—'
+                              const targetLabel =
+                                hasModule || hasFunction
+                                  ? `${hasModule ? tx.moduleName : 'move'}::${hasFunction ? tx.functionName : 'execute'}`
+                                  : tx.action
+                              const packageDisplay =
+                                tx.moduleAddress && tx.moduleAddress !== '—'
+                                  ? truncateMiddle(tx.moduleAddress, 12, 10)
+                                  : '—'
+                              const shouldShowObservedAction = tx.action && tx.action !== targetLabel
+
+                              return `
+                                <article class="contract-call">
+                                  <div class="contract-call__head">
+                                    <div class="contract-call__title-wrap">
+                                      <span class="contract-call__eyebrow">Call ${String(index + 1).padStart(2, '0')}</span>
+                                      <div class="contract-call__target">${escapeHtml(targetLabel)}</div>
+                                    </div>
+                                    <span class="contract-call__badge">${escapeHtml(state.network)}</span>
                                   </div>
-                                </div>
-                              `,
-                            )
+                                  <div class="contract-call__grid">
+                                    <div class="contract-call__meta">
+                                      <span class="contract-call__meta-label">Package</span>
+                                      <div class="contract-call__meta-value">
+                                        ${createCopyableMarkup(tx.moduleAddress, { display: packageDisplay, className: ' modal__mono' })}
+                                      </div>
+                                    </div>
+                                    <div class="contract-call__meta">
+                                      <span class="contract-call__meta-label">Module</span>
+                                      <div class="contract-call__meta-value contract-call__meta-value--mono">${escapeHtml(tx.moduleName || '—')}</div>
+                                    </div>
+                                    <div class="contract-call__meta">
+                                      <span class="contract-call__meta-label">Function</span>
+                                      <div class="contract-call__meta-value contract-call__meta-value--mono">${escapeHtml(tx.functionName || '—')}</div>
+                                    </div>
+                                  </div>
+                                  ${
+                                    shouldShowObservedAction
+                                      ? `
+                                        <div class="contract-call__footnote">
+                                          <div class="contract-call__meta">
+                                            <span class="contract-call__meta-label">Observed action</span>
+                                            <div class="contract-call__meta-value contract-call__meta-value--mono">${escapeHtml(tx.action)}</div>
+                                          </div>
+                                        </div>
+                                      `
+                                      : ''
+                                  }
+                                </article>
+                              `
+                            })
                             .join('')
                         : '<div class="empty-state">No contract calls are available yet.</div>'
                     }
