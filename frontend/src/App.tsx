@@ -5341,16 +5341,10 @@ function App() {
               <BridgePage
                 bridgeAmount={bridgeAmount}
                 bridgeRecipient={bridgeRecipient}
-                faucet={faucet}
-                faucetAvailabilityLabel={faucetAvailabilityLabel}
-                faucetClaimAmountLabel={faucetClaimAmountLabel}
-                faucetTxUrl={faucetTxUrl ?? buildRpcTxUrl(faucet?.txHash) ?? null}
                 handleClaimAvailableRewards={handleClaimAvailableRewards}
-                handleClaimFaucet={handleClaimFaucet}
                 handleOpenLendBridge={handleOpenLendBridge}
                 handleStake={handleStake}
                 handleUnstake={handleUnstake}
-                isClaimingFaucet={isClaimingFaucet}
                 isProtocolActionPending={isProtocolActionPending}
                 lendLiquidityRoute={lendLiquidityRoute}
                 rewards={rewards}

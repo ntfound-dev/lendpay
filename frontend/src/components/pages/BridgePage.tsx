@@ -1,21 +1,15 @@
-import { formatCurrency, formatDate, formatNumber, formatTxHash } from '../../lib/format'
-import type { FaucetState, LendLiquidityRouteState, RewardsState } from '../../types/domain'
+import { formatCurrency, formatDate, formatNumber } from '../../lib/format'
+import type { LendLiquidityRouteState, RewardsState } from '../../types/domain'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 
 type BridgePageProps = {
   bridgeAmount: string
   bridgeRecipient: string
-  faucet: FaucetState | null
-  faucetAvailabilityLabel: string
-  faucetClaimAmountLabel: string
-  faucetTxUrl: string | null
   handleClaimAvailableRewards: () => void | Promise<void>
-  handleClaimFaucet: () => void | Promise<void>
   handleOpenLendBridge: () => void | Promise<void>
   handleStake: () => void | Promise<void>
   handleUnstake: () => void | Promise<void>
-  isClaimingFaucet: boolean
   isProtocolActionPending: (key: string) => boolean
   lendLiquidityRoute: LendLiquidityRouteState | null
   rewards: RewardsState | null
@@ -31,16 +25,10 @@ type BridgePageProps = {
 export function BridgePage({
   bridgeAmount,
   bridgeRecipient,
-  faucet,
-  faucetAvailabilityLabel,
-  faucetClaimAmountLabel,
-  faucetTxUrl,
   handleClaimAvailableRewards,
-  handleClaimFaucet,
   handleOpenLendBridge,
   handleStake,
   handleUnstake,
-  isClaimingFaucet,
   isProtocolActionPending,
   lendLiquidityRoute,
   rewards,
@@ -128,41 +116,6 @@ export function BridgePage({
             <span>Reference price {formatCurrency(bridgeReferencePrice)}</span>
             <span>·</span>
             <span>Last updated {bridgeUpdatedAt}</span>
-          </div>
-        </Card>
-
-        <Card eyebrow="Testnet access" title="Faucet" className="bridge-card">
-          <div className="bridge-page__simple-stack">
-            <p className="bridge-card__route">
-              Keep gas ready so bridge, repay, and partner checkout flows can sign cleanly.
-            </p>
-
-            <div className="bridge-page__simple-note">
-              <strong>{faucet?.enabled ? faucetAvailabilityLabel : 'Unavailable'}</strong>
-              <p>
-                {faucet?.enabled
-                  ? `Claim ${faucetClaimAmountLabel} when your wallet needs more ${faucet.nativeSymbol}.`
-                  : 'Testnet funding is currently unavailable for this environment.'}
-              </p>
-            </div>
-
-            <div className="bridge-page__simple-actions">
-              {faucet?.enabled ? (
-                <Button onClick={handleClaimFaucet} disabled={isClaimingFaucet || !faucet.canClaim}>
-                  {isClaimingFaucet ? 'Sending...' : faucet.canClaim ? `Claim ${faucetClaimAmountLabel}` : 'Claim unavailable'}
-                </Button>
-              ) : (
-                <Button variant="secondary" disabled>
-                  Faucet is not enabled
-                </Button>
-              )}
-            </div>
-
-            {faucet?.txHash ? (
-              <a className="faucet-card__link" href={faucetTxUrl ?? '#'} target="_blank" rel="noreferrer">
-                Latest faucet tx {formatTxHash(faucet.txHash)}
-              </a>
-            ) : null}
           </div>
         </Card>
       </div>
