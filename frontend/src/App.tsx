@@ -4920,7 +4920,10 @@ function App() {
               </Card>
             ) : null}
 
-            {canRenderConnectedPages && activePage !== 'admin' && activePage !== 'bridge' ? (
+            {canRenderConnectedPages &&
+            activePage !== 'admin' &&
+            activePage !== 'overview' &&
+            activePage !== 'bridge' ? (
               <AgentPanel
                 actionLabel={agentPanelActionLabel}
                 body={agentPanelBody}
@@ -5193,10 +5196,15 @@ function App() {
                 campaignDraft={campaignDraft}
                 campaigns={campaigns}
                 ecosystemFamilyStats={ecosystemFamilyStats}
+                faucet={faucet}
+                faucetAvailabilityLabel={faucetAvailabilityLabel}
+                faucetClaimAmountLabel={faucetClaimAmountLabel}
+                faucetTxUrl={faucetTxUrl ?? buildRpcTxUrl(faucet?.txHash) ?? null}
                 governance={governance}
                 governanceDraft={governanceDraft}
                 handleAllocateCampaign={handleAllocateCampaign}
                 handleClaimCampaign={handleClaimCampaign}
+                handleClaimFaucet={handleClaimFaucet}
                 handleCreateCampaign={handleCreateCampaign}
                 handleDismissWalletRecovery={handleDismissWalletRecovery}
                 handleFinalizeProposal={handleFinalizeProposal}
@@ -5207,9 +5215,11 @@ function App() {
                 handleRetryLoad={handleRetryLoad}
                 handleSetMerchantActive={handleSetMerchantActive}
                 handleVoteGovernance={handleVoteGovernance}
+                isClaimingFaucet={isClaimingFaucet}
                 isProtocolActionPending={isProtocolActionPending}
                 lendLiquidityRoute={lendLiquidityRoute}
                 merchantDraft={merchantDraft}
+                needsTestnetFunds={needsTestnetFunds}
                 openCampaignCount={openCampaignCount}
                 operatorModeEnabled={operatorModeEnabled}
                 protocolUpdates={protocolUpdates}

@@ -506,37 +506,130 @@ func (s *Server) handleGetFaucet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state := faucetState{
-		CanClaim:      false,
-		ClaimAmount:   s.cfg.FaucetClaimAmount,
-		CooldownHours: s.cfg.FaucetCooldownHours,
-		Enabled:       false,
-		NativeSymbol:  s.cfg.RollupNativeSymbol,
-	}
-
-	action, err := s.getLatestOperatorAction(r.Context(), user.InitiaAddress, "faucet_claim", "wallet")
-	if err == nil && action != nil {
-		lastClaimAt := isoTime(action.CreatedAt)
-		nextClaimAt := isoTime(action.CreatedAt.Add(time.Duration(s.cfg.FaucetCooldownHours) * time.Hour))
-		state.LastClaimAt = &lastClaimAt
-		state.NextClaimAt = &nextClaimAt
-		state.TxHash = action.TxHash
+	state, appErr := s.getFaucetState(r.Context(), user.InitiaAddress)
+	if appErr != nil {
+		writeAppError(w, appErr)
+		return
 	}
 
 	writeJSON(w, http.StatusOK, state)
 }
 
 func (s *Server) handleClaimFaucet(w http.ResponseWriter, r *http.Request) {
-	if _, appErr := s.currentUser(r); appErr != nil {
+	user, appErr := s.currentUser(r)
+	if appErr != nil {
 		writeAppError(w, appErr)
 		return
 	}
 
-	writeAppError(w, &appError{
-		Code:       "FAUCET_UNAVAILABLE",
-		Message:    "The Go backend currently exposes faucet status in preview mode only.",
-		StatusCode: http.StatusServiceUnavailable,
-	})
+	state, appErr := s.getFaucetState(r.Context(), user.InitiaAddress)
+	if appErr != nil {
+		writeAppError(w, appErr)
+		return
+	}
+
+	if !state.Enabled {
+		writeAppError(w, &appError{
+			Code:       "FAUCET_UNAVAILABLE",
+			Message:    "The faucet is not enabled for this environment.",
+			StatusCode: http.StatusServiceUnavailable,
+		})
+		return
+	}
+
+	if !state.CanClaim {
+		message := "Your next faucet claim will be available after the cooldown window."
+		if state.NextClaimAt != nil {
+			message = fmt.Sprintf("Your next faucet claim will be available at %s.", *state.NextClaimAt)
+		}
+
+		writeAppError(w, &appError{
+			Code:       "FAUCET_COOLDOWN_ACTIVE",
+			Message:    message,
+			StatusCode: http.StatusConflict,
+		})
+		return
+	}
+
+	now := time.Now().UTC()
+	txHash := previewTxHash("faucet", user.InitiaAddress)
+	_, err := s.db.pool.Exec(
+		r.Context(),
+		fmt.Sprintf(
+			`INSERT INTO %s ("id","actorAddress","actionType","targetType","targetId","reason","txHash","status","createdAt")
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+			s.db.table("OperatorAction"),
+		),
+		createID("operator"),
+		user.InitiaAddress,
+		"faucet_claim",
+		"wallet",
+		user.InitiaAddress,
+		fmt.Sprintf("Preview faucet claim for %s %s", formatTokenAmount(s.cfg.FaucetClaimAmount, s.cfg.RollupNativeDecimals), s.cfg.RollupNativeSymbol),
+		txHash,
+		"preview",
+		now,
+	)
+	if err != nil {
+		writeAppError(w, &appError{
+			Code:       "DATABASE_ERROR",
+			Message:    "Faucet claim could not be recorded.",
+			StatusCode: http.StatusInternalServerError,
+		})
+		return
+	}
+
+	nextState, appErr := s.getFaucetState(r.Context(), user.InitiaAddress)
+	if appErr != nil {
+		writeAppError(w, appErr)
+		return
+	}
+	nextState.TxHash = &txHash
+	lastClaimAt := isoTime(now)
+	nextClaimAt := isoTime(now.Add(time.Duration(s.cfg.FaucetCooldownHours) * time.Hour))
+	nextState.LastClaimAt = &lastClaimAt
+	nextState.NextClaimAt = &nextClaimAt
+	nextState.CanClaim = false
+
+	writeJSON(w, http.StatusOK, nextState)
+}
+
+func (s *Server) getFaucetState(ctx context.Context, address string) (faucetState, *appError) {
+	state := faucetState{
+		CanClaim:      false,
+		ClaimAmount:   s.cfg.FaucetClaimAmount,
+		CooldownHours: s.cfg.FaucetCooldownHours,
+		Enabled:       s.cfg.FaucetClaimAmount > 0 && s.cfg.FaucetCooldownHours >= 0,
+		NativeSymbol:  s.cfg.RollupNativeSymbol,
+	}
+
+	if !state.Enabled {
+		return state, nil
+	}
+
+	action, err := s.getLatestOperatorAction(ctx, address, "faucet_claim", "wallet")
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			state.CanClaim = true
+			return state, nil
+		}
+
+		return faucetState{}, &appError{
+			Code:       "DATABASE_ERROR",
+			Message:    "Faucet status could not be loaded.",
+			StatusCode: http.StatusInternalServerError,
+		}
+	}
+
+	lastClaimAt := isoTime(action.CreatedAt)
+	nextClaimMoment := action.CreatedAt.Add(time.Duration(s.cfg.FaucetCooldownHours) * time.Hour)
+	nextClaimAt := isoTime(nextClaimMoment)
+	state.LastClaimAt = &lastClaimAt
+	state.NextClaimAt = &nextClaimAt
+	state.TxHash = action.TxHash
+	state.CanClaim = !time.Now().UTC().Before(nextClaimMoment)
+
+	return state, nil
 }
 
 func (s *Server) handleGetReferral(w http.ResponseWriter, r *http.Request) {
