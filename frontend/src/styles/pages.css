@@ -125,52 +125,88 @@
 
 .lendpay-hero__orb {
   position: absolute;
+  top: 50%;
+  left: 50%;
   width: 14px;
   height: 14px;
+  margin-top: -7px;
+  margin-left: -7px;
   border-radius: 999px;
   background: #1a6cf5;
   box-shadow: 0 0 0 6px rgba(26, 108, 245, 0.12);
+  will-change: transform;
 }
 
 .lendpay-hero__orb--one {
-  top: 18px;
-  right: 22px;
+  animation: heroOrbitOne 7.2s linear infinite;
 }
 
 .lendpay-hero__orb--two {
-  bottom: 28px;
-  left: 18px;
   background: #0f766e;
   box-shadow: 0 0 0 6px rgba(15, 118, 110, 0.12);
+  animation: heroOrbitTwo 9.6s linear infinite;
 }
 
 .lendpay-hero__orb--three {
-  top: 50%;
-  left: -4px;
   background: #d97706;
   box-shadow: 0 0 0 6px rgba(217, 119, 6, 0.12);
-  transform: translateY(-50%);
+  animation: heroOrbitThree 8.4s linear infinite reverse;
 }
 
 .lendpay-hero__orbit-center {
   position: relative;
   z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
 }
 
 .lendpay-hero__orbit-core {
   display: grid;
   place-items: center;
-  width: 72px;
-  height: 72px;
+  width: 76px;
+  height: 76px;
   border: 1px solid rgba(26, 108, 245, 0.14);
-  border-radius: 22px;
+  border-radius: 24px;
   background: #ffffff;
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+  transform: translateZ(0);
 }
 
 .lendpay-hero__orbit-core img {
   width: 34px;
   height: 34px;
+}
+
+@keyframes heroOrbitOne {
+  from {
+    transform: rotate(12deg) translateX(72px);
+  }
+
+  to {
+    transform: rotate(372deg) translateX(72px);
+  }
+}
+
+@keyframes heroOrbitTwo {
+  from {
+    transform: rotate(164deg) translateX(66px);
+  }
+
+  to {
+    transform: rotate(524deg) translateX(66px);
+  }
+}
+
+@keyframes heroOrbitThree {
+  from {
+    transform: rotate(262deg) translateX(84px);
+  }
+
+  to {
+    transform: rotate(622deg) translateX(84px);
+  }
 }
 
 .lendpay-hero__title {
