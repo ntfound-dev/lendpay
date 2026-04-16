@@ -5044,7 +5044,7 @@ function App() {
               />
             ) : null}
 
-            {canRenderConnectedPages && faucet?.enabled && needsTestnetFunds ? (
+            {canRenderConnectedPages && activePage === 'rewards' && faucet?.enabled && needsTestnetFunds ? (
               <Card eyebrow="Testnet faucet" title="Fund this wallet before sending onchain actions" className="faucet-card section-stack card--primary">
                 <div className="faucet-card__main">
                   <div>
@@ -5203,12 +5203,7 @@ function App() {
                 checkoutDueLabel={checkoutDueLabel}
                 checkoutMerchantTitle={checkoutMerchantTitle}
                 claimableDropPurchase={claimableDropPurchase}
-                faucet={faucet}
-                faucetAvailabilityLabel={faucetAvailabilityLabel}
-                faucetClaimAmountLabel={faucetClaimAmountLabel}
-                faucetTxUrl={faucetTxUrl ?? buildRpcTxUrl(faucet?.txHash) ?? null}
                 handleBuyViralDrop={handleBuyViralDrop}
-                handleClaimFaucet={handleClaimFaucet}
                 handleClaimCollectible={handleClaimCollectible}
                 handleDisableAutoRepay={handleDisableAutonomousRepay}
                 handleDisableAutoSignPreference={handleDisableAutoSignPreference}
@@ -5218,7 +5213,6 @@ function App() {
                 handleEnableAutoRepay={handleEnableAutonomousRepay}
                 handleEnableAutoSign={handleEnableAutoSignSession}
                 hasActiveAutoSignPermission={hasActiveAutoSignPermission}
-                isClaimingFaucet={isClaimingFaucet}
                 isClaimingDropCollectible={isClaimingDropCollectible}
                 isProtocolActionPending={isProtocolActionPending}
                 isRepayGuideOpen={isRepayGuideOpen}

@@ -1,7 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { formatCurrency, formatNumber, shortenAddress } from '../../lib/format'
 import type {
-  FaucetState,
   LoanFeeState,
   LoanState,
   ViralDropItemState,
@@ -32,12 +31,7 @@ type RepayPageProps = {
   checkoutDueLabel: string
   checkoutMerchantTitle: string
   claimableDropPurchase: ViralDropPurchaseState | null
-  faucet: FaucetState | null
-  faucetAvailabilityLabel: string
-  faucetClaimAmountLabel: string
-  faucetTxUrl: string | null
   handleBuyViralDrop: (item: ViralDropItemState) => void | Promise<void>
-  handleClaimFaucet: () => void | Promise<void>
   handleClaimCollectible: (purchase: ViralDropPurchaseState) => void | Promise<void>
   handleDisableAutoRepay: () => void
   handleDisableAutoSignPreference: () => void
@@ -49,7 +43,6 @@ type RepayPageProps = {
   handleRepay: () => void | Promise<void>
   handleRetryLoad: () => void | Promise<void>
   hasActiveAutoSignPermission: boolean
-  isClaimingFaucet: boolean
   isClaimingDropCollectible: boolean
   isProtocolActionPending: (key: string) => boolean
   isRepayGuideOpen: boolean
@@ -81,12 +74,7 @@ export function RepayPage({
   checkoutDueLabel,
   checkoutMerchantTitle,
   claimableDropPurchase,
-  faucet,
-  faucetAvailabilityLabel,
-  faucetClaimAmountLabel,
-  faucetTxUrl,
   handleBuyViralDrop,
-  handleClaimFaucet,
   handleClaimCollectible,
   handleDisableAutoRepay,
   handleDisableAutoSignPreference,
@@ -98,7 +86,6 @@ export function RepayPage({
   handleRepay,
   handleRetryLoad,
   hasActiveAutoSignPermission,
-  isClaimingFaucet,
   isClaimingDropCollectible,
   isProtocolActionPending,
   isRepayGuideOpen,
@@ -276,39 +263,6 @@ export function RepayPage({
           onEnableAutoRepay={handleEnableAutoRepay}
           onEnableAutoSign={handleEnableAutoSign}
         />
-      ) : null}
-
-      {faucet?.enabled ? (
-        <Card
-          eyebrow="Testnet faucet"
-          title="Need more LEND for testnet actions?"
-          className="faucet-card section-stack"
-        >
-          <div className="faucet-card__main">
-            <div>
-              <div className="faucet-card__amount">{faucetClaimAmountLabel}</div>
-              <p className="faucet-card__body">
-                This is a testnet flow. Claim faucet funds before repay, reward claims, or other onchain actions if your wallet needs more {faucet.nativeSymbol}.
-              </p>
-              <div className="faucet-card__meta">
-                One claim every {faucet.cooldownHours} hours · {faucetAvailabilityLabel}
-              </div>
-              {faucet.txHash ? (
-                <a
-                  className="faucet-card__link"
-                  href={faucetTxUrl ?? '#'}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Latest faucet tx {shortenAddress(faucet.txHash)}
-                </a>
-              ) : null}
-            </div>
-            <Button onClick={handleClaimFaucet} disabled={isClaimingFaucet || !faucet.canClaim}>
-              {isClaimingFaucet ? 'Sending...' : faucet.canClaim ? 'Claim testnet LEND' : 'Claim available later'}
-            </Button>
-          </div>
-        </Card>
       ) : null}
 
       {latestDropPurchase ? (
