@@ -51,6 +51,7 @@ type Config struct {
 	RollupHome               string
 	RollupKeyName            string
 	RollupKeyringBackend     string
+	RollupNativeDecimals     int
 	RollupNativeDenom        string
 	RollupNativeSymbol       string
 	RollupOperatorMnemonic   string
@@ -104,18 +105,19 @@ func LoadConfig() Config {
 		RateLimitAIMaxRequests:   getEnvInt("RATE_LIMIT_AI_MAX_REQUESTS", 10),
 		RateLimitAuthMaxRequests: getEnvInt("RATE_LIMIT_AUTH_MAX_REQUESTS", 20),
 		RateLimitEnabled:         getEnvBool("RATE_LIMIT_ENABLED", true),
-		RateLimitGlobalMax:       getEnvInt("RATE_LIMIT_GLOBAL_MAX_REQUESTS", 240),
-		RateLimitMutationMax:     getEnvInt("RATE_LIMIT_MUTATION_MAX_REQUESTS", 60),
-		RateLimitWindowMS:        getEnvInt("RATE_LIMIT_WINDOW_MS", 60000),
-		RollupChainID:            getEnv("ROLLUP_CHAIN_ID", "lendpay-4"),
-		RollupGasAdjustment:      getEnv("ROLLUP_GAS_ADJUSTMENT", "1.5"),
-		RollupGasPrices:          getEnv("ROLLUP_GAS_PRICES", "0.015ulend"),
-		RollupHome:               getEnv("ROLLUP_HOME", ""),
-		RollupKeyName:            getEnv("ROLLUP_KEY_NAME", ""),
-		RollupKeyringBackend:     getEnv("ROLLUP_KEYRING_BACKEND", "test"),
-		RollupNativeDenom:        getEnv("ROLLUP_NATIVE_DENOM", "ulend"),
-		RollupNativeSymbol:       getEnv("ROLLUP_NATIVE_SYMBOL", "LEND"),
-		RollupOperatorMnemonic:   getEnv("ROLLUP_OPERATOR_MNEMONIC", ""),
+			RateLimitGlobalMax:       getEnvInt("RATE_LIMIT_GLOBAL_MAX_REQUESTS", 240),
+			RateLimitMutationMax:     getEnvInt("RATE_LIMIT_MUTATION_MAX_REQUESTS", 60),
+			RateLimitWindowMS:        getEnvInt("RATE_LIMIT_WINDOW_MS", 60000),
+			RollupChainID:            getEnv("ROLLUP_CHAIN_ID", "lendpay-4"),
+			RollupGasAdjustment:      getEnv("ROLLUP_GAS_ADJUSTMENT", "1.5"),
+			RollupGasPrices:          getEnv("ROLLUP_GAS_PRICES", "0.015ulend"),
+			RollupHome:               getEnv("ROLLUP_HOME", ""),
+			RollupKeyName:            getEnv("ROLLUP_KEY_NAME", ""),
+			RollupKeyringBackend:     getEnv("ROLLUP_KEYRING_BACKEND", "test"),
+			RollupNativeDecimals:     getEnvInt("ROLLUP_NATIVE_DECIMALS", 6),
+			RollupNativeDenom:        getEnv("ROLLUP_NATIVE_DENOM", "ulend"),
+			RollupNativeSymbol:       getEnv("ROLLUP_NATIVE_SYMBOL", "LEND"),
+			RollupOperatorMnemonic:   getEnv("ROLLUP_OPERATOR_MNEMONIC", ""),
 		PublicRollupRESTURL:      resolvePublicServiceURL(getEnv("PUBLIC_ROLLUP_REST_URL", ""), rollupRESTURL),
 		PublicRollupRPCURL:       resolvePublicServiceURL(getEnv("PUBLIC_ROLLUP_RPC_URL", ""), rollupRPCURL),
 		RollupRESTURL:            rollupRESTURL,
