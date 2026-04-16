@@ -1622,6 +1622,7 @@ func computeScore(user userRow) creditScoreState {
 		Risk:      risk,
 		ScannedAt: isoTime(time.Now().UTC()),
 		Score:     scoreValue,
+		Source:    scoreSourcePreview,
 		Summary:   &summary,
 	}
 }
@@ -2599,6 +2600,7 @@ func (s *Server) profileQuotes(user userRow, score creditScoreState) []creditPro
 			Qualified:              true,
 			RequiresCollateral:     false,
 			Revolving:              false,
+			Source:                 profileQuoteSourcePreview,
 			TierLimitMultiplierBps: 10000,
 		},
 		{
@@ -2613,6 +2615,7 @@ func (s *Server) profileQuotes(user userRow, score creditScoreState) []creditPro
 			Qualified:              user.HeldLend >= 100,
 			RequiresCollateral:     false,
 			Revolving:              false,
+			Source:                 profileQuoteSourcePreview,
 			TierLimitMultiplierBps: 10000,
 		},
 		{
@@ -2627,6 +2630,7 @@ func (s *Server) profileQuotes(user userRow, score creditScoreState) []creditPro
 			Qualified:              user.HeldLend >= 500,
 			RequiresCollateral:     false,
 			Revolving:              true,
+			Source:                 profileQuoteSourcePreview,
 			TierLimitMultiplierBps: 10000,
 		},
 		{
@@ -2641,6 +2645,7 @@ func (s *Server) profileQuotes(user userRow, score creditScoreState) []creditPro
 			Qualified:              true,
 			RequiresCollateral:     true,
 			Revolving:              false,
+			Source:                 profileQuoteSourcePreview,
 			TierLimitMultiplierBps: 10000,
 		},
 	}
@@ -2671,6 +2676,7 @@ func (s *Server) profileQuotesFromRollup(user userRow) []creditProfileQuote {
 			Qualified:              quote.Qualified,
 			RequiresCollateral:     quote.RequiresCollateral,
 			Revolving:              quote.Revolving,
+			Source:                 profileQuoteSourceRollup,
 			TierLimitMultiplierBps: quote.TierLimitMultiplierBps,
 		})
 	}

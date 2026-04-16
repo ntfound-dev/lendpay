@@ -116,6 +116,7 @@ export function ProfilePage({
                 <div className="profile-score-card__badges">
                   <Badge tone={riskBadgeTone}>{score.risk} risk</Badge>
                   <Badge tone="info">APR {score.apr}%</Badge>
+                  {score.source === 'preview' ? <Badge tone="warning">Preview model</Badge> : null}
                 </div>
               </>
             ) : (

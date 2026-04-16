@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -110,6 +111,13 @@ type scoreBreakdownItem struct {
 	Points int    `json:"points"`
 }
 
+const (
+	scoreSourcePreview        = "preview"
+	scoreSourceUnderwriting   = "underwriting"
+	profileQuoteSourcePreview = "preview"
+	profileQuoteSourceRollup  = "rollup"
+)
+
 type creditScoreState struct {
 	APR       float64              `json:"apr"`
 	Breakdown []scoreBreakdownItem `json:"breakdown"`
@@ -119,6 +127,7 @@ type creditScoreState struct {
 	Risk      string               `json:"risk"`
 	ScannedAt string               `json:"scannedAt"`
 	Score     int                  `json:"score"`
+	Source    string               `json:"source,omitempty"`
 	Summary   *string              `json:"summary,omitempty"`
 }
 
@@ -185,6 +194,7 @@ type creditProfileQuote struct {
 	Qualified              bool   `json:"qualified"`
 	RequiresCollateral     bool   `json:"requiresCollateral"`
 	Revolving              bool   `json:"revolving"`
+	Source                 string `json:"source,omitempty"`
 	TierLimitMultiplierBps int    `json:"tierLimitMultiplierBps"`
 }
 
@@ -410,8 +420,19 @@ func mapScore(row scoreRow) (creditScoreState, error) {
 		Risk:      row.Risk,
 		ScannedAt: isoTime(row.ScannedAt),
 		Score:     row.Score,
+		Source:    inferScoreSource(row.Provider, row.Model),
 		Summary:   row.Summary,
 	}, nil
+}
+
+func inferScoreSource(provider, model *string) string {
+	normalizedProvider := strings.ToLower(strings.TrimSpace(trimStringPtr(provider)))
+	normalizedModel := strings.ToLower(strings.TrimSpace(trimStringPtr(model)))
+	if normalizedProvider == "heuristic" || strings.Contains(normalizedModel, "preview") {
+		return scoreSourcePreview
+	}
+
+	return scoreSourceUnderwriting
 }
 
 func mapLoanRequest(row loanRequestRow) loanRequestState {

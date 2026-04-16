@@ -149,6 +149,7 @@ export function RequestPage({
   const merchantShowcaseItems = getMerchantShowcaseItems(selectedMerchant)
   const merchantShowcaseHint = getMerchantShowcaseHint(selectedMerchant, selectedAppMeta.family)
   const hasDraftAmount = Number(draft.amount || 0) > 0
+  const showQuickAppCards = requestQuickApps.length > 0 && requestQuickApps.length <= 6
   const tenorCapMessage =
     selectedProfile && selectedProfile.maxTenorMonths < 6
       ? `${formatProfileLabel(selectedProfile.label)} currently supports up to ${selectedProfile.maxTenorMonths} month${selectedProfile.maxTenorMonths > 1 ? 's' : ''}. Choose another credit product to unlock a longer repayment period.`
@@ -227,33 +228,39 @@ export function RequestPage({
         <Card className="checkout-card">
           <div className="checkout-section checkout-section--tight">
             <div className="checkout-section__label">Step 1 · Pick one app</div>
-            <select
-              className="checkout-select"
-              value={draft.merchantId}
-              onChange={(event) => handleSelectMerchant(event.target.value)}
-              disabled={!activeMerchants.length}
-            >
-              <option value="">Pick one app</option>
-              {groupedActiveApps.map((group) => (
-                <optgroup key={group.family} label={group.family}>
-                  {group.apps.map((merchant) => (
-                    <option key={merchant.id} value={merchant.id}>
-                      {formatAppLabel(merchant)} — {group.family}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
             <p className="checkout-section__hint">
               {sectionErrors.merchants
                 ? sectionErrors.merchants
                 : selectedMerchant
-                  ? `${selectedMerchantTitle} selected. The request builder is ready below.`
+                  ? showQuickAppCards
+                    ? `${selectedMerchantTitle} selected. Tap another card if you want to switch apps.`
+                    : `${selectedMerchantTitle} selected. The request builder is ready below.`
                 : activeMerchants.length
-                  ? 'Pick one app here. If you still want to compare options first, open Ecosystem.'
+                  ? showQuickAppCards
+                    ? 'Tap one app card below to continue. If you still want to compare options first, open Ecosystem.'
+                    : 'Pick one app here. If you still want to compare options first, open Ecosystem.'
                   : 'Apps appear here as soon as a live route is registered onchain.'}
             </p>
-            {requestQuickApps.length ? (
+            {!showQuickAppCards ? (
+              <select
+                className="checkout-select"
+                value={draft.merchantId}
+                onChange={(event) => handleSelectMerchant(event.target.value)}
+                disabled={!activeMerchants.length}
+              >
+                <option value="">Pick one app</option>
+                {groupedActiveApps.map((group) => (
+                  <optgroup key={group.family} label={group.family}>
+                    {group.apps.map((merchant) => (
+                      <option key={merchant.id} value={merchant.id}>
+                        {formatAppLabel(merchant)} — {group.family}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            ) : null}
+            {showQuickAppCards ? (
               <div className="request-app-grid">
                 {requestQuickApps.map((merchant) => {
                   const family = appCategoryMeta(merchant.category).family

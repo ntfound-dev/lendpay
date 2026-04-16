@@ -409,6 +409,7 @@ function App() {
   const nextDueItem = activeLoan?.schedule.find((item) => item.status === 'due') ?? null
   const canUseInterwovenAutoSign = autoSignPreferenceEnabled && hasActiveAutoSignPermission
   const latestRequest = requests[0] ?? null
+  const scoreIsPreview = score?.source === 'preview' || score?.provider === 'heuristic'
   const requestedAmount = Number(draft.amount || '0')
   const parsedApr = score?.apr ?? 0
   const monthlyPaymentPreview = useMemo(() => {
@@ -435,7 +436,7 @@ function App() {
   const selectedDraftProfile =
     profileQuotes.find((profile) => profile.profileId === draft.profileId) ?? null
   const getEffectiveProfileLimit = (profileQuote: CreditProfileQuote) =>
-    profileQuote.requiresCollateral
+    profileQuote.source === 'rollup' || profileQuote.requiresCollateral
       ? profileQuote.maxPrincipal
       : Math.min(score?.limitUsd ?? profileQuote.maxPrincipal, profileQuote.maxPrincipal)
   const bestQualifiedProfile = useMemo(() => {
@@ -565,7 +566,11 @@ function App() {
   }, [checkoutSliderMax])
   const requestAmountHelper =
     selectedProfile && effectiveAvailableLimit !== null
-      ? score && score.limitUsd > effectiveAvailableLimit
+      ? !selectedProfile.qualified
+        ? `${formatProfileLabel(selectedProfile.label)} is available, but this wallet does not qualify for it yet.`
+        : selectedProfile.source === 'rollup'
+        ? `${formatProfileLabel(selectedProfile.label)} supports up to ${formatCurrency(effectiveAvailableLimit)} from the live rollup quote for this wallet right now.`
+        : score && score.limitUsd > effectiveAvailableLimit
         ? `${formatProfileLabel(selectedProfile.label)} currently caps a single request at ${formatCurrency(effectiveAvailableLimit)}, even though your total limit is ${formatCurrency(score.limitUsd)}. Choose a higher credit product below to unlock more of the limit.`
         : `${formatProfileLabel(selectedProfile.label)} supports up to ${formatCurrency(effectiveAvailableLimit)} for this wallet right now.`
       : score
@@ -3918,7 +3923,11 @@ function App() {
     { label: 'Identity', status: isConnected ? 'Connected' : 'Connect wallet', tone: 'success' as const },
     {
       label: 'Risk check',
-      status: score ? `${score.score} score ready` : 'Analyze wallet first',
+      status: score
+        ? scoreIsPreview
+          ? `Preview score ${score.score} ready`
+          : `${score.score} score ready`
+        : 'Analyze wallet first',
       tone: score ? ('info' as const) : ('warning' as const),
     },
     {
@@ -3970,8 +3979,28 @@ function App() {
     effectiveStreak === 0
       ? 'Make your first on-time payment to start your streak'
       : `${effectiveStreak} on-time payment${effectiveStreak > 1 ? 's' : ''} in a row`
+  const overviewProfile = bestQualifiedProfile ?? selectedProfile
+  const overviewQualifiedProfile = overviewProfile?.qualified ? overviewProfile : null
+  const overviewHasLiveProfileCap = overviewQualifiedProfile?.source === 'rollup'
+  const overviewCreditLimitValue = overviewHasLiveProfileCap
+    ? getEffectiveProfileLimit(overviewQualifiedProfile)
+    : score?.limitUsd ?? null
+  const overviewCreditLimitLabel = overviewHasLiveProfileCap
+    ? 'Live credit cap'
+    : score
+      ? 'Estimated credit limit'
+      : 'Credit limit'
+  const overviewCreditLimitTagLabel = overviewHasLiveProfileCap
+    ? 'Rollup live'
+    : score
+      ? 'Preview model'
+      : 'Not available'
+  const overviewCreditLimitTagTone = overviewHasLiveProfileCap ? 'success' : 'warning'
   const heroAprLabel = score ? `${score.apr}%` : 'Analyze first'
-  const heroScoreLabel = score ? `Score ${formatNumber(score.score)}` : 'Score pending'
+  const heroAprStatLabel = scoreIsPreview ? 'Preview APR' : 'APR'
+  const heroScoreLabel = score
+    ? `${scoreIsPreview ? 'Preview score' : 'Score'} ${formatNumber(score.score)}`
+    : 'Score pending'
   const heroDueDate = nextDueItem?.dueAt ? formatDate(nextDueItem.dueAt) : 'No payment due'
   const heroDueAmount = nextDueItem?.amount ?? null
   const heroDueDateShort = nextDueItem?.dueAt
@@ -4218,11 +4247,7 @@ function App() {
           };
 
   const overviewSpendCapacity = score
-    ? Math.min(
-        score.limitUsd,
-        effectiveAvailableLimit ?? score.limitUsd,
-        selectedProfile?.maxPrincipal ?? score.limitUsd,
-      )
+    ? Math.max(0, Math.round(overviewCreditLimitValue ?? 0))
     : 0
   const suggestedSpendToday = score
     ? Math.max(
@@ -4233,6 +4258,7 @@ function App() {
         ),
       )
     : 0
+  const heroSafeSpendPrefix = scoreIsPreview ? 'Suggested spend today' : 'Safe to spend today'
   const heroSafeSpendLabel = score ? formatCurrency(suggestedSpendToday) : '—'
   const activeAgentGuide = agentGuide?.surface === activePage ? agentGuide : null
   const visibleAgentGuide = activeAgentGuide
@@ -4307,7 +4333,7 @@ function App() {
     topbarTitle = 'Profile'
     topbarSubtitle = 'Your score, identity, and credit terms in one place'
     topbarTitleBadge = undefined
-    topbarStatus = score ? 'Score ready' : 'Needs analysis'
+    topbarStatus = score ? (scoreIsPreview ? 'Preview ready' : 'Score ready') : 'Needs analysis'
     topbarPrimaryLabel = undefined
     topbarSecondaryLabel = isAnalyzing ? '↻ Re-analyzing...' : '↻ Re-analyze'
     handleTopbarPrimaryAction = undefined
@@ -4363,10 +4389,10 @@ function App() {
           ? selectedMerchantDropItems.length
             ? score && monthlyPaymentPreview !== null
               ? `${formatProfileLabel(selectedProfile.label)} fits ${selectedMerchantTitle}. Match the amount to a live item and your estimated monthly payment is ${formatCurrency(monthlyPaymentPreview)}.`
-              : `${formatProfileLabel(selectedProfile.label)} fits ${selectedMerchantTitle}. Run wallet analysis to price this credit request with live APR and repayment terms.`
+              : `${formatProfileLabel(selectedProfile.label)} fits ${selectedMerchantTitle}. Run wallet analysis to price this credit request with estimated APR and repayment terms.`
           : score && monthlyPaymentPreview !== null
             ? `${formatProfileLabel(selectedProfile.label)} keeps this request ${selectedProfile.requiresCollateral ? 'secured with locked LEND' : 'with no collateral'}. This app has no live item listed yet, so the request stays general until the app publishes one.`
-            : `${formatProfileLabel(selectedProfile.label)} is ready. Refresh your profile to price this credit request with live APR and repayment terms.`
+            : `${formatProfileLabel(selectedProfile.label)} is ready. Refresh your profile to price this credit request with estimated APR and repayment terms.`
         : 'Pick one app here first. Ecosystem is for browsing live apps; Request is where you send credit to one app.'
       : 'Refresh your profile to unlock product recommendations for this purchase.'
     agentPanelRecommendation = requestBlockingMessage
@@ -4555,12 +4581,18 @@ function App() {
       : () => void handleEnableAutoSignSession()
     handleTopbarSecondaryAction = score ? () => setActivePage('request') : undefined
     agentPanelTitle = score
-      ? `You can safely spend up to ${formatCurrency(suggestedSpendToday)} today`
+      ? scoreIsPreview
+        ? `Preview guidance suggests spending up to ${formatCurrency(suggestedSpendToday)} today`
+        : `You can safely spend up to ${formatCurrency(suggestedSpendToday)} today`
       : 'Refresh your profile to unlock your first limit'
     agentPanelBody = score
       ? activeLoan
-        ? `Your total limit is ${formatCurrency(score.limitUsd)}. For this cycle, LendPay Agent recommends spending up to ${formatCurrency(suggestedSpendToday)} while you keep the next payment on time.`
-        : `Your total limit is ${formatCurrency(score.limitUsd)}. For this cycle, LendPay Agent recommends spending up to ${formatCurrency(suggestedSpendToday)} across trusted Initia apps.`
+        ? overviewHasLiveProfileCap && overviewCreditLimitValue !== null && overviewQualifiedProfile
+          ? `${formatProfileLabel(overviewQualifiedProfile.label)} currently gives this wallet a live cap of ${formatCurrency(overviewCreditLimitValue)}. Based on your preview score, LendPay Agent recommends spending up to ${formatCurrency(suggestedSpendToday)} while you keep the next payment on time.`
+          : `Your preview score currently maps to an estimated limit of ${formatCurrency(score.limitUsd)}. For this cycle, LendPay Agent recommends spending up to ${formatCurrency(suggestedSpendToday)} while you keep the next payment on time.`
+        : overviewHasLiveProfileCap && overviewCreditLimitValue !== null && overviewQualifiedProfile
+          ? `${formatProfileLabel(overviewQualifiedProfile.label)} currently gives this wallet a live cap of ${formatCurrency(overviewCreditLimitValue)}. Based on your preview score, LendPay Agent recommends spending up to ${formatCurrency(suggestedSpendToday)} across trusted Initia apps.`
+          : `Your preview score currently maps to an estimated limit of ${formatCurrency(score.limitUsd)}. For this cycle, LendPay Agent recommends spending up to ${formatCurrency(suggestedSpendToday)} across trusted Initia apps.`
       : 'Once your profile is refreshed, LendPay Agent will recommend the safest spend amount for this account.'
     agentPanelRecommendation = activeLoan ? 'Repay the next installment' : 'Open Request and choose an app'
     agentPanelConfidence = null
@@ -4968,7 +5000,10 @@ function App() {
                 claimableRewardsLabel={overviewClaimableRewardsLabel}
                 claimableRewardsValue={rewards ? claimableRewardsTotal : null}
                 combinedActivities={combinedActivities}
-                creditLimitValue={score?.limitUsd ?? null}
+                creditLimitLabel={overviewCreditLimitLabel}
+                creditLimitTagLabel={overviewCreditLimitTagLabel}
+                creditLimitTagTone={overviewCreditLimitTagTone}
+                creditLimitValue={overviewCreditLimitValue}
                 handleDisableAutoRepay={handleDisableAutonomousRepay}
                 handleDisableAutoSignPreference={handleDisableAutoSignPreference}
                 handleClaimAvailableRewards={handleClaimAvailableRewards}
@@ -4978,8 +5013,10 @@ function App() {
                 handleRetryLoad={handleRetryLoad}
                 hasActiveAutoSignPermission={hasActiveAutoSignPermission}
                 heroAprLabel={heroAprLabel}
+                heroAprStatLabel={heroAprStatLabel}
                 heroDueAmount={heroDueAmount}
                 heroDueDate={heroDueDate}
+                heroSafeSpendPrefix={heroSafeSpendPrefix}
                 heroSafeSpendLabel={heroSafeSpendLabel}
                 installmentsLabel={installmentsLabel}
                 isClaimingRewards={isProtocolActionPending('claim-all')}
@@ -4990,7 +5027,6 @@ function App() {
                 progressPercent={progressPercent}
                 rewards={rewards}
                 rewardsStatusLabel={overviewRewardsStatusLabel}
-                score={score}
                 sectionErrors={sectionErrors}
                 walletBalanceValue={walletNativeBalance}
                 walletNativeBalanceLabel={walletNativeBalanceLabel}

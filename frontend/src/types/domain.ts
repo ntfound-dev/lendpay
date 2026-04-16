@@ -9,6 +9,8 @@ export type ToastTone = 'success' | 'info' | 'warning' | 'danger'
 export type CollateralStatus = 'none' | 'locked' | 'returned' | 'liquidated'
 export type UsernameSource = 'preview' | 'initia_l1' | 'rollup'
 export type LiquidityStatus = 'unknown' | 'coming_soon' | 'live' | 'paused'
+export type CreditScoreSource = 'preview' | 'underwriting'
+export type CreditProfileQuoteSource = 'preview' | 'rollup'
 
 export interface ScoreBreakdownItem {
   label: string
@@ -23,6 +25,7 @@ export interface CreditScoreState {
   apr: number
   scannedAt: string
   breakdown: ScoreBreakdownItem[]
+  source?: CreditScoreSource
   provider?: 'heuristic' | 'ollama'
   model?: string
   summary?: string
@@ -107,6 +110,7 @@ export interface CreditProfileQuote {
   currentLendHoldings: number
   tierLimitMultiplierBps: number
   creditLimitBoostBps: number
+  source?: CreditProfileQuoteSource
 }
 
 export interface CampaignState {

@@ -158,6 +158,68 @@ func claimableRewardsTotal(user userRow) int {
 	return user.ClaimableLend + user.ClaimableStakingRewards
 }
 
+func isPreviewScore(score creditScoreState) bool {
+	return strings.EqualFold(strings.TrimSpace(score.Source), scoreSourcePreview)
+}
+
+func effectiveGuideProfileLimit(score creditScoreState, quote creditProfileQuote) int {
+	if strings.EqualFold(strings.TrimSpace(quote.Source), profileQuoteSourceRollup) || quote.RequiresCollateral {
+		return quote.MaxPrincipal
+	}
+
+	if score.LimitUSD < quote.MaxPrincipal {
+		return score.LimitUSD
+	}
+
+	return quote.MaxPrincipal
+}
+
+func bestGuideProfileQuote(score creditScoreState, quotes []creditProfileQuote) *creditProfileQuote {
+	bestIndex := -1
+	for index := range quotes {
+		if bestIndex == -1 {
+			bestIndex = index
+			continue
+		}
+
+		candidate := quotes[index]
+		best := quotes[bestIndex]
+
+		if candidate.Qualified != best.Qualified {
+			if candidate.Qualified {
+				bestIndex = index
+			}
+			continue
+		}
+
+		candidateLimit := effectiveGuideProfileLimit(score, candidate)
+		bestLimit := effectiveGuideProfileLimit(score, best)
+		if candidateLimit != bestLimit {
+			if candidateLimit > bestLimit {
+				bestIndex = index
+			}
+			continue
+		}
+
+		if candidate.RequiresCollateral != best.RequiresCollateral {
+			if !candidate.RequiresCollateral {
+				bestIndex = index
+			}
+			continue
+		}
+
+		if candidate.MaxTenorMonths > best.MaxTenorMonths {
+			bestIndex = index
+		}
+	}
+
+	if bestIndex == -1 {
+		return nil
+	}
+
+	return &quotes[bestIndex]
+}
+
 func trimGuideString(value *string) string {
 	if value == nil {
 		return ""
@@ -442,6 +504,17 @@ func (s *Server) buildAgentGuidanceWithContext(
 	activeLoan := findActiveLoan(loans)
 	nextRequest := findPendingRequest(requests)
 	claimableRewards := claimableRewardsTotal(user)
+	scorePreview := isPreviewScore(score)
+	bestProfileQuote := bestGuideProfileQuote(score, s.profileQuotes(user, score))
+	liveProfileCap := bestProfileQuote != nil &&
+		bestProfileQuote.Qualified &&
+		strings.EqualFold(strings.TrimSpace(bestProfileQuote.Source), profileQuoteSourceRollup)
+	liveProfileCapAmount := score.LimitUSD
+	liveProfileLabel := ""
+	if bestProfileQuote != nil {
+		liveProfileCapAmount = effectiveGuideProfileLimit(score, *bestProfileQuote)
+		liveProfileLabel = strings.ReplaceAll(bestProfileQuote.Label, "_", " ")
+	}
 	engineProvider := "heuristic"
 	engineModel := "agent-planner-v1"
 	extraContext := buildAgentExtraContextSummary(context)
@@ -481,8 +554,16 @@ func (s *Server) buildAgentGuidanceWithContext(
 		Confidence:     agentConfidence(79),
 		GeneratedAt:    isoTime(time.Now().UTC()),
 		Model:          &engineModel,
-		PanelBody:      fmt.Sprintf("Your current score is %d with a %s risk band. The agent will keep steering toward the next healthiest step for this account.", score.Score, strings.ToLower(score.Risk)),
-		PanelTitle:     fmt.Sprintf("You can safely work within a %s limit", usdLabel(float64(score.LimitUSD))),
+		PanelBody: ternaryGuideLabel(
+			liveProfileCap,
+			fmt.Sprintf("Your current %s is %d with a %s risk band. The rollup currently quotes up to %s through %s, and the agent will keep steering toward the next healthiest step for this account.", ternaryGuideLabel(scorePreview, "preview score", "score"), score.Score, strings.ToLower(score.Risk), usdLabel(float64(liveProfileCapAmount)), liveProfileLabel),
+			fmt.Sprintf("Your current %s is %d with a %s risk band. The agent will keep steering toward the next healthiest step for this account.", ternaryGuideLabel(scorePreview, "preview score", "score"), score.Score, strings.ToLower(score.Risk)),
+		),
+		PanelTitle: ternaryGuideLabel(
+			liveProfileCap,
+			fmt.Sprintf("A live %s cap is available today", usdLabel(float64(liveProfileCapAmount))),
+			ternaryGuideLabel(scorePreview, fmt.Sprintf("You can safely work within an estimated %s limit", usdLabel(float64(score.LimitUSD))), fmt.Sprintf("You can safely work within a %s limit", usdLabel(float64(score.LimitUSD)))),
+		),
 		Provider:       engineProvider,
 		Recommendation: "Open Request and choose an app",
 		Surface:        normalizedSurface,
@@ -491,9 +572,9 @@ func (s *Server) buildAgentGuidanceWithContext(
 	switch normalizedSurface {
 	case "analyze":
 		guide.AssistantLabel = "Profile status"
-		guide.AssistantDetail = fmt.Sprintf("Score %d is live. The agent is watching what most improves pricing next.", score.Score)
-		guide.PanelTitle = fmt.Sprintf("Your score is %d and the next move is clear", score.Score)
-		guide.PanelBody = fmt.Sprintf("Risk is %s with APR %.1f%%. The strongest lift now comes from clean repayment behavior, stronger loyalty signals, and a fresh sync after the next onchain action.", score.Risk, score.APR)
+		guide.AssistantDetail = ternaryGuideLabel(scorePreview, fmt.Sprintf("Preview score %d is ready. The agent is watching what most improves pricing next.", score.Score), fmt.Sprintf("Score %d is ready. The agent is watching what most improves pricing next.", score.Score))
+		guide.PanelTitle = ternaryGuideLabel(scorePreview, fmt.Sprintf("Your preview score is %d and the next move is clear", score.Score), fmt.Sprintf("Your score is %d and the next move is clear", score.Score))
+		guide.PanelBody = ternaryGuideLabel(scorePreview, fmt.Sprintf("Risk is %s with preview APR %.1f%%. The strongest lift now comes from clean repayment behavior, stronger loyalty signals, and a fresh sync after the next onchain action.", score.Risk, score.APR), fmt.Sprintf("Risk is %s with APR %.1f%%. The strongest lift now comes from clean repayment behavior, stronger loyalty signals, and a fresh sync after the next onchain action.", score.Risk, score.APR))
 		guide.Recommendation = "Re-analyze after your next wallet action"
 		guide.ActionLabel = agentAction("Re-analyze")
 		guide.ActionKey = agentAction("analyze_profile")
@@ -501,8 +582,16 @@ func (s *Server) buildAgentGuidanceWithContext(
 	case "request":
 		guide.AssistantLabel = "Credit request"
 		guide.AssistantDetail = "The agent is checking whether your account is ready to open a new credit request."
-		guide.PanelTitle = fmt.Sprintf("Your profile supports up to %s today", usdLabel(float64(score.LimitUSD)))
-		guide.PanelBody = "Choose one trusted Initia app, keep the request within your current limit, and favor a smaller first cycle if you are still building repayment history."
+		guide.PanelTitle = ternaryGuideLabel(
+			liveProfileCap,
+			fmt.Sprintf("Your live %s cap supports up to %s today", liveProfileLabel, usdLabel(float64(liveProfileCapAmount))),
+			ternaryGuideLabel(scorePreview, fmt.Sprintf("Your preview profile suggests up to %s today", usdLabel(float64(score.LimitUSD))), fmt.Sprintf("Your profile supports up to %s today", usdLabel(float64(score.LimitUSD)))),
+		)
+		guide.PanelBody = ternaryGuideLabel(
+			liveProfileCap,
+			fmt.Sprintf("The rollup quote for %s is live right now. Keep the request within %s and favor a smaller first cycle if you are still building repayment history.", liveProfileLabel, usdLabel(float64(liveProfileCapAmount))),
+			ternaryGuideLabel(scorePreview, "Choose one trusted Initia app, keep the request within your estimated limit, and favor a smaller first cycle if you are still building repayment history.", "Choose one trusted Initia app, keep the request within your current limit, and favor a smaller first cycle if you are still building repayment history."),
+		)
 		guide.Recommendation = "Choose an app and submit a request"
 		guide.ActionLabel = agentAction("Open Request")
 		guide.ActionKey = agentAction("open_request")
@@ -536,7 +625,11 @@ func (s *Server) buildAgentGuidanceWithContext(
 		guide.Confidence = agentConfidence(72)
 	default:
 		guide.AssistantLabel = "Account summary"
-		guide.AssistantDetail = fmt.Sprintf("The agent is watching score %d, current limit, and the next action most likely to improve this account.", score.Score)
+		guide.AssistantDetail = ternaryGuideLabel(
+			liveProfileCap,
+			fmt.Sprintf("The agent is watching %s %d and a live rollup cap of %s through %s to decide the next healthiest move.", ternaryGuideLabel(scorePreview, "preview score", "score"), score.Score, usdLabel(float64(liveProfileCapAmount)), liveProfileLabel),
+			ternaryGuideLabel(scorePreview, fmt.Sprintf("The agent is watching preview score %d, the current estimated limit, and the next action most likely to improve this account.", score.Score), fmt.Sprintf("The agent is watching score %d, current limit, and the next action most likely to improve this account.", score.Score)),
+		)
 	}
 
 	if nextRequest != nil {
@@ -587,8 +680,20 @@ func (s *Server) buildAgentGuidanceWithContext(
 	}
 
 	if score.Risk == "High" {
-		guide.PanelTitle = fmt.Sprintf("Start smaller and build trust from %s", usdLabel(float64(score.LimitUSD)))
-		guide.PanelBody = "The account is still in the highest risk band. The safest agent move is a smaller first request followed by a clean on-time repayment streak."
+		guide.PanelTitle = ternaryGuideLabel(
+			liveProfileCap,
+			fmt.Sprintf("Start smaller and build trust within the live %s cap", usdLabel(float64(liveProfileCapAmount))),
+			ternaryGuideLabel(scorePreview, fmt.Sprintf("Start smaller and build trust within an estimated %s limit", usdLabel(float64(score.LimitUSD))), fmt.Sprintf("Start smaller and build trust from %s", usdLabel(float64(score.LimitUSD)))),
+		)
+		guide.PanelBody = ternaryGuideLabel(
+			liveProfileCap,
+			ternaryGuideLabel(
+				scorePreview,
+				fmt.Sprintf("The rollup already exposes a live %s cap through %s, but the account is still in the highest preview risk band. The safest agent move is a smaller first request followed by a clean on-time repayment streak.", usdLabel(float64(liveProfileCapAmount)), liveProfileLabel),
+				fmt.Sprintf("The rollup already exposes a live %s cap through %s, but the account is still in the highest risk band. The safest agent move is a smaller first request followed by a clean on-time repayment streak.", usdLabel(float64(liveProfileCapAmount)), liveProfileLabel),
+			),
+			ternaryGuideLabel(scorePreview, "The account is still in the highest preview risk band. The safest agent move is a smaller first request followed by a clean on-time repayment streak.", "The account is still in the highest risk band. The safest agent move is a smaller first request followed by a clean on-time repayment streak."),
+		)
 		guide.Recommendation = "Open a smaller first request"
 		guide.ActionLabel = agentAction("Use credit")
 		guide.ActionKey = agentAction("open_request")
@@ -596,13 +701,29 @@ func (s *Server) buildAgentGuidanceWithContext(
 		return finalize(guide)
 	}
 
-	guide.PanelTitle = fmt.Sprintf("You can safely explore up to %s today", usdLabel(float64(score.LimitUSD)))
-	guide.PanelBody = fmt.Sprintf("The account is in the %s risk band with APR %.1f%%. The strongest next move is to choose a real app, stay within the current ceiling, and keep the first repayment clean.", strings.ToLower(score.Risk), score.APR)
+	guide.PanelTitle = ternaryGuideLabel(
+		liveProfileCap,
+		ternaryGuideLabel(scorePreview, fmt.Sprintf("You can conservatively explore up to the live %s cap today", usdLabel(float64(liveProfileCapAmount))), fmt.Sprintf("You can safely explore up to the live %s cap today", usdLabel(float64(liveProfileCapAmount)))),
+		ternaryGuideLabel(scorePreview, fmt.Sprintf("You can conservatively explore up to %s today", usdLabel(float64(score.LimitUSD))), fmt.Sprintf("You can safely explore up to %s today", usdLabel(float64(score.LimitUSD)))),
+	)
+	guide.PanelBody = ternaryGuideLabel(
+		liveProfileCap,
+		ternaryGuideLabel(scorePreview, fmt.Sprintf("The rollup currently quotes up to %s through %s. Your preview risk band is %s with preview APR %.1f%%. The strongest next move is to choose a real app, stay within that ceiling, and keep the first repayment clean.", usdLabel(float64(liveProfileCapAmount)), liveProfileLabel, strings.ToLower(score.Risk), score.APR), fmt.Sprintf("The rollup currently quotes up to %s through %s. The account is in the %s risk band with APR %.1f%%. The strongest next move is to choose a real app, stay within that ceiling, and keep the first repayment clean.", usdLabel(float64(liveProfileCapAmount)), liveProfileLabel, strings.ToLower(score.Risk), score.APR)),
+		ternaryGuideLabel(scorePreview, fmt.Sprintf("The account is in the %s preview risk band with preview APR %.1f%%. The strongest next move is to choose a real app, stay within the current ceiling, and keep the first repayment clean.", strings.ToLower(score.Risk), score.APR), fmt.Sprintf("The account is in the %s risk band with APR %.1f%%. The strongest next move is to choose a real app, stay within the current ceiling, and keep the first repayment clean.", strings.ToLower(score.Risk), score.APR)),
+	)
 	guide.Recommendation = "Open Request and choose an app"
 	guide.ActionLabel = agentAction("Use credit")
 	guide.ActionKey = agentAction("open_request")
 	guide.Confidence = agentConfidence(84)
 	return finalize(guide)
+}
+
+func ternaryGuideLabel(condition bool, whenTrue, whenFalse string) string {
+	if condition {
+		return whenTrue
+	}
+
+	return whenFalse
 }
 
 func (s *Server) handleGetAgentGuide(w http.ResponseWriter, r *http.Request) {

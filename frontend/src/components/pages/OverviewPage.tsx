@@ -1,7 +1,6 @@
 import { formatCurrency } from '../../lib/format'
 import type {
   ActivityItem,
-  CreditScoreState,
   LoanState,
   RewardsState,
 } from '../../types/domain'
@@ -20,6 +19,9 @@ type OverviewPageProps = {
   claimableRewardsLabel: string
   claimableRewardsValue: number | null
   combinedActivities: ActivityItem[]
+  creditLimitLabel: string
+  creditLimitTagLabel: string
+  creditLimitTagTone: 'success' | 'warning'
   creditLimitValue: number | null
   handleDisableAutoRepay: () => void
   handleDisableAutoSignPreference: () => void
@@ -30,8 +32,10 @@ type OverviewPageProps = {
   handleRetryLoad: () => void | Promise<void>
   hasActiveAutoSignPermission: boolean
   heroAprLabel: string
+  heroAprStatLabel: string
   heroDueAmount: number | null
   heroDueDate: string
+  heroSafeSpendPrefix: string
   heroSafeSpendLabel: string
   installmentsLabel: string
   isClaimingRewards: boolean
@@ -42,7 +46,6 @@ type OverviewPageProps = {
   progressPercent: number
   rewards: RewardsState | null
   rewardsStatusLabel: string
-  score: CreditScoreState | null
   sectionErrors: Partial<Record<string, string>>
   walletBalanceValue: number | null
   walletNativeBalanceLabel: string
@@ -57,6 +60,10 @@ export function OverviewPage({
   canClaimAvailableRewards,
   claimableRewardsLabel,
   combinedActivities,
+  creditLimitLabel,
+  creditLimitTagLabel,
+  creditLimitTagTone,
+  creditLimitValue,
   handleDisableAutoRepay,
   handleDisableAutoSignPreference,
   handleClaimAvailableRewards,
@@ -66,8 +73,10 @@ export function OverviewPage({
   handleRetryLoad,
   hasActiveAutoSignPermission,
   heroAprLabel,
+  heroAprStatLabel,
   heroDueAmount,
   heroDueDate,
+  heroSafeSpendPrefix,
   heroSafeSpendLabel,
   installmentsLabel,
   isClaimingRewards,
@@ -77,7 +86,6 @@ export function OverviewPage({
   progressPercent,
   rewards,
   rewardsStatusLabel,
-  score,
   sectionErrors,
   walletNativeBalanceLabel,
   walletTagLabel,
@@ -87,19 +95,19 @@ export function OverviewPage({
       <Card className="overview-hero-card">
         <div className="overview-hero-card__main">
           <div>
-            <div className="overview-hero-card__label">Total credit limit</div>
+            <div className="overview-hero-card__label">{creditLimitLabel}</div>
             <div className="overview-hero-card__amount">
-              {score ? formatCurrency(score.limitUsd) : '—'}
+              {creditLimitValue !== null ? formatCurrency(creditLimitValue) : '—'}
             </div>
             <div className="overview-hero-card__safe-spend">
-              Safe to spend today: <strong>{heroSafeSpendLabel}</strong>
+              {heroSafeSpendPrefix}: <strong>{heroSafeSpendLabel}</strong>
             </div>
             <div className="overview-hero-card__identity-strip">{overviewIdentityStrip}</div>
           </div>
 
           <div className="overview-hero-card__stats">
             <div className="overview-hero-card__stat">
-              <span>APR</span>
+              <span>{heroAprStatLabel}</span>
               <strong>{heroAprLabel}</strong>
             </div>
             <div className="overview-hero-card__stat">
@@ -113,10 +121,12 @@ export function OverviewPage({
 
       <div className="overview-stats-row section-stack">
         <Card className="metric-card">
-          <div className="metric-card__label">Credit limit</div>
-          <div className="metric-card__value">{score ? formatCurrency(score.limitUsd) : '—'}</div>
-          <span className="metric-card__tag metric-card__tag--success">
-            {score ? 'Full limit active' : 'Not available'}
+          <div className="metric-card__label">{creditLimitLabel}</div>
+          <div className="metric-card__value">
+            {creditLimitValue !== null ? formatCurrency(creditLimitValue) : '—'}
+          </div>
+          <span className={`metric-card__tag metric-card__tag--${creditLimitTagTone}`}>
+            {creditLimitTagLabel}
           </span>
         </Card>
 
