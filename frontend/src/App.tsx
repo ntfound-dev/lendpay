@@ -4217,11 +4217,18 @@ function App() {
             detail: 'You are already in the lowest APR range. Keep your next payment on time to stay there.',
           };
 
+  const overviewSpendCapacity = score
+    ? Math.min(
+        score.limitUsd,
+        effectiveAvailableLimit ?? score.limitUsd,
+        selectedProfile?.maxPrincipal ?? score.limitUsd,
+      )
+    : 0
   const suggestedSpendToday = score
     ? Math.max(
         0,
         Math.round(
-          Math.min(effectiveAvailableLimit ?? score.limitUsd, selectedProfile?.maxPrincipal ?? score.limitUsd) *
+          overviewSpendCapacity *
             (score.risk === 'Low' ? 0.5 : score.risk === 'Medium' ? 0.3 : 0.15),
         ),
       )
