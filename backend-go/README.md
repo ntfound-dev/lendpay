@@ -294,6 +294,10 @@ Monorepo deploy note:
   Watch Paths: `/backend-go/**`
   Healthcheck Path: `/api/v1/health`
   Config-as-code: `/deploy/railway/backend/railway.json`
+- Railway CLI note:
+  when manually deploying this monorepo from the repo root, prefer `railway up`
+  without an explicit path argument; some CLI environments fail with `prefix not found`
+  when called as `railway up .`
 - alternative setup if you want the service rooted inside `backend-go/`:
   Root Directory: `backend-go`
   Dockerfile Path: `Dockerfile`
