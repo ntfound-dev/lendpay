@@ -1872,6 +1872,7 @@ func (s *Server) syncOnchainBorrowerCredit(ctx context.Context, address string) 
 			return
 		}
 
+		s.clearStalePendingRequests(ctx, address, trimStringPtr(requestRow.OnchainRequestID))
 		_ = s.upsertOnchainLoanRow(ctx, address, requestRow, *loanView)
 		return
 	}
@@ -1886,6 +1887,8 @@ func (s *Server) syncOnchainBorrowerCredit(ctx context.Context, address string) 
 				row.Status,
 			)
 		}
+	} else if err == nil {
+		s.clearStalePendingRequests(ctx, address, "")
 	}
 
 	rows, err := s.listLiveLoanRowsFromDB(ctx, address, "active")
@@ -1907,6 +1910,31 @@ func (s *Server) syncOnchainBorrowerCredit(ctx context.Context, address string) 
 		}
 
 		_, _ = s.updateLoanRowFromOnchainView(ctx, row, *loanView)
+	}
+}
+
+func (s *Server) clearStalePendingRequests(ctx context.Context, address, keepOnchainRequestID string) {
+	trimmedAddress := strings.TrimSpace(address)
+	if trimmedAddress == "" {
+		return
+	}
+
+	query := fmt.Sprintf(
+		`UPDATE %s
+		 SET "status" = $2
+		 WHERE "initiaAddress" = $1
+		   AND "status" = 'pending'`,
+		s.db.table("LoanRequest"),
+	)
+	args := []any{trimmedAddress, "cancelled"}
+
+	if strings.TrimSpace(keepOnchainRequestID) != "" {
+		query += ` AND COALESCE("onchainRequestId", '') <> $3`
+		args = append(args, strings.TrimSpace(keepOnchainRequestID))
+	}
+
+	if _, err := s.db.pool.Exec(ctx, query, args...); err != nil {
+		log.Printf("[loan-request] stale pending cleanup failed borrower=%s keep=%s err=%v", trimmedAddress, strings.TrimSpace(keepOnchainRequestID), err)
 	}
 }
 

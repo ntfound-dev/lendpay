@@ -581,7 +581,9 @@ function App() {
   const requestBlockingMessage = activeLoan
     ? `You already have an active credit for ${formatCurrency(activeLoan.principal)}. Finish it on the Repay page before sending a new request.`
     : pendingRequest
-      ? 'You already have a pending credit request. Wait for approval or rejection before sending another one.'
+      ? pendingRequest.onchainRequestId
+        ? 'You already have a live onchain credit request. Wait for approval or cancel it onchain before sending another one.'
+        : 'You already have a pending credit request. Wait for approval or rejection before sending another one.'
       : null
   const checkoutSelectionMessage = sectionErrors.merchants
     ? 'Apps could not be loaded right now.'
@@ -2512,7 +2514,7 @@ function App() {
       let approvalMode: 'preview' | 'live' | null = null
       let approvalTxHash = ''
 
-      if (appEnv.enableDemoApproval) {
+      if (appEnv.enableDemoApproval && !nextRequest.onchainRequestId) {
         const approval = await lendpayApi.reviewLoanRequest(
           token,
           nextRequest.id,
@@ -2715,6 +2717,16 @@ function App() {
         tone: 'info',
         title: 'Demo review unavailable',
         message: 'Set VITE_ENABLE_DEMO_APPROVAL=true to review pending requests from the borrower demo UI.',
+      })
+      return
+    }
+
+    if (request.onchainRequestId) {
+      showToast({
+        tone: 'warning',
+        title: 'Live request cannot use demo review',
+        message:
+          'This request is already onchain. Borrower demo review only works before the rollup request id is assigned. Use Cancel live request or wait for a decision instead.',
       })
       return
     }
@@ -3170,7 +3182,7 @@ function App() {
   useEffect(() => {
     if (
       !pendingRequest ||
-      !pendingRequest.onchainRequestId ||
+      pendingRequest.onchainRequestId ||
       !canRunPendingDemoReview ||
       !hasLoadedBorrowerState ||
       !isConnected ||

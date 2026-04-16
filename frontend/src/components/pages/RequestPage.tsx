@@ -217,6 +217,7 @@ export function RequestPage({
       ? buildRestTxInfoUrl(activeLoan.txHashApprove) ?? buildRpcTxUrl(activeLoan.txHashApprove)
       : null
   const pendingRequestAwaitingOnchainId = Boolean(pendingRequest && !pendingRequest.onchainRequestId)
+  const pendingRequestIsLive = Boolean(pendingRequest?.onchainRequestId)
   const pendingRequestCanRunDemoReview = Boolean(
     pendingRequest && canRunPendingDemoReview && !pendingRequest.onchainRequestId,
   )
@@ -471,30 +472,26 @@ export function RequestPage({
                   disabled={isCancellingPendingRequest || pendingRequestAwaitingOnchainId}
                 >
                   {isCancellingPendingRequest
-                    ? 'Clearing pending request...'
+                    ? pendingRequestIsLive
+                      ? 'Cancelling live request...'
+                      : 'Clearing pending request...'
                     : pendingRequestAwaitingOnchainId
                       ? 'Waiting for onchain request id'
-                      : 'Clear pending request'}
+                      : pendingRequestIsLive
+                        ? 'Cancel live request'
+                        : 'Clear pending request'}
                 </Button>
-                {canRunPendingDemoReview ? (
+                {pendingRequestCanRunDemoReview ? (
                   <Button
                     onClick={() => handleReviewPendingRequest(pendingRequest)}
-                    disabled={
-                      isReviewingPendingRequest ||
-                      isCancellingPendingRequest ||
-                      !pendingRequestCanRunDemoReview
-                    }
+                    disabled={isReviewingPendingRequest || isCancellingPendingRequest}
                   >
-                    {isReviewingPendingRequest
-                      ? 'Running review...'
-                      : !pendingRequestCanRunDemoReview
-                        ? 'Live request'
-                        : 'Run review now'}
+                    {isReviewingPendingRequest ? 'Running review...' : 'Run review now'}
                   </Button>
                 ) : null}
-                {canRunPendingDemoReview && pendingRequest?.onchainRequestId ? (
+                {pendingRequestIsLive ? (
                   <span className="muted-copy">
-                    This request is already onchain. Borrower demo review only works before the rollup request id is assigned.
+                    This is already a live rollup request. Borrower demo review is only available before an onchain request id exists.
                   </span>
                 ) : null}
                 {getRequestProofUrl(pendingRequest) ? (
@@ -817,28 +814,20 @@ export function RequestPage({
                             disabled={isCancellingPendingRequest || !request.onchainRequestId}
                           >
                             {isCancellingPendingRequest
-                              ? 'Clearing...'
+                              ? 'Cancelling...'
                               : !request.onchainRequestId
                                 ? 'Waiting for onchain request id'
-                                : 'Clear pending request'}
+                                : 'Cancel live request'}
                           </Button>
-                          {canRunPendingDemoReview ? (
+                          {canRunPendingDemoReview && !request.onchainRequestId ? (
                             <Button
                               onClick={() => handleReviewPendingRequest(request)}
-                              disabled={
-                                isReviewingPendingRequest ||
-                                isCancellingPendingRequest ||
-                                Boolean(request.onchainRequestId)
-                              }
+                              disabled={isReviewingPendingRequest || isCancellingPendingRequest}
                             >
-                              {isReviewingPendingRequest
-                                ? 'Running review...'
-                                : request.onchainRequestId
-                                  ? 'Live request'
-                                  : 'Run review now'}
+                              {isReviewingPendingRequest ? 'Running review...' : 'Run review now'}
                             </Button>
                           ) : null}
-                          {canRunPendingDemoReview && request.onchainRequestId ? (
+                          {request.onchainRequestId ? (
                             <span className="muted-copy">
                               Already onchain. Demo review is only available for local preview requests.
                             </span>
