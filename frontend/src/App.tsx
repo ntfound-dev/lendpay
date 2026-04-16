@@ -405,10 +405,14 @@ function App() {
     initiaAddress,
   })
   const activeLoan = loans.find((loan) => loan.status === 'active') ?? null
-  const pendingRequest = requests.find((request) => request.status === 'pending') ?? null
+  const activeLoanRequest =
+    activeLoan ? requests.find((request) => request.id === activeLoan.requestId) ?? null : null
+  const pendingRequest = activeLoan
+    ? null
+    : requests.find((request) => request.status === 'pending') ?? null
   const nextDueItem = activeLoan?.schedule.find((item) => item.status === 'due') ?? null
   const canUseInterwovenAutoSign = autoSignPreferenceEnabled && hasActiveAutoSignPermission
-  const latestRequest = requests[0] ?? null
+  const latestRequest = activeLoanRequest ?? requests[0] ?? null
   const scoreIsPreview = score?.source === 'preview' || score?.provider === 'heuristic'
   const requestedAmount = Number(draft.amount || '0')
   const parsedApr = score?.apr ?? 0
@@ -4340,7 +4344,7 @@ function App() {
   const heroSafeSpendPrefix = scoreIsPreview ? 'Suggested spend today' : 'Safe to spend today'
   const heroSafeSpendLabel = score ? formatCurrency(suggestedSpendToday) : '—'
   const activeAgentGuide = agentGuide?.surface === activePage ? agentGuide : null
-  const visibleAgentGuide = activeAgentGuide
+  const visibleAgentGuide = activePage === 'loan' && activeLoan ? null : activeAgentGuide
   const activeAgentEngineLabel = visibleAgentGuide
     ? visibleAgentGuide.provider === 'ollama'
       ? visibleAgentGuide.model
