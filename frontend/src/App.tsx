@@ -4876,22 +4876,6 @@ function App() {
                   </Card>
                 </div>
 
-                <section className="preconnect-agent lendpay-hero__reveal lendpay-hero__reveal--11">
-                  <div className="preconnect-agent__header">
-                    <div className="preconnect-agent__avatar">AI</div>
-                    <div className="preconnect-agent__identity">
-                      <div className="preconnect-agent__label">LendPay Agent</div>
-                      <div className="preconnect-agent__status">
-                        <span className="preconnect-agent__status-dot" aria-hidden="true" />
-                        Waiting for wallet connection
-                      </div>
-                    </div>
-                  </div>
-                  <div className="preconnect-agent__message">
-                    <span className="preconnect-agent__message-line">{assistantDetail}</span>
-                    <span className="preconnect-agent__cursor" aria-hidden="true" />
-                  </div>
-                </section>
               </>
             ) : null}
 
