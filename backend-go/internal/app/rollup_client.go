@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"encoding/hex"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 type RollupTxClient struct {
@@ -121,6 +123,19 @@ type rollupProfileQuoteView struct {
 	RequiresCollateral     bool
 	Revolving              bool
 	TierLimitMultiplierBps int
+}
+
+type rollupReputationView struct {
+	LatePayments     int
+	LastUpdated      int64
+	LoansApproved    int
+	LoansDefaulted   int
+	LoansRepaid      int
+	LoansRequested   int
+	OnTimePayments   int
+	User             string
+	Username         string
+	UsernameVerified bool
 }
 
 func NewRollupTxClient(cfg Config) *RollupTxClient {
@@ -532,6 +547,36 @@ func (c *RollupTxClient) QuoteProfile(ctx context.Context, borrower string, prof
 	}, nil
 }
 
+func (c *RollupTxClient) GetReputation(ctx context.Context, user string) (*rollupReputationView, error) {
+	encodedUser, err := encodeMoveViewAddressArg(user)
+	if err != nil {
+		return nil, err
+	}
+
+	raw, err := c.viewJSON(ctx, "reputation", "get_entry", []string{encodedUser})
+	if err != nil {
+		return nil, err
+	}
+
+	record, err := objectValue(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	return &rollupReputationView{
+		LatePayments:     int(numberValue(record["late_payments"])),
+		LastUpdated:      int64(numberValue(record["last_updated"])),
+		LoansApproved:    int(numberValue(record["loans_approved"])),
+		LoansDefaulted:   int(numberValue(record["loans_defaulted"])),
+		LoansRepaid:      int(numberValue(record["loans_repaid"])),
+		LoansRequested:   int(numberValue(record["loans_requested"])),
+		OnTimePayments:   int(numberValue(record["on_time_payments"])),
+		User:             stringValue(record["user"]),
+		Username:         decodeUsernameHash(record["username_hash"]),
+		UsernameVerified: boolValue(record["username_verified"]),
+	}, nil
+}
+
 func (c *RollupTxClient) viewJSON(ctx context.Context, moduleName, functionName string, args []string) (json.RawMessage, error) {
 	if strings.TrimSpace(c.cfg.RollupRESTURL) == "" ||
 		strings.TrimSpace(c.cfg.LendpayPackageAddress) == "" ||
@@ -759,6 +804,68 @@ func numberValue(value any) float64 {
 	}
 
 	return 0
+}
+
+func decodeUsernameHash(value any) string {
+	raw := bytesValue(value)
+	if len(raw) == 0 || !utf8.Valid(raw) {
+		return ""
+	}
+
+	return strings.TrimSpace(string(raw))
+}
+
+func bytesValue(value any) []byte {
+	switch typed := value.(type) {
+	case string:
+		trimmed := strings.TrimSpace(typed)
+		if trimmed == "" {
+			return nil
+		}
+
+		trimmed = strings.TrimPrefix(strings.TrimPrefix(trimmed, "0x"), "0X")
+		if decoded, err := hex.DecodeString(trimmed); err == nil {
+			return decoded
+		}
+
+		return []byte(trimmed)
+	case []byte:
+		return typed
+	case []any:
+		buffer := make([]byte, 0, len(typed))
+		for _, item := range typed {
+			switch child := item.(type) {
+			case float64:
+				if child < 0 || child > 255 {
+					return nil
+				}
+				buffer = append(buffer, byte(child))
+			case int:
+				if child < 0 || child > 255 {
+					return nil
+				}
+				buffer = append(buffer, byte(child))
+			case json.Number:
+				parsed, err := child.Int64()
+				if err != nil || parsed < 0 || parsed > 255 {
+					return nil
+				}
+				buffer = append(buffer, byte(parsed))
+			case string:
+				parsed, err := strconv.Atoi(strings.TrimSpace(child))
+				if err != nil || parsed < 0 || parsed > 255 {
+					return nil
+				}
+				buffer = append(buffer, byte(parsed))
+			default:
+				return nil
+			}
+		}
+
+		return buffer
+	default:
+		return nil
+	}
 }
 
 func boolValue(value any) bool {

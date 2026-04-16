@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"strings"
 	"sync"
 )
@@ -22,22 +23,36 @@ func NewUsernamesClient() *UsernamesClient {
 	}
 }
 
-func (c *UsernamesClient) ResolveNameWithSource(address string, cfg Config) usernameResolution {
+func (c *UsernamesClient) ResolveNameWithSource(ctx context.Context, address string, cfg Config) (usernameResolution, error) {
 	if !cfg.EnableLiveInitiaReads {
 		username := c.previewNameForAddress(address)
 		return usernameResolution{
 			Source:   "preview",
 			Username: &username,
 			Verified: false,
-		}
+		}, nil
 	}
 
-	username := c.previewNameForAddress(address)
-	return usernameResolution{
-		Source:   "preview",
-		Username: &username,
-		Verified: false,
+	reputation, err := NewRollupTxClient(cfg).GetReputation(ctx, address)
+	if err != nil {
+		return usernameResolution{
+			Source: "rollup",
+		}, err
 	}
+
+	if strings.TrimSpace(reputation.Username) == "" {
+		return usernameResolution{
+			Source:   "rollup",
+			Verified: false,
+		}, nil
+	}
+
+	username := reputation.Username
+	return usernameResolution{
+		Source:   "rollup",
+		Username: &username,
+		Verified: reputation.UsernameVerified,
+	}, nil
 }
 
 func (c *UsernamesClient) previewNameForAddress(address string) string {

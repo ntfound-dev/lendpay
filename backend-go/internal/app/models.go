@@ -353,8 +353,30 @@ type loanRow struct {
 }
 
 func mapUserProfile(row userRow) userProfile {
+	return mapUserProfileWithResolution(row, nil)
+}
+
+func mapUserProfileWithResolution(row userRow, resolution *usernameResolution) userProfile {
+	effectiveUsername := row.Username
 	var usernameSource *string
-	if row.Username != nil && *row.Username != "" {
+	usernameAttestedOnRollup := false
+	usernameVerified := false
+	usernameVerifiedOnL1 := false
+
+	if resolution != nil {
+		if strings.TrimSpace(resolution.Source) != "" {
+			value := strings.TrimSpace(resolution.Source)
+			usernameSource = &value
+		}
+		if resolution.Source == "rollup" {
+			usernameAttestedOnRollup = resolution.Verified
+		}
+		if resolution.Source == "initia_l1" {
+			usernameVerifiedOnL1 = resolution.Verified
+		}
+		usernameVerified = resolution.Verified
+		effectiveUsername = resolution.Username
+	} else if row.Username != nil && *row.Username != "" {
 		value := "preview"
 		usernameSource = &value
 	}
@@ -381,11 +403,11 @@ func mapUserProfile(row userRow) userProfile {
 			Tier:                    row.Tier,
 		},
 		UpdatedAt:                isoTime(row.UpdatedAt),
-		Username:                 row.Username,
-		UsernameAttestedOnRollup: false,
+		Username:                 effectiveUsername,
+		UsernameAttestedOnRollup: usernameAttestedOnRollup,
 		UsernameSource:           usernameSource,
-		UsernameVerified:         false,
-		UsernameVerifiedOnL1:     false,
+		UsernameVerified:         usernameVerified,
+		UsernameVerifiedOnL1:     usernameVerifiedOnL1,
 		Wallet: profileWallet{
 			LockedCollateralLend: row.LockedCollateralLend,
 			NativeBalance:        row.NativeBalance,

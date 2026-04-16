@@ -365,7 +365,7 @@ func (s *Server) handleVerifySession(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, authResponse{
 		Token: session.Token,
-		User:  mapUserProfile(user),
+		User:  s.presentUserProfile(r.Context(), user),
 	})
 }
 
@@ -412,7 +412,7 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 	}
 	s.syncOnchainBorrowerCredit(r.Context(), user.InitiaAddress)
 
-	writeJSON(w, http.StatusOK, mapUserProfile(user))
+	writeJSON(w, http.StatusOK, s.presentUserProfile(r.Context(), user))
 }
 
 func (s *Server) handleGetUsername(w http.ResponseWriter, r *http.Request) {
@@ -422,9 +422,14 @@ func (s *Server) handleGetUsername(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	profile := s.presentUserProfile(r.Context(), user)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"address":  user.InitiaAddress,
-		"username": user.Username,
+		"address":                 user.InitiaAddress,
+		"username":                profile.Username,
+		"usernameAttestedOnRollup": profile.UsernameAttestedOnRollup,
+		"usernameSource":          profile.UsernameSource,
+		"usernameVerified":        profile.UsernameVerified,
+		"usernameVerifiedOnL1":    profile.UsernameVerifiedOnL1,
 	})
 }
 
@@ -441,7 +446,7 @@ func (s *Server) handleRefreshUsername(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, mapUserProfile(refreshed))
+	writeJSON(w, http.StatusOK, s.presentUserProfile(r.Context(), refreshed))
 }
 
 func (s *Server) handleGetPoints(w http.ResponseWriter, r *http.Request) {
@@ -1239,6 +1244,15 @@ func defaultMerchants() []merchantState {
 	}
 }
 
+func (s *Server) presentUserProfile(ctx context.Context, row userRow) userProfile {
+	resolution, err := s.usernames.ResolveNameWithSource(ctx, row.InitiaAddress, s.cfg)
+	if err != nil {
+		return mapUserProfileWithResolution(row, &usernameResolution{Source: "rollup"})
+	}
+
+	return mapUserProfileWithResolution(row, &resolution)
+}
+
 func (s *Server) ensureUser(ctx context.Context, address string) (userRow, *appError) {
 	user, err := s.findUserByAddress(ctx, address)
 	if err == nil {
@@ -1270,7 +1284,7 @@ func (s *Server) ensureUser(ctx context.Context, address string) (userRow, *appE
 		return userRow{}, appErr
 	}
 
-	resolution := s.usernames.ResolveNameWithSource(address, s.cfg)
+	resolution, _ := s.usernames.ResolveNameWithSource(ctx, address, s.cfg)
 	now := time.Now().UTC()
 	inserted, err := scanUser(s.db.pool.QueryRow(
 		ctx,
@@ -1302,11 +1316,20 @@ func (s *Server) ensureUser(ctx context.Context, address string) (userRow, *appE
 }
 
 func (s *Server) syncUsername(ctx context.Context, user userRow) (userRow, *appError) {
-	resolution := s.usernames.ResolveNameWithSource(user.InitiaAddress, s.cfg)
-	if resolution.Username == nil || strings.TrimSpace(*resolution.Username) == "" {
+	resolution, err := s.usernames.ResolveNameWithSource(ctx, user.InitiaAddress, s.cfg)
+	if err != nil {
 		return user, nil
 	}
-	if user.Username != nil && strings.TrimSpace(*user.Username) == strings.TrimSpace(*resolution.Username) {
+
+	resolvedUsername := ""
+	if resolution.Username != nil {
+		resolvedUsername = strings.TrimSpace(*resolution.Username)
+	}
+	currentUsername := ""
+	if user.Username != nil {
+		currentUsername = strings.TrimSpace(*user.Username)
+	}
+	if resolvedUsername == currentUsername {
 		return user, nil
 	}
 

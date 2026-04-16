@@ -2157,15 +2157,38 @@ function App() {
 
     try {
       const token = await ensureBackendSession()
-      await lendpayApi.refreshUsername(token)
+      const refreshedProfile = await lendpayApi.refreshUsername(token)
       await lendpayApi.analyzeScore(token)
-      await syncBorrowerState(token)
+      const syncedState = await syncBorrowerState(token, refreshedProfile)
       setHasLoadedBorrowerState(true)
       setLoadError(null)
+
+      const liveIdentity = syncedState.profile
+      const hasRollupIdentity = liveIdentity.usernameAttestedOnRollup
+      const hasL1Identity = liveIdentity.usernameVerifiedOnL1
+      const hasVerifiedIdentity = liveIdentity.usernameVerified
+      const hasDetectedUsername = Boolean(liveIdentity.username)
+
       showToast({
-        tone: 'success',
-        title: '.init identity refreshed',
-        message: 'LendPay rechecked your Initia username and refreshed the score with the latest identity status.',
+        tone: hasVerifiedIdentity ? 'success' : hasDetectedUsername ? 'warning' : 'info',
+        title: hasVerifiedIdentity
+          ? hasRollupIdentity && hasL1Identity
+            ? '.init verified on L1 + rollup'
+            : hasRollupIdentity
+              ? 'Identity attested on rollup'
+              : 'Identity verified'
+          : hasDetectedUsername
+            ? 'Username detected but not verified'
+            : 'No live identity found',
+        message: hasVerifiedIdentity
+          ? hasRollupIdentity && hasL1Identity
+            ? 'LendPay confirmed this username on Initia L1 and in the rollup reputation state.'
+            : hasRollupIdentity
+              ? 'LendPay found this username in the live rollup reputation state.'
+              : 'LendPay confirmed a live identity signal for this wallet.'
+          : hasDetectedUsername
+            ? 'A username is visible for this wallet, but LendPay could not verify or attest it in live protocol state yet.'
+            : 'LendPay could not find a live Initia or rollup identity for this wallet yet.',
       })
     } catch (error) {
       showToast({
@@ -2173,7 +2196,7 @@ function App() {
         title: 'Identity refresh incomplete',
         message: getErrorMessage(
           error,
-          'LendPay could not confirm this wallet on Initia L1 yet. Make sure the same address owns the .init username, then retry.',
+          'LendPay could not re-check live Initia or rollup identity status right now.',
         ),
       })
     } finally {

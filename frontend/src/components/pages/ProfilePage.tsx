@@ -72,12 +72,14 @@ export function ProfilePage({
       .replace(/[^a-zA-Z0-9]/g, '')
       .slice(0, 2)
       .toUpperCase() || 'Z2'
+  const hasWalletOnlyUsername = Boolean(username && !usernameVerified && !usernameSource)
   const linkedIdentityLabel = usernameVerified
     ? score?.signals?.username ?? username ?? 'Not available yet'
     : username
       ? username
       : 'Wallet only'
-  const identityBadgeTone = usernameVerified ? 'success' : username ? 'info' : 'warning'
+  const identityBadgeTone =
+    usernameVerified ? 'success' : hasWalletOnlyUsername ? 'info' : username ? 'warning' : 'warning'
   const identityBadgeLabel = usernameVerified
     ? usernameAttestedOnRollup && usernameVerifiedOnL1
       ? 'L1 + rollup verified'
@@ -86,9 +88,20 @@ export function ProfilePage({
         : usernameVerifiedOnL1 || usernameSource === 'initia_l1'
           ? 'Verified on Initia L1'
           : 'Verified identity'
-    : username
-      ? 'Linked'
-      : 'Not linked'
+    : hasWalletOnlyUsername
+      ? 'Wallet username'
+      : usernameSource === 'preview'
+        ? 'Preview username'
+        : username
+          ? 'Unverified'
+          : 'Not linked'
+  const identityActionLabel =
+    hasWalletOnlyUsername || usernameSource === 'preview' ? 'Check live identity' : 'Refresh identity status'
+  const identityActionHint = hasWalletOnlyUsername
+    ? 'This re-checks whether the same wallet has already been verified by Initia or attested on the LendPay rollup.'
+    : usernameSource === 'preview'
+      ? 'This clears preview identity data and re-checks live Initia or rollup identity status for the connected wallet.'
+      : 'Use this to re-check live Initia or rollup identity status for the connected wallet.'
   const identitySubline = usernameVerified
     ? usernameAttestedOnRollup && usernameVerifiedOnL1
       ? 'Verified on Initia L1 and attested into the LendPay rollup.'
@@ -97,9 +110,13 @@ export function ProfilePage({
         : usernameVerifiedOnL1 || usernameSource === 'initia_l1'
           ? 'Identity is verified on Initia L1 and ready for borrower checks.'
           : 'Identity verified and ready for Initia app credit.'
-    : username
-      ? 'Identity linked via InterwovenKit wallet.'
-      : 'Connect a wallet with a .init username to strengthen identity checks.'
+    : hasWalletOnlyUsername
+      ? 'Username detected in the connected wallet, but LendPay has not verified it onchain yet.'
+      : usernameSource === 'preview'
+        ? 'This username came from preview mode and is not accepted as live identity.'
+        : username
+          ? 'Identity is present, but live verification is still missing.'
+          : 'Connect a wallet with a .init username to strengthen identity checks.'
 
   return (
     <>
@@ -172,7 +189,7 @@ export function ProfilePage({
                 <Badge tone={riskBadgeTone}>{score?.risk ?? 'Analyze first'}</Badge>
               </div>
               <div className="profile-terms__row">
-                <span>Linked identity</span>
+                <span>Identity status</span>
                 <strong className="profile-terms__value profile-terms__value--identity">
                   {linkedIdentityLabel}
                 </strong>
@@ -208,7 +225,7 @@ export function ProfilePage({
             <p className="profile-next-step-card__body">{nextProfileMilestone.detail}</p>
           </Card>
 
-          <Card title="Linked identity" className="profile-identity-card section-stack">
+          <Card title="Identity status" className="profile-identity-card section-stack">
             <div className="profile-identity-card__hero">
               <div className="profile-identity-card__avatar">{avatarLabel}</div>
               <div className="profile-identity-card__copy">
@@ -230,10 +247,10 @@ export function ProfilePage({
             {username && (!usernameVerified || !usernameAttestedOnRollup) ? (
               <div className="card-action-row">
                 <Button onClick={handleRefreshUsernameVerification} disabled={isRefreshingUsername}>
-                  {isRefreshingUsername ? 'Refreshing .init status...' : 'Refresh .init verification'}
+                  {isRefreshingUsername ? 'Checking live identity...' : identityActionLabel}
                 </Button>
                 <span className="muted-copy">
-                  Use this after the same wallet has a real `.init` username on Initia L1.
+                  {identityActionHint}
                 </span>
               </div>
             ) : null}
