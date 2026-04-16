@@ -108,6 +108,7 @@ import { RequestPage } from './components/pages/RequestPage'
 import { RepayPage } from './components/pages/RepayPage'
 import { LoyaltyHubPage } from './components/pages/LoyaltyHubPage'
 import { EcosystemPage, type ProtocolUpdateItem } from './components/pages/EcosystemPage'
+import { BridgePage } from './components/pages/BridgePage'
 import { ProofModal } from './components/shared/ProofModal'
 import { TxPreviewModal, type TxPreviewContent } from './components/shared/TxPreviewModal'
 import { useAgentAutonomy } from './hooks/useAgentAutonomy'
@@ -4521,6 +4522,15 @@ function App() {
     topbarSecondaryLabel = undefined
     handleTopbarPrimaryAction = () => setActivePage('request')
     handleTopbarSecondaryAction = undefined
+  } else if (activePage === 'bridge') {
+    topbarTitle = 'Bridge'
+    topbarSubtitle = 'Bridge LEND, keep faucet access simple, and manage staking in one place'
+    topbarTitleBadge = undefined
+    topbarStatus = lendLiquidityRoute?.routeMode === 'live' ? 'Bridge live' : 'Bridge preview'
+    topbarPrimaryLabel = 'Use credit'
+    topbarSecondaryLabel = undefined
+    handleTopbarPrimaryAction = () => setActivePage('request')
+    handleTopbarSecondaryAction = undefined
   } else {
     topbarStatus = autonomousRepayEnabled
       ? canUseInterwovenAutoSign
@@ -4644,6 +4654,8 @@ function App() {
             ? 'Loyalty status'
             : activePage === 'admin'
               ? 'Watching ecosystem activity'
+              : activePage === 'bridge'
+                ? 'Bridge and staking'
               : 'Account summary'
   const assistantDetail = !isConnected
     ? 'Connect your wallet once and the agent will guide your next step.'
@@ -4655,6 +4667,8 @@ function App() {
       ? visibleAgentGuide.assistantDetail
     : activePage === 'admin'
       ? 'Track which apps, campaigns, and proposals are live around LendPay.'
+    : activePage === 'bridge'
+      ? 'Move LEND toward MiniEVM, keep faucet access ready, and manage staking from one panel.'
       : agentPanelRecommendation
   const isInitialDataLoading = isConnected && !hasLoadedBorrowerState && isBackendSyncing
   const hasInitialLoadError = isConnected && !hasLoadedBorrowerState && Boolean(loadError)
@@ -4906,7 +4920,10 @@ function App() {
               </Card>
             ) : null}
 
-            {canRenderConnectedPages && activePage !== 'admin' && activePage !== 'overview' ? (
+            {canRenderConnectedPages &&
+            activePage !== 'admin' &&
+            activePage !== 'overview' &&
+            activePage !== 'bridge' ? (
               <AgentPanel
                 actionLabel={agentPanelActionLabel}
                 body={agentPanelBody}
@@ -5220,6 +5237,33 @@ function App() {
                 technicalModeEnabled={technicalModeEnabled}
                 uniqueApps={uniqueApps}
                 username={username}
+              />
+            ) : null}
+
+            {canRenderConnectedPages && activePage === 'bridge' ? (
+              <BridgePage
+                bridgeAmount={bridgeAmount}
+                bridgeRecipient={bridgeRecipient}
+                faucet={faucet}
+                faucetAvailabilityLabel={faucetAvailabilityLabel}
+                faucetClaimAmountLabel={faucetClaimAmountLabel}
+                faucetTxUrl={faucetTxUrl ?? buildRpcTxUrl(faucet?.txHash) ?? null}
+                handleClaimAvailableRewards={handleClaimAvailableRewards}
+                handleClaimFaucet={handleClaimFaucet}
+                handleOpenLendBridge={handleOpenLendBridge}
+                handleStake={handleStake}
+                handleUnstake={handleUnstake}
+                isClaimingFaucet={isClaimingFaucet}
+                isProtocolActionPending={isProtocolActionPending}
+                lendLiquidityRoute={lendLiquidityRoute}
+                rewards={rewards}
+                setBridgeAmount={setBridgeAmount}
+                setBridgeRecipient={setBridgeRecipient}
+                setStakeAmount={setStakeAmount}
+                setUnstakeAmount={setUnstakeAmount}
+                stakeAmount={stakeAmount}
+                technicalModeEnabled={technicalModeEnabled}
+                unstakeAmount={unstakeAmount}
               />
             ) : null}
           </motion.section>
