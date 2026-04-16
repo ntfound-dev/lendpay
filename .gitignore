@@ -11,6 +11,7 @@ backend/prisma/dev.db-journal
 backend/.env
 backend-go/.env
 frontend/.env
+frontend/.env.production
 .run/
 .codex
 smarcontract/build/

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import { isChainWriteReady } from '../../config/env'
-import { formatCurrency } from '../../lib/format'
+import { formatCurrency, formatNumber } from '../../lib/format'
 import type {
   CampaignState,
   GovernanceProposalState,

@@ -1,7 +1,6 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 const invalidMarkers = [
   'rollup-rest-domain',
@@ -53,16 +52,7 @@ export default defineConfig(({ command, mode }) => {
     optimizeDeps: {
       include: ['wagmi', '@tanstack/react-query', 'viem'],
     },
-    plugins: [
-      tailwindcss(),
-      react(),
-      nodePolyfills({
-        globals: {
-          Buffer: true,
-          process: true,
-        },
-      }),
-    ],
+    plugins: [tailwindcss(), react()],
     server: {
       host: '0.0.0.0',
       port: 5173,
