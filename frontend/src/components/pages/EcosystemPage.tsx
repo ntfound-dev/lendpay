@@ -259,50 +259,6 @@ export function EcosystemPage({
           <span>Repayment watch — Next installment $75 is due by Jul 12.</span>
         </div>
 
-        <section className="ecosystem-panel ecosystem-panel--feature">
-          <div className="ecosystem-panel__header ecosystem-panel__header--feature">
-            <div>
-              <span className="ecosystem-pill ecosystem-pill--slate">NFT Drop · Partner Exclusive</span>
-              <h2 className="ecosystem-panel__title">Viral NFT Collections</h2>
-              <p className="ecosystem-panel__subtitle">
-                Curated drops from external partners. Buy with LendPay credit directly.
-              </p>
-            </div>
-            <span className="ecosystem-pill ecosystem-pill--partner">Partner</span>
-          </div>
-
-          <div className="ecosystem-drop-grid">
-            {partnerDrops.map((drop) => (
-              <button
-                key={drop.id}
-                type="button"
-                className="ecosystem-drop-card"
-                onClick={() => {
-                  setQuantity(1)
-                  setSelectedDrop(drop)
-                }}
-              >
-                <div className={['ecosystem-drop-card__art', drop.artClass].join(' ')}>
-                  <span>{drop.emoji}</span>
-                </div>
-                <div className="ecosystem-drop-card__body">
-                  <h3 className="ecosystem-drop-card__name">{drop.name}</h3>
-                  <div className="ecosystem-drop-card__price mono">{formatLendAmount(drop.price)}</div>
-                  <div className="ecosystem-drop-card__partner">{drop.partnerLabel}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          <div className="ecosystem-panel__footer">
-            <div className="ecosystem-panel__footer-left">
-              <span className="ecosystem-pill ecosystem-pill--partner">NFT</span>
-              <span className="ecosystem-pill ecosystem-pill--success">Checkout ready</span>
-            </div>
-            <div className="ecosystem-panel__footer-copy">Use LendPay credit to buy</div>
-          </div>
-        </section>
-
         <section className="ecosystem-panel">
           <div className="ecosystem-panel__header">
             <div>
@@ -333,11 +289,18 @@ export function EcosystemPage({
           </div>
         </section>
 
-        <section className="ecosystem-panel">
-          <div className="ecosystem-panel__header">
+        <section className="ecosystem-panel ecosystem-panel--feature">
+          <div className="ecosystem-panel__header ecosystem-panel__header--feature">
             <div>
               <span className="ecosystem-panel__eyebrow">Partners</span>
-              <h2 className="ecosystem-panel__section-title">Live Apps</h2>
+              <h2 className="ecosystem-panel__title">Live Apps</h2>
+              <p className="ecosystem-panel__subtitle">
+                Active partner apps and curated NFT drops that can be checked out with LendPay credit.
+              </p>
+            </div>
+            <div className="ecosystem-panel__footer-left">
+              <span className="ecosystem-pill ecosystem-pill--partner">Partner</span>
+              <span className="ecosystem-pill ecosystem-pill--success">Checkout ready</span>
             </div>
           </div>
 
@@ -352,17 +315,62 @@ export function EcosystemPage({
               </Button>
             </div>
           ) : (
-            <div className="ecosystem-live-apps">
-              {featuredApps.map((app) => (
-                <div key={app.id} className="ecosystem-live-app-card">
-                  <h3>{app.name}</h3>
-                  <p>{app.description}</p>
-                  <div className="ecosystem-live-app-card__fee">
-                    Partner fee: {formatPartnerFee(app.partnerFeeBps)}
+            <>
+              <div className="ecosystem-live-apps">
+                {featuredApps.map((app) => (
+                  <div key={app.id} className="ecosystem-live-app-card">
+                    <h3>{app.name}</h3>
+                    <p>{app.description}</p>
+                    <div className="ecosystem-live-app-card__fee">
+                      Partner fee: {formatPartnerFee(app.partnerFeeBps)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="ecosystem-live-apps__drops">
+                <div className="ecosystem-live-apps__drops-header">
+                  <div>
+                    <span className="ecosystem-pill ecosystem-pill--slate">NFT Drop · Partner Exclusive</span>
+                    <h3 className="ecosystem-live-apps__drops-title">Viral NFT Collections</h3>
+                    <p className="ecosystem-panel__subtitle">
+                      Curated drops from external partners. Buy with LendPay credit directly.
+                    </p>
                   </div>
                 </div>
-              ))}
-            </div>
+
+                <div className="ecosystem-drop-grid">
+                  {partnerDrops.map((drop) => (
+                    <button
+                      key={drop.id}
+                      type="button"
+                      className="ecosystem-drop-card"
+                      onClick={() => {
+                        setQuantity(1)
+                        setSelectedDrop(drop)
+                      }}
+                    >
+                      <div className={['ecosystem-drop-card__art', drop.artClass].join(' ')}>
+                        <span>{drop.emoji}</span>
+                      </div>
+                      <div className="ecosystem-drop-card__body">
+                        <h3 className="ecosystem-drop-card__name">{drop.name}</h3>
+                        <div className="ecosystem-drop-card__price mono">{formatLendAmount(drop.price)}</div>
+                        <div className="ecosystem-drop-card__partner">{drop.partnerLabel}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="ecosystem-panel__footer">
+                  <div className="ecosystem-panel__footer-left">
+                    <span className="ecosystem-pill ecosystem-pill--partner">NFT</span>
+                    <span className="ecosystem-pill ecosystem-pill--success">Checkout ready</span>
+                  </div>
+                  <div className="ecosystem-panel__footer-copy">Use LendPay credit to buy</div>
+                </div>
+              </div>
+            </>
           )}
         </section>
 
@@ -393,7 +401,7 @@ export function EcosystemPage({
                 </strong>
               </div>
               <p>
-                Campaigns are active on the protocol, while the top of this page stays focused on partner NFT checkout.
+                Campaigns are active on the protocol, while the live apps section above stays focused on partner NFT checkout.
               </p>
             </div>
           ) : (

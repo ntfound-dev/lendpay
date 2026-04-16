@@ -217,6 +217,9 @@ export function RequestPage({
       ? buildRestTxInfoUrl(activeLoan.txHashApprove) ?? buildRpcTxUrl(activeLoan.txHashApprove)
       : null
   const pendingRequestAwaitingOnchainId = Boolean(pendingRequest && !pendingRequest.onchainRequestId)
+  const pendingRequestCanRunDemoReview = Boolean(
+    pendingRequest && canRunPendingDemoReview && !pendingRequest.onchainRequestId,
+  )
 
   return (
     <div className={`checkout-layout ${checkoutMerchantReady ? '' : 'checkout-layout--single'}`}>
@@ -476,10 +479,23 @@ export function RequestPage({
                 {canRunPendingDemoReview ? (
                   <Button
                     onClick={() => handleReviewPendingRequest(pendingRequest)}
-                    disabled={isReviewingPendingRequest || isCancellingPendingRequest}
+                    disabled={
+                      isReviewingPendingRequest ||
+                      isCancellingPendingRequest ||
+                      !pendingRequestCanRunDemoReview
+                    }
                   >
-                    {isReviewingPendingRequest ? 'Running review...' : 'Run review now'}
+                    {isReviewingPendingRequest
+                      ? 'Running review...'
+                      : !pendingRequestCanRunDemoReview
+                        ? 'Live request'
+                        : 'Run review now'}
                   </Button>
+                ) : null}
+                {canRunPendingDemoReview && pendingRequest?.onchainRequestId ? (
+                  <span className="muted-copy">
+                    This request is already onchain. Borrower demo review only works before the rollup request id is assigned.
+                  </span>
                 ) : null}
                 {getRequestProofUrl(pendingRequest) ? (
                   <a
@@ -809,10 +825,23 @@ export function RequestPage({
                           {canRunPendingDemoReview ? (
                             <Button
                               onClick={() => handleReviewPendingRequest(request)}
-                              disabled={isReviewingPendingRequest || isCancellingPendingRequest}
+                              disabled={
+                                isReviewingPendingRequest ||
+                                isCancellingPendingRequest ||
+                                Boolean(request.onchainRequestId)
+                              }
                             >
-                              {isReviewingPendingRequest ? 'Running review...' : 'Run review now'}
+                              {isReviewingPendingRequest
+                                ? 'Running review...'
+                                : request.onchainRequestId
+                                  ? 'Live request'
+                                  : 'Run review now'}
                             </Button>
+                          ) : null}
+                          {canRunPendingDemoReview && request.onchainRequestId ? (
+                            <span className="muted-copy">
+                              Already onchain. Demo review is only available for local preview requests.
+                            </span>
                           ) : null}
                         </div>
                       ) : null}

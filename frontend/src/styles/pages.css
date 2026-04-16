@@ -2799,6 +2799,30 @@
   gap: 14px;
 }
 
+.ecosystem-live-apps__drops {
+  display: grid;
+  gap: 18px;
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(120, 145, 180, 0.18);
+}
+
+.ecosystem-live-apps__drops-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ecosystem-live-apps__drops-title {
+  margin: 10px 0 6px;
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: 1.18rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
 .ecosystem-live-app-card h3 {
   margin: 0;
   color: #0f172a;
@@ -3128,6 +3152,7 @@
   }
 
   .ecosystem-panel__header,
+  .ecosystem-live-apps__drops-header,
   .ecosystem-faucet-card__header,
   .ecosystem-panel__footer,
   .ecosystem-fallback,

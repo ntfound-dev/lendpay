@@ -2727,10 +2727,20 @@ function App() {
         return
       }
 
+      const reviewErrorMessage =
+        error instanceof ApiError && error.status === 409
+          ? error.code === 'LIVE_REQUEST_REVIEW_UNAVAILABLE'
+            ? 'This request already exists onchain. Borrower demo review only works for local preview requests, not live rollup requests.'
+            : getErrorMessage(error, 'The pending request could not be reviewed right now.')
+          : getErrorMessage(error, 'The pending request could not be reviewed right now.')
+
       showToast({
-        tone: 'danger',
-        title: 'Review failed',
-        message: getErrorMessage(error, 'The pending request could not be reviewed right now.'),
+        tone: error instanceof ApiError && error.status === 409 ? 'warning' : 'danger',
+        title:
+          error instanceof ApiError && error.code === 'LIVE_REQUEST_REVIEW_UNAVAILABLE'
+            ? 'Live request cannot use demo review'
+            : 'Review failed',
+        message: reviewErrorMessage,
       })
     } finally {
       setReviewingPendingRequestId(null)
@@ -4174,15 +4184,47 @@ function App() {
     score?.risk === 'Low' ? 'success' : score?.risk === 'High' ? 'danger' : 'warning'
   const tierBadgeTone: 'warning' | 'info' | 'neutral' =
     rewards?.tier === 'Gold' || rewards?.tier === 'Diamond' ? 'warning' : rewards?.tier === 'Silver' ? 'info' : 'neutral'
+  const previewBreakdownMeta: Record<
+    string,
+    { label: string; tone: 'green' | 'blue'; maxPoints: number }
+  > = {
+    identity: { label: 'Identity', tone: 'green', maxPoints: 25 },
+    rewards: { label: 'Rewards', tone: 'blue', maxPoints: 120 },
+    referrals: { label: 'Referrals', tone: 'blue', maxPoints: 40 },
+    'repayment streak': { label: 'Repayment streak', tone: 'green', maxPoints: 20 },
+    'lend holdings': { label: 'LEND holdings', tone: 'green', maxPoints: 60 },
+  }
   const findBreakdownPoints = (...keywords: string[]) => {
     const match = score?.breakdown.find((item) =>
       keywords.some((keyword) => item.label.toLowerCase().includes(keyword)),
     )
     return match?.points ?? null
   }
-  const repaymentBreakdownPoints = findBreakdownPoints('repayment')
-  const walletBreakdownPoints = findBreakdownPoints('transaction', 'balance')
-  const identityBreakdownPoints = findBreakdownPoints('cross-app', 'wallet age')
+  const previewScoreBreakdownRows: ScoreBreakdownRow[] =
+    score?.source === 'preview'
+      ? score.breakdown
+          .filter((item) => item.label.toLowerCase() !== 'base profile')
+          .map((item, index) => {
+            const normalizedLabel = item.label.toLowerCase()
+            const meta =
+              Object.entries(previewBreakdownMeta).find(([keyword]) =>
+                normalizedLabel.includes(keyword),
+              )?.[1] ?? null
+            const maxPoints = meta?.maxPoints ?? Math.max(item.points, 1)
+            const percent = Math.max(0, Math.min(Math.round((item.points / maxPoints) * 100), 100))
+
+            return {
+              label: meta?.label ?? item.label,
+              percent,
+              tone: meta?.tone ?? (index % 2 === 0 ? 'green' : 'blue'),
+              points: item.points,
+              status: item.points > 0 ? scoreStatusLabel(percent) : 'Needs activity',
+            }
+          })
+      : []
+  const repaymentBreakdownPoints = findBreakdownPoints('repayment', 'payment')
+  const walletBreakdownPoints = findBreakdownPoints('activity', 'transaction', 'balance')
+  const identityBreakdownPoints = findBreakdownPoints('identity', 'cross-app', 'wallet age')
   const paymentHistoryPercent =
     repaymentBreakdownPoints === null
       ? null
@@ -4195,29 +4237,31 @@ function App() {
     identityBreakdownPoints === null
       ? null
       : Math.max(0, Math.min(Math.round((identityBreakdownPoints / 120) * 100), 100))
-  const scoreBreakdownRows: ScoreBreakdownRow[] = [
-    {
-      label: 'Payment history',
-      percent: paymentHistoryPercent,
-      tone: 'green',
-      points: repaymentBreakdownPoints,
-      status: paymentHistoryPercent === null ? 'Not available' : scoreStatusLabel(paymentHistoryPercent),
-    },
-    {
-      label: 'Wallet activity',
-      percent: walletActivityPercent,
-      tone: 'blue',
-      points: walletBreakdownPoints,
-      status: walletActivityPercent === null ? 'Not available' : scoreStatusLabel(walletActivityPercent),
-    },
-    {
-      label: 'Identity strength',
-      percent: identityStrengthPercent,
-      tone: 'green',
-      points: identityBreakdownPoints,
-      status: identityStrengthPercent === null ? 'Not available' : scoreStatusLabel(identityStrengthPercent),
-    },
-  ]
+  const scoreBreakdownRows: ScoreBreakdownRow[] = previewScoreBreakdownRows.length
+    ? previewScoreBreakdownRows
+    : [
+        {
+          label: 'Payment history',
+          percent: paymentHistoryPercent,
+          tone: 'green',
+          points: repaymentBreakdownPoints,
+          status: paymentHistoryPercent === null ? 'Not available' : scoreStatusLabel(paymentHistoryPercent),
+        },
+        {
+          label: 'Wallet activity',
+          percent: walletActivityPercent,
+          tone: 'blue',
+          points: walletBreakdownPoints,
+          status: walletActivityPercent === null ? 'Not available' : scoreStatusLabel(walletActivityPercent),
+        },
+        {
+          label: 'Identity strength',
+          percent: identityStrengthPercent,
+          tone: 'green',
+          points: identityBreakdownPoints,
+          status: identityStrengthPercent === null ? 'Not available' : scoreStatusLabel(identityStrengthPercent),
+        },
+      ]
   const nextProfileMilestone = !score
     ? {
         title: 'Run a fresh analysis to set your next milestone',
