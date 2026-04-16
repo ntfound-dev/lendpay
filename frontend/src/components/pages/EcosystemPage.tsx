@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import { isChainWriteReady } from '../../config/env'
-import { formatCurrency, formatDate, formatNumber, formatTxHash } from '../../lib/format'
+import { formatCurrency } from '../../lib/format'
 import type {
   CampaignState,
-  FaucetState,
   GovernanceProposalState,
-  LendLiquidityRouteState,
   MerchantState,
 } from '../../types/domain'
 import { EmptyState } from '../shared/EmptyState'
@@ -72,23 +70,15 @@ export type ProtocolUpdateItem = {
 
 type EcosystemPageProps = {
   allocationDraft: AllocationDraft
-  bridgeAmount: string
-  bridgeRecipient: string
   campaignDraft: CampaignDraft
   campaigns: CampaignState[]
   ecosystemFamilyStats: EcosystemFamilyStat[]
-  faucet: FaucetState | null
-  faucetAvailabilityLabel: string
-  faucetClaimAmountLabel: string
-  faucetTxUrl: string | null
   governance: GovernanceProposalState[]
   governanceDraft: GovernanceDraft
   handleAllocateCampaign: () => void | Promise<void>
   handleClaimCampaign: (campaignId: string) => void | Promise<void>
-  handleClaimFaucet: () => void | Promise<void>
   handleCreateCampaign: () => void | Promise<void>
   handleDismissWalletRecovery: () => void | Promise<void>
-  handleOpenLendBridge: () => void | Promise<void>
   handleFinalizeProposal: (proposalId: string) => void | Promise<void>
   handleOpenWalletApproval: () => void | Promise<void>
   handleProposeGovernance: () => void | Promise<void>
@@ -96,18 +86,13 @@ type EcosystemPageProps = {
   handleRetryLoad: () => void | Promise<void>
   handleSetMerchantActive: (merchantId: string, active: boolean) => void | Promise<void>
   handleVoteGovernance: (proposalId: string, support: boolean) => void | Promise<void>
-  isClaimingFaucet: boolean
   isProtocolActionPending: (key: string) => boolean
-  lendLiquidityRoute: LendLiquidityRouteState | null
   merchantDraft: MerchantDraft
-  needsTestnetFunds: boolean
   openCampaignCount: number
   operatorModeEnabled: boolean
   protocolUpdates: ProtocolUpdateItem[]
   sectionErrors: Partial<Record<string, string>>
   setAllocationDraft: Dispatch<SetStateAction<AllocationDraft>>
-  setBridgeAmount: Dispatch<SetStateAction<string>>
-  setBridgeRecipient: Dispatch<SetStateAction<string>>
   setCampaignDraft: Dispatch<SetStateAction<CampaignDraft>>
   setGovernanceDraft: Dispatch<SetStateAction<GovernanceDraft>>
   setMerchantDraft: Dispatch<SetStateAction<MerchantDraft>>
@@ -164,28 +149,14 @@ const formatPartnerFee = (bps: number) =>
   })}%`
 
 export function EcosystemPage({
-  bridgeAmount,
-  bridgeRecipient,
   campaigns,
-  faucet,
-  faucetAvailabilityLabel,
-  faucetClaimAmountLabel,
-  faucetTxUrl,
   governance,
-  handleClaimFaucet,
-  handleOpenLendBridge,
   handleRetryLoad,
-  isClaimingFaucet,
   isProtocolActionPending,
-  lendLiquidityRoute,
-  needsTestnetFunds,
   openCampaignCount,
   sectionErrors,
-  setBridgeAmount,
-  setBridgeRecipient,
   uniqueApps,
 }: EcosystemPageProps) {
-  const [copiedRecipient, setCopiedRecipient] = useState(false)
   const [selectedDrop, setSelectedDrop] = useState<PartnerDrop | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [availableCredit, setAvailableCredit] = useState(3250)
@@ -243,35 +214,12 @@ export function EcosystemPage({
     })
   }, [uniqueApps])
 
-  const bridgeAmountValue = Number(bridgeAmount)
-  const normalizedBridgeAmount =
-    Number.isFinite(bridgeAmountValue) && bridgeAmountValue > 0 ? bridgeAmountValue : 0
-  const estimatedReceiveAmount = normalizedBridgeAmount
-  const estimatedUsdValue = estimatedReceiveAmount * (lendLiquidityRoute?.oracleQuote.price ?? 0)
-  const bridgeLastUpdated = lendLiquidityRoute
-    ? formatDate(lendLiquidityRoute.oracleQuote.blockTimestamp ?? lendLiquidityRoute.oracleQuote.fetchedAt)
-    : ''
-  const bridgeRouteLine = lendLiquidityRoute
-    ? `${lendLiquidityRoute.sourceChainName} → ${lendLiquidityRoute.destinationChainName} via Interwoven Bridge`
-    : ''
-  const isBridgeActive = lendLiquidityRoute?.routeMode === 'live'
-
   const appsLive = sectionErrors.merchants ? null : uniqueApps.filter((app) => app.active).length || featuredApps.length
   const activeCampaigns = sectionErrors.campaigns ? null : openCampaignCount
   const proposalCount = sectionErrors.governance ? null : governance.length
 
   const totalLend = selectedDrop ? selectedDrop.price * quantity : 0
   const estimatedMonthlyInstallment = (totalLend * usdPerLend) / 3
-  const faucetStatusClassName = !faucet?.enabled
-    ? 'ecosystem-pill ecosystem-pill--slate'
-    : faucet.canClaim
-      ? 'ecosystem-pill ecosystem-pill--success'
-      : 'ecosystem-pill ecosystem-pill--info'
-  const faucetStatusLabel = !faucet?.enabled ? 'Unavailable' : faucet.canClaim ? 'Ready' : 'Cooling down'
-  const faucetHelperCopy = needsTestnetFunds
-    ? 'This wallet still needs testnet gas before bridge, repay, or partner checkout flows can sign.'
-    : 'This wallet looks funded already, but the faucet stays visible here for quick top-ups during testing.'
-
   const pushToast = (message: string) => {
     const toastId = Date.now()
     setToasts((current) => [...current, { id: toastId, message }])
@@ -289,21 +237,6 @@ export function EcosystemPage({
     }
 
     setQuantity(Math.max(1, Math.min(maxQuantity, Math.floor(numericValue))))
-  }
-
-  const handleCopyRecipient = async () => {
-    const recipient = bridgeRecipient.trim()
-    if (!recipient || typeof navigator === 'undefined' || !navigator.clipboard) {
-      return
-    }
-
-    try {
-      await navigator.clipboard.writeText(recipient)
-      setCopiedRecipient(true)
-      window.setTimeout(() => setCopiedRecipient(false), 1200)
-    } catch {
-      setCopiedRecipient(false)
-    }
   }
 
   const handleConfirmPurchase = () => {
@@ -369,208 +302,6 @@ export function EcosystemPage({
             <div className="ecosystem-panel__footer-copy">Use LendPay credit to buy</div>
           </div>
         </section>
-
-        <div className="ecosystem-support-grid">
-          <section className="bridge-card ecosystem-bridge-card">
-            {lendLiquidityRoute ? (
-              <>
-                <div className="bridge-card__header">
-                  <div className="bridge-card__headline">
-                    <div className="bridge-card__icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M7 8h10" strokeLinecap="round" />
-                        <path
-                          d="m13.5 4.5 3.5 3.5-3.5 3.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path d="M17 16H7" strokeLinecap="round" />
-                        <path
-                          d="m10.5 12.5-3.5 3.5 3.5 3.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <div className="bridge-card__kicker">Bridge</div>
-                      <h3 className="bridge-card__title">Bridge LEND to Initia MiniEVM</h3>
-                    </div>
-                  </div>
-                  <div
-                    className={[
-                      'bridge-card__status',
-                      isBridgeActive ? 'bridge-card__status--active' : 'bridge-card__status--pending',
-                    ].join(' ')}
-                  >
-                    <span className="bridge-card__status-dot" aria-hidden="true" />
-                    {isBridgeActive ? 'Active' : 'Preview'}
-                  </div>
-                </div>
-
-                <p className="bridge-card__route">{bridgeRouteLine}</p>
-                <div className="bridge-card__divider" />
-
-                <div className="bridge-card__fields">
-                  <div className="bridge-card__field">
-                    <label className="bridge-card__label" htmlFor="bridgeAmount">
-                      Amount (LEND)
-                    </label>
-                    <input
-                      className="bridge-card__input bridge-card__input--mono"
-                      id="bridgeAmount"
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={bridgeAmount}
-                      onChange={(event) => setBridgeAmount(event.target.value)}
-                      placeholder="250"
-                    />
-                  </div>
-                  <div className="bridge-card__field">
-                    <label className="bridge-card__label" htmlFor="bridgeRecipient">
-                      Recipient address
-                    </label>
-                    <div className="bridge-card__input-shell">
-                      <input
-                        className="bridge-card__input bridge-card__input--mono bridge-card__input--copyable"
-                        id="bridgeRecipient"
-                        value={bridgeRecipient}
-                        onChange={(event) => setBridgeRecipient(event.target.value)}
-                        placeholder="Defaults to the connected wallet"
-                      />
-                      <button
-                        type="button"
-                        className={[
-                          'bridge-card__copy',
-                          copiedRecipient ? 'bridge-card__copy--copied' : '',
-                        ].join(' ')}
-                        onClick={() => void handleCopyRecipient()}
-                        aria-label="Copy recipient address"
-                        title={copiedRecipient ? 'Copied' : 'Copy recipient address'}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                          <rect x="9" y="9" width="10" height="10" rx="2" />
-                          <path d="M15 9V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bridge-card__output">
-                  <span className="bridge-card__output-label">You receive:</span>
-                  <strong className="bridge-card__output-value">
-                    {formatNumber(estimatedReceiveAmount)} INIT
-                    <span>≈ {formatCurrency(estimatedUsdValue)}</span>
-                  </strong>
-                </div>
-
-                <div className="bridge-card__actions">
-                  <Button
-                    className="bridge-card__cta"
-                    onClick={handleOpenLendBridge}
-                    wide
-                    disabled={
-                      lendLiquidityRoute.routeMode !== 'live' ||
-                      isProtocolActionPending('bridge-intent')
-                    }
-                  >
-                    {isProtocolActionPending('bridge-intent') ? 'Bridging...' : 'Bridge Now'}
-                  </Button>
-                </div>
-
-                <div className="bridge-card__footer">
-                  <span>
-                    Reference price{' '}
-                    <strong className="bridge-card__mono">
-                      {formatCurrency(lendLiquidityRoute.oracleQuote.price)}
-                    </strong>
-                  </span>
-                  <span aria-hidden="true">·</span>
-                  <span>
-                    Last updated <strong className="bridge-card__mono">{bridgeLastUpdated}</strong>
-                  </span>
-                </div>
-              </>
-            ) : (
-              <EmptyState
-                title="Bridge status unavailable"
-                subtitle={
-                  sectionErrors.liquidity ??
-                  'Refresh your account to load the current LEND bridge route and official price reference.'
-                }
-                actionLabel="Retry load"
-                onAction={handleRetryLoad}
-              />
-            )}
-          </section>
-
-          <section className="ecosystem-faucet-card">
-            <div className="ecosystem-faucet-card__header">
-              <div>
-                <span className="ecosystem-panel__eyebrow">Testnet access</span>
-                <h2 className="ecosystem-panel__section-title">Faucet</h2>
-                <p className="ecosystem-panel__subtitle">
-                  Keep gas ready so bridge, repay, and partner checkout flows can sign cleanly.
-                </p>
-              </div>
-              <span className={faucetStatusClassName}>{faucetStatusLabel}</span>
-            </div>
-
-            {sectionErrors.faucet ? (
-              <div className="ecosystem-fallback ecosystem-fallback--stacked">
-                <div>
-                  <strong>Faucet status is unavailable right now.</strong>
-                  <p>{sectionErrors.faucet}</p>
-                </div>
-                <Button variant="secondary" onClick={handleRetryLoad}>
-                  Retry load
-                </Button>
-              </div>
-            ) : faucet?.enabled ? (
-              <>
-                <div className="ecosystem-faucet-card__amount mono">{faucetClaimAmountLabel}</div>
-                <p className="ecosystem-faucet-card__body">{faucetHelperCopy}</p>
-                <div className="ecosystem-faucet-card__meta">
-                  One claim every {faucet.cooldownHours} hours · {faucetAvailabilityLabel}
-                </div>
-                {faucet.txHash && faucetTxUrl ? (
-                  <a
-                    className="ecosystem-faucet-card__link"
-                    href={faucetTxUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Latest faucet tx {formatTxHash(faucet.txHash)}
-                  </a>
-                ) : null}
-                <div className="ecosystem-faucet-card__actions">
-                  <Button
-                    onClick={handleClaimFaucet}
-                    disabled={isClaimingFaucet || !faucet.canClaim}
-                  >
-                    {isClaimingFaucet
-                      ? 'Sending...'
-                      : faucet.canClaim
-                        ? needsTestnetFunds
-                          ? 'Claim testnet LEND'
-                          : 'Top up testnet LEND'
-                        : 'Claim available later'}
-                  </Button>
-                  <div className="ecosystem-faucet-card__note">
-                    {needsTestnetFunds ? 'Bridge and checkout need gas first.' : 'Bridge and repay remain ready from here.'}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="ecosystem-empty ecosystem-empty--compact">
-                <strong>Faucet is not enabled</strong>
-                <p>Testnet funding is currently unavailable for this environment.</p>
-              </div>
-            )}
-          </section>
-        </div>
 
         <section className="ecosystem-panel">
           <div className="ecosystem-panel__header">
