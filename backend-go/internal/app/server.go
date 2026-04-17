@@ -2109,6 +2109,15 @@ func trimStringPtr(value *string) string {
 	return strings.TrimSpace(*value)
 }
 
+func normalizedStringPtr(value string) *string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+
+	return &trimmed
+}
+
 func (s *Server) ensureOnchainRequestRow(ctx context.Context, address string, loanView rollupLoanView) (loanRequestRow, error) {
 	onchainRequestID := strings.TrimSpace(loanView.RequestID)
 	if onchainRequestID == "" {
@@ -2325,6 +2334,55 @@ func (s *Server) findLoanRequestByOnchainID(ctx context.Context, address, onchai
 	))
 }
 
+func (s *Server) updateLoanRequestClientContext(ctx context.Context, row loanRequestRow, txHash string, merchant *merchantState) (loanRequestRow, error) {
+	nextMerchantID := row.MerchantID
+	nextMerchantCategory := row.MerchantCategory
+	nextMerchantAddress := row.MerchantAddress
+	nextTxHash := row.TxHash
+
+	if merchant != nil {
+		if merchantID := normalizedStringPtr(merchant.ID); merchantID != nil {
+			nextMerchantID = merchantID
+		}
+		if merchantCategory := normalizedStringPtr(merchant.Category); merchantCategory != nil {
+			nextMerchantCategory = merchantCategory
+		}
+		if merchantAddress := normalizedStringPtr(merchant.MerchantAddress); merchantAddress != nil {
+			nextMerchantAddress = merchantAddress
+		}
+	}
+
+	if normalizedTxHash := normalizedStringPtr(txHash); normalizedTxHash != nil {
+		nextTxHash = normalizedTxHash
+	}
+
+	if trimStringPtr(nextMerchantID) == trimStringPtr(row.MerchantID) &&
+		trimStringPtr(nextMerchantCategory) == trimStringPtr(row.MerchantCategory) &&
+		trimStringPtr(nextMerchantAddress) == trimStringPtr(row.MerchantAddress) &&
+		trimStringPtr(nextTxHash) == trimStringPtr(row.TxHash) {
+		return row, nil
+	}
+
+	return scanLoanRequest(s.db.pool.QueryRow(
+		ctx,
+		fmt.Sprintf(
+			`UPDATE %s
+			 SET "merchantId" = $2,
+			     "merchantCategory" = $3,
+			     "merchantAddress" = $4,
+			     "txHash" = $5
+			 WHERE "id" = $1
+			 RETURNING "id","initiaAddress","amount","collateralAmount","merchantId","merchantCategory","merchantAddress","assetSymbol","tenorMonths","submittedAt","status","txHash","onchainRequestId"`,
+			s.db.table("LoanRequest"),
+		),
+		row.ID,
+		nextMerchantID,
+		nextMerchantCategory,
+		nextMerchantAddress,
+		nextTxHash,
+	))
+}
+
 func (s *Server) findLoanByRequestIDFromDB(ctx context.Context, requestID string) (loanRow, error) {
 	return scanLoan(s.db.pool.QueryRow(
 		ctx,
@@ -2423,6 +2481,90 @@ func (s *Server) createLoanRequest(ctx context.Context, user userRow, input loan
 		}
 	}
 
+	var merchant *merchantState
+	if input.MerchantID != "" {
+		for _, item := range s.merchants {
+			if item.ID == input.MerchantID {
+				copyItem := item
+				merchant = &copyItem
+				break
+			}
+		}
+		if merchant == nil {
+			return loanRequestState{}, &appError{
+				Code:       "APP_NOT_FOUND",
+				Message:    "The selected app was not found.",
+				StatusCode: http.StatusBadRequest,
+			}
+		}
+	}
+
+	txHash := strings.TrimSpace(input.TxHash)
+	onchainRequestID := ""
+	if s.rollup != nil {
+		if txHash == "" {
+			return loanRequestState{}, &appError{
+				Code:       "REQUEST_TX_REQUIRED",
+				Message:    "Live credit requests must include the wallet transaction hash so LendPay can confirm it onchain.",
+				StatusCode: http.StatusBadRequest,
+			}
+		}
+		confirmedID, appErr := s.confirmLiveRequest(ctx, user.InitiaAddress, txHash)
+		if appErr != nil {
+			log.Printf(
+				"[loan-request] create failed during live confirmation borrower=%s tx=%s code=%s message=%s",
+				user.InitiaAddress,
+				txHash,
+				appErr.Code,
+				appErr.Message,
+			)
+			return loanRequestState{}, appErr
+		}
+		onchainRequestID = confirmedID
+
+		requestView, err := s.rollup.GetRequest(ctx, confirmedID)
+		if err != nil || requestView == nil || !addressesMatch(requestView.Borrower, user.InitiaAddress) {
+			log.Printf("[loan-request] create failed during request sync borrower=%s tx=%s request_id=%s err=%v", user.InitiaAddress, txHash, confirmedID, err)
+			return loanRequestState{}, &appError{
+				Code:       "REQUEST_TX_MISMATCH",
+				Message:    "The confirmed transaction could not be matched to a live credit request onchain.",
+				StatusCode: http.StatusBadRequest,
+			}
+		}
+
+		row, err := s.upsertOnchainPendingRequestRow(ctx, user.InitiaAddress, *requestView)
+		if err != nil {
+			log.Printf("[loan-request] create failed during onchain upsert borrower=%s tx=%s request_id=%s err=%v", user.InitiaAddress, txHash, confirmedID, err)
+			return loanRequestState{}, &appError{
+				Code:       "DATABASE_ERROR",
+				Message:    "Loan request could not be synchronized.",
+				StatusCode: http.StatusInternalServerError,
+			}
+		}
+
+		s.clearStalePendingRequests(ctx, user.InitiaAddress, confirmedID)
+
+		row, err = s.updateLoanRequestClientContext(ctx, row, txHash, merchant)
+		if err != nil {
+			log.Printf("[loan-request] create failed during client context update borrower=%s tx=%s request_id=%s err=%v", user.InitiaAddress, txHash, confirmedID, err)
+			return loanRequestState{}, &appError{
+				Code:       "DATABASE_ERROR",
+				Message:    "Loan request could not be synchronized.",
+				StatusCode: http.StatusInternalServerError,
+			}
+		}
+
+		log.Printf(
+			"[loan-request] create success borrower=%s request_id=%s onchain_request_id=%s status=%s tx=%s",
+			user.InitiaAddress,
+			row.ID,
+			trimStringPtr(row.OnchainRequestID),
+			row.Status,
+			strings.TrimSpace(txHash),
+		)
+		return mapLoanRequest(row), nil
+	}
+
 	requests, appErr := s.listLoanRequests(ctx, user.InitiaAddress)
 	if appErr != nil {
 		return loanRequestState{}, appErr
@@ -2451,48 +2593,7 @@ func (s *Server) createLoanRequest(ctx context.Context, user userRow, input loan
 		}
 	}
 
-	var merchant *merchantState
-	if input.MerchantID != "" {
-		for _, item := range s.merchants {
-			if item.ID == input.MerchantID {
-				copyItem := item
-				merchant = &copyItem
-				break
-			}
-		}
-		if merchant == nil {
-			return loanRequestState{}, &appError{
-				Code:       "APP_NOT_FOUND",
-				Message:    "The selected app was not found.",
-				StatusCode: http.StatusBadRequest,
-			}
-		}
-	}
-
 	now := time.Now().UTC()
-	txHash := strings.TrimSpace(input.TxHash)
-	onchainRequestID := ""
-	if s.rollup != nil {
-		if txHash == "" {
-			return loanRequestState{}, &appError{
-				Code:       "REQUEST_TX_REQUIRED",
-				Message:    "Live credit requests must include the wallet transaction hash so LendPay can confirm it onchain.",
-				StatusCode: http.StatusBadRequest,
-			}
-		}
-		confirmedID, appErr := s.confirmLiveRequest(ctx, user.InitiaAddress, txHash)
-		if appErr != nil {
-			log.Printf(
-				"[loan-request] create failed during live confirmation borrower=%s tx=%s code=%s message=%s",
-				user.InitiaAddress,
-				txHash,
-				appErr.Code,
-				appErr.Message,
-			)
-			return loanRequestState{}, appErr
-		}
-		onchainRequestID = confirmedID
-	}
 	if txHash == "" {
 		txHash = previewTxHash("request", user.InitiaAddress)
 	}

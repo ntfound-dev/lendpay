@@ -2582,21 +2582,68 @@ function App() {
       const isProfileValidationMoveAbort =
         moveAbort?.moduleName === 'profiles' &&
         [8, 39, 40, 43].includes(moveAbort.code)
+      let latestState: BorrowerSyncState | null = null
 
       if (error instanceof ApiError && error.status === 409) {
         const latestToken = sessionTokenRef.current
         if (latestToken) {
-          await syncBorrowerState(latestToken).catch(() => undefined)
+          latestState = await syncBorrowerState(latestToken).catch(() => null)
         }
       }
 
+      const latestPendingRequest =
+        latestState?.requests.find((request) => request.status === 'pending') ?? null
+      const latestActiveLoan =
+        latestState?.loans.find((loan) => loan.status === 'active') ?? null
+
+      if (
+        txHash &&
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.code === 'PENDING_REQUEST_EXISTS' &&
+        latestPendingRequest
+      ) {
+        setDraft(defaultDraft)
+        setSelectedDropItemId('')
+        setActivePage('loan')
+        showToast({
+          tone: 'success',
+          title: 'Request submitted',
+          message: latestPendingRequest.onchainRequestId
+            ? `Your wallet transaction already created live request #${latestPendingRequest.onchainRequestId}. LendPay synced it automatically.`
+            : 'Your wallet transaction already created a pending credit request. LendPay synced it automatically.',
+          layout: 'center',
+        })
+        return
+      }
+
+      if (
+        txHash &&
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.code === 'ACTIVE_LOAN_EXISTS' &&
+        latestActiveLoan
+      ) {
+        setDraft(defaultDraft)
+        setSelectedDropItemId('')
+        setActivePage('loan')
+        showToast({
+          tone: 'success',
+          title: 'Credit is already live',
+          message: `The latest request was already approved and ${formatCurrency(latestActiveLoan.principal)} is now active on your loan page.`,
+          layout: 'center',
+        })
+        return
+      }
+
       if (isActiveCreditMoveAbort) {
-        const latestToken = sessionTokenRef.current
-        if (latestToken) {
-          const latestState = await syncBorrowerState(latestToken).catch(() => null)
-          if (latestState?.loans.some((loan) => loan.status === 'active')) {
-            setActivePage('loan')
-          }
+        const syncedState =
+          latestState ??
+          (sessionTokenRef.current
+            ? await syncBorrowerState(sessionTokenRef.current).catch(() => null)
+            : null)
+        if (syncedState?.loans.some((loan) => loan.status === 'active')) {
+          setActivePage('loan')
         }
       }
 
