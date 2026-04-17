@@ -89,6 +89,8 @@ Most important variables:
   Key used for operator or backend broadcast actions.
 - `ROLLUP_KEYRING_BACKEND`
   Keyring backend for the configured key.
+- `ROLLUP_OPERATOR_KEYRING_ARCHIVE_B64`
+  Optional base64-encoded tar.gz of `keyring-test/` used by hosted backends to restore the operator key without baking secrets into the repo.
 - `ROLLUP_OPERATOR_MNEMONIC`
   Optional operator mnemonic path for live write flows.
 - `ROLLUP_NATIVE_DENOM`

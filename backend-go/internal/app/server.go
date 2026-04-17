@@ -137,7 +137,7 @@ func (s *Server) Handler() http.Handler {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"ok":      true,
 			"env":     s.cfg.AppEnv,
-			"mode":    "preview",
+			"mode":    s.runtimeMode(),
 			"chainId": s.cfg.RollupChainID,
 		})
 	})
@@ -150,8 +150,8 @@ func (s *Server) Handler() http.Handler {
 
 	router.Get("/api/v1/meta/treasury", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"mode":         "preview",
-			"canBroadcast": false,
+			"mode":         s.runtimeMode(),
+			"canBroadcast": s.liveRollupWritesEnabled(),
 			"nativeSymbol": s.cfg.RollupNativeSymbol,
 			"nativeDenom":  s.cfg.RollupNativeDenom,
 		})
@@ -2861,6 +2861,14 @@ func maxInt(left, right int) int {
 
 func (s *Server) reviewDemoLoanRequest(ctx context.Context, user userRow, requestID, reason string) (map[string]any, *appError) {
 	return s.approveLoanRequest(ctx, requestID, "preview-operator", reason, user.InitiaAddress)
+}
+
+func (s *Server) runtimeMode() string {
+	if s.liveRollupWritesEnabled() {
+		return "live"
+	}
+
+	return "preview"
 }
 
 func (s *Server) liveRollupWritesEnabled() bool {

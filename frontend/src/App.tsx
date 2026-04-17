@@ -2518,14 +2518,29 @@ function App() {
       let approvalMode: 'preview' | 'live' | null = null
       let approvalTxHash = ''
 
-      if (appEnv.enableDemoApproval && !nextRequest.onchainRequestId) {
-        const approval = await lendpayApi.reviewLoanRequest(
-          token,
-          nextRequest.id,
-          'Auto-approval from borrower flow',
-        )
-        approvalMode = approval.mode
-        approvalTxHash = approval.txHash
+      let approvalPendingMessage: string | null = null
+
+      if (appEnv.enableDemoApproval) {
+        try {
+          const approval = await lendpayApi.reviewLoanRequest(
+            token,
+            nextRequest.id,
+            'Auto-approval from borrower flow',
+          )
+          approvalMode = approval.mode
+          approvalTxHash = approval.txHash
+        } catch (error) {
+          if (
+            error instanceof ApiError &&
+            error.code === 'LIVE_REQUEST_REVIEW_UNAVAILABLE' &&
+            nextRequest.onchainRequestId
+          ) {
+            approvalPendingMessage =
+              'Live request submitted and stored onchain. Automatic operator approval is not enabled on this backend yet, so the request will stay pending until live approval is turned on.'
+          } else {
+            throw error
+          }
+        }
       }
 
       await syncProtocolAfterTx(token, approvalTxHash || txHash || undefined)
@@ -2544,7 +2559,9 @@ function App() {
             : selectedProfile?.requiresCollateral
               ? `Collateral locked and app credit is live for ${selectedMerchantTitle}.`
               : `App credit is live for ${selectedMerchantTitle}.`
-          : selectedProfile?.requiresCollateral
+          : approvalPendingMessage
+            ? approvalPendingMessage
+            : selectedProfile?.requiresCollateral
             ? `Collateral locked and credit request submitted for ${selectedMerchantTitle}${txHash ? `: ${formatTxHash(txHash)}` : '.'}`
             : `Credit request submitted for ${selectedMerchantTitle}${txHash ? `: ${formatTxHash(txHash)}` : '.'}`,
         layout: 'center',
@@ -2772,16 +2789,6 @@ function App() {
       return
     }
 
-    if (request.onchainRequestId) {
-      showToast({
-        tone: 'warning',
-        title: 'Live request cannot use demo review',
-        message:
-          'This request is already onchain. Borrower demo review only works before the rollup request id is assigned. Use Cancel live request or wait for a decision instead.',
-      })
-      return
-    }
-
     setReviewingPendingRequestId(request.id)
     let approvalTxHash = ''
 
@@ -2816,7 +2823,7 @@ function App() {
       const reviewErrorMessage =
         error instanceof ApiError && error.status === 409
           ? error.code === 'LIVE_REQUEST_REVIEW_UNAVAILABLE'
-            ? 'This request already exists onchain. Borrower demo review only works for local preview requests, not live rollup requests.'
+            ? 'This request already exists onchain, but live operator approval is not enabled on this backend yet.'
             : getErrorMessage(error, 'The pending request could not be reviewed right now.')
           : getErrorMessage(error, 'The pending request could not be reviewed right now.')
 
@@ -2824,7 +2831,7 @@ function App() {
         tone: error instanceof ApiError && error.status === 409 ? 'warning' : 'danger',
         title:
           error instanceof ApiError && error.code === 'LIVE_REQUEST_REVIEW_UNAVAILABLE'
-            ? 'Live request cannot use demo review'
+            ? 'Live operator approval unavailable'
             : 'Review failed',
         message: reviewErrorMessage,
       })
@@ -3233,7 +3240,6 @@ function App() {
   useEffect(() => {
     if (
       !pendingRequest ||
-      pendingRequest.onchainRequestId ||
       !canRunPendingDemoReview ||
       !hasLoadedBorrowerState ||
       !isConnected ||

@@ -7,6 +7,7 @@ on:
     paths:
       - "backend-go/**"
       - "deploy/railway/backend/**"
+      - "deploy/railway/deploy/**"
       - ".github/workflows/backend-railway-cli-deploy.yml"
   workflow_dispatch:
 
@@ -44,6 +45,7 @@ jobs:
           mkdir -p "$deploy_root/deploy/railway"
           cp -R backend-go "$deploy_root/"
           cp -R deploy/railway/backend "$deploy_root/deploy/railway/"
+          cp -R deploy/railway/deploy "$deploy_root/deploy/railway/"
 
           echo "DEPLOY_ROOT=$deploy_root" >> "$GITHUB_ENV"
 
