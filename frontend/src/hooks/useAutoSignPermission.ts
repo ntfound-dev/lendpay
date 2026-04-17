@@ -10,6 +10,7 @@ const AUTO_SIGN_FALLBACK_SESSION_MS = 10 * 60 * 1000
 const AUTO_SIGN_STORAGE_PREFIX = 'lendpay.autosign:'
 
 type AutoSignController = {
+  disable: (chainId?: string) => Promise<unknown>
   enable: (chainId?: string) => Promise<unknown>
   expiredAtByChain: Record<string, Date | null | undefined>
   isEnabledByChain: Record<string, boolean>
@@ -21,13 +22,10 @@ type UseAutoSignPermissionInput = {
   chainId: string
   confirmWalletAction: (messages: EncodeObject[], preview?: TxPreviewContent | false) => Promise<void>
   initiaAddress?: string | null
+  isAllowedAutoSignMessage?: (message: EncodeObject) => boolean
   isUserRejectedWalletError: (error: unknown) => boolean
   showToast: (nextToast: ToastState) => void
 }
-
-const supportsConfiguredAutoSignMessages = (messages: EncodeObject[]) =>
-  Boolean(messages.length) &&
-  messages.every((message) => message.typeUrl === '/initia.move.v1.MsgExecute')
 
 const getAutoSignStorageKey = (address: string, chainId: string) =>
   `${AUTO_SIGN_STORAGE_PREFIX}${address.trim().toLowerCase()}:${chainId}`
@@ -77,6 +75,7 @@ export function useAutoSignPermission({
   chainId,
   confirmWalletAction,
   initiaAddress,
+  isAllowedAutoSignMessage,
   isUserRejectedWalletError,
   showToast,
 }: UseAutoSignPermissionInput) {
@@ -160,6 +159,12 @@ export function useAutoSignPermission({
     )
   }
 
+  const supportsConfiguredAutoSignMessages = (messages: EncodeObject[]) =>
+    Boolean(messages.length) &&
+    messages.every((message) =>
+      isAllowedAutoSignMessage ? isAllowedAutoSignMessage(message) : false,
+    )
+
   const requestAutoSignPermission = async () => {
     if (
       autoSignEnabledByChainRef.current[chainId] ||
@@ -181,18 +186,18 @@ export function useAutoSignPermission({
       eyebrow: 'Auto-sign setup',
       title: 'Enable faster wallet approvals',
       subtitle:
-        'LendPay is about to ask InterwovenKit for temporary auto-sign permission for supported Move actions on this chain.',
+        'LendPay is about to ask InterwovenKit for a temporary wallet session that this app will only use for borrower-approved repayment calls on this chain.',
       rows: [
         { label: 'App', value: 'LendPay' },
         { label: 'Origin', value: origin },
         { label: 'Wallet', value: initiaAddress ? shortenAddress(initiaAddress) : 'Connected wallet' },
         { label: 'Chain', value: chainId },
         { label: 'Provider', value: 'InterwovenKit wallet session' },
-        { label: 'Permission', value: 'Supported Move actions only' },
+        { label: 'LendPay usage', value: 'Repayment calls only' },
         { label: 'Session window', value: 'Temporary wallet-managed session (often 10 minutes)' },
       ],
       note:
-        'InterwovenKit may open two prompts next: first a signature to create the helper signer, then a temporary grant/allowance for supported LendPay actions. This is permission setup, not a loan repayment or token transfer.',
+        'InterwovenKit may open two prompts next: first a signature to create the helper signer, then a temporary grant/allowance. LendPay will still keep all non-repayment Move actions on manual approval.',
     })
 
     const pendingAutoSignEnable = autoSign
@@ -201,7 +206,8 @@ export function useAutoSignPermission({
         showToast({
           tone: 'success',
           title: 'Auto-sign ready',
-          message: 'LendPay now has wallet auto-sign permission for supported Move actions on this chain.',
+          message:
+            'LendPay can now reuse this short wallet session for borrower-approved repayment calls on this chain.',
         })
         return true
       })
@@ -250,6 +256,24 @@ export function useAutoSignPermission({
     return isReady
   }
 
+  const disableAutoSignPermission = async () => {
+    const hadKnownAutoSignPermission =
+      Boolean(autoSignEnabledByChainRef.current[chainId]) || getKnownAutoSignExpiry(chainId) > Date.now()
+
+    clearStoredAutoSignExpiry(initiaAddress, chainId)
+
+    if (!hadKnownAutoSignPermission) {
+      return false
+    }
+
+    try {
+      await autoSign.disable(chainId)
+      return true
+    } finally {
+      clearStoredAutoSignExpiry(initiaAddress, chainId)
+    }
+  }
+
   const ensureAutoSignPermission = async (messages: EncodeObject[]) => {
     if (!supportsConfiguredAutoSignMessages(messages)) {
       return false
@@ -271,6 +295,7 @@ export function useAutoSignPermission({
 
   return {
     autoSignSessionExpiresAt,
+    disableAutoSignPermission,
     enableAutoSignPermission: requestAutoSignPermission,
     ensureAutoSignPermission,
     hasActiveAutoSignPermission,

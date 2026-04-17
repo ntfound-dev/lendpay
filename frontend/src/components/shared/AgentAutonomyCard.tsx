@@ -32,9 +32,9 @@ export function AgentAutonomyCard({
 }: AgentAutonomyCardProps) {
   const autoSignStatus = hasActiveAutoSignPermission
     ? autoSignPreferenceEnabled
-      ? 'InterwovenKit auto-sign active'
-      : 'InterwovenKit session available, but LendPay is using manual approvals'
-    : 'InterwovenKit auto-sign not armed yet'
+      ? 'Repayment session active'
+      : 'Session available, manual approvals selected'
+    : 'Session not armed yet'
 
   const nextInstallmentLabel =
     nextDueAmount !== null && nextDueAt
@@ -45,13 +45,25 @@ export function AgentAutonomyCard({
     ? autoSignSessionExpiresAt
       ? `Temporary wallet session until ${formatDate(autoSignSessionExpiresAt.toISOString())}`
       : 'Temporary wallet-managed session is active'
-    : 'Wallet will keep asking before each repayment until auto-sign is set up'
+    : 'Wallet will ask again after this short session expires, so later repayments need a re-arm.'
+
+  const autoRepayStatus = autoRepayEnabled
+    ? 'Armed for this session'
+    : hasActiveAutoSignPermission
+      ? 'Ready to arm'
+      : 'Paused'
+
+  const autoRepayLabel = autoRepayEnabled
+    ? 'The agent can repay the next due installment while this wallet session stays active.'
+    : hasActiveAutoSignPermission
+      ? 'The session is ready, but LendPay will keep manual approvals until you arm session auto-repay.'
+      : 'Manual repay remains available at any time. Re-arm before a later due date.'
 
   return (
-    <Card eyebrow="Agent autonomy" title="Borrower-approved auto-repay" className="agent-autonomy-card section-stack">
+    <Card eyebrow="Session automation" title="Session auto-repay" className="agent-autonomy-card section-stack">
       <div className="agent-autonomy-card__intro">
-        Let LendPay Agent repay the next due installment during this active browser session after
-        you grant InterwovenKit auto-sign for supported Move calls.
+        Let LendPay Agent repay the next due installment only while this browser session stays
+        active after you grant InterwovenKit auto-sign for repayment calls.
       </div>
 
       <div className="agent-autonomy-card__grid">
@@ -61,9 +73,9 @@ export function AgentAutonomyCard({
           <small>{sessionLabel}</small>
         </div>
         <div className="agent-autonomy-card__item">
-          <span>Auto-repay</span>
-          <strong>{autoRepayEnabled ? 'Armed' : 'Paused'}</strong>
-          <small>{autoRepayEnabled ? 'The agent can repay due installments for you.' : 'Manual repay remains available at any time.'}</small>
+          <span>Session auto-repay</span>
+          <strong>{autoRepayStatus}</strong>
+          <small>{autoRepayLabel}</small>
         </div>
         <div className="agent-autonomy-card__item">
           <span>Next installment</span>
@@ -74,10 +86,10 @@ export function AgentAutonomyCard({
 
       <div className="agent-autonomy-card__badges">
         <Badge tone={hasActiveAutoSignPermission ? 'success' : 'warning'}>
-          {hasActiveAutoSignPermission ? 'InterwovenKit ready' : 'InterwovenKit needed'}
+          {hasActiveAutoSignPermission ? 'Session ready' : 'Re-arm required'}
         </Badge>
         <Badge tone={autoRepayEnabled ? 'success' : 'info'}>
-          {autoRepayEnabled ? 'Agent auto-repay armed' : 'Agent auto-repay paused'}
+          {autoRepayEnabled ? 'Session auto-repay armed' : 'Manual repay mode'}
         </Badge>
       </div>
 
@@ -98,14 +110,15 @@ export function AgentAutonomyCard({
           </Button>
         ) : (
           <Button onClick={onEnableAutoRepay} disabled={isBusy}>
-            Arm auto-repay
+            Arm session auto-repay
           </Button>
         )}
       </div>
 
       <div className="agent-autonomy-card__footnote">
-        You can pause LendPay autonomy anytime. Turning off InterwovenKit here switches the app back
-        to manual wallet approvals; the wallet-managed helper session itself expires on its own.
+        This is a browser-session convenience, not a standing monthly approval. Turning off
+        InterwovenKit here switches the app back to manual wallet approvals, and later due dates
+        need a fresh re-arm.
       </div>
     </Card>
   )

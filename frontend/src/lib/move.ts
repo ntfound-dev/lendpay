@@ -1,10 +1,108 @@
 import type { EncodeObject } from '@cosmjs/proto-signing'
 import { MsgExecute, bcs } from '@initia/initia.js'
 
+type MoveExecuteProtoValue = {
+  args: unknown[]
+  functionName: string
+  moduleAddress: string
+  moduleName: string
+  sender: string
+  typeArgs: unknown[]
+}
+
+type MoveExecuteValueRecord = Record<string, unknown>
+
 const toEncodeObject = (message: MsgExecute): EncodeObject => ({
   typeUrl: '/initia.move.v1.MsgExecute',
   value: message.toProto(),
 })
+
+const isRecord = (value: unknown): value is MoveExecuteValueRecord =>
+  typeof value === 'object' && value !== null
+
+const readStringField = (value: MoveExecuteValueRecord, ...keys: string[]) => {
+  for (const key of keys) {
+    const candidate = value[key]
+    if (typeof candidate === 'string') {
+      return candidate
+    }
+  }
+
+  return null
+}
+
+const readArrayField = (value: MoveExecuteValueRecord, ...keys: string[]) => {
+  for (const key of keys) {
+    const candidate = value[key]
+    if (Array.isArray(candidate)) {
+      return candidate
+    }
+  }
+
+  return null
+}
+
+const normalizeAddress = (value: string) => value.trim().toLowerCase()
+
+export const getMoveExecuteValue = (message: EncodeObject): MoveExecuteProtoValue | null => {
+  if (message.typeUrl !== '/initia.move.v1.MsgExecute' || !isRecord(message.value)) {
+    return null
+  }
+
+  const sender = readStringField(message.value, 'sender')
+  const moduleAddress = readStringField(message.value, 'moduleAddress', 'module_address')
+  const moduleName = readStringField(message.value, 'moduleName', 'module_name')
+  const functionName = readStringField(message.value, 'functionName', 'function_name')
+  const typeArgs = readArrayField(message.value, 'typeArgs', 'type_args')
+  const args = readArrayField(message.value, 'args')
+
+  if (!sender || !moduleAddress || !moduleName || !functionName || !typeArgs || !args) {
+    return null
+  }
+
+  return {
+    sender,
+    moduleAddress,
+    moduleName,
+    functionName,
+    typeArgs,
+    args,
+  }
+}
+
+export const isRepayInstallmentMoveExecuteMessage = (
+  message: EncodeObject,
+  {
+    functionName,
+    moduleAddress,
+    moduleName,
+    sender,
+  }: {
+    functionName: string
+    moduleAddress: string
+    moduleName: string
+    sender?: string | null
+  },
+) => {
+  const moveValue = getMoveExecuteValue(message)
+  if (!moveValue) {
+    return false
+  }
+
+  if (normalizeAddress(moveValue.moduleAddress) !== normalizeAddress(moduleAddress)) {
+    return false
+  }
+
+  if (moveValue.moduleName !== moduleName || moveValue.functionName !== functionName) {
+    return false
+  }
+
+  if (sender && normalizeAddress(moveValue.sender) !== normalizeAddress(sender)) {
+    return false
+  }
+
+  return moveValue.typeArgs.length === 0 && moveValue.args.length === 1
+}
 
 const encodeBytes = (value: string) => {
   const bytes = Array.from(new TextEncoder().encode(value))

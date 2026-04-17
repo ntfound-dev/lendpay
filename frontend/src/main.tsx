@@ -219,10 +219,6 @@ if (originalFetch) {
     }
 
     if (requestUrl.includes('/cosmos/feegrant/v1beta1/allowance/')) {
-      if (localRollupRestOrigins.has(readRequestOrigin(requestUrl) ?? '')) {
-        return responseJSON({ allowance: null })
-      }
-
       const response = await originalFetch(input, init)
       if (response.status === 404 || response.status === 500) {
         return responseJSON({ allowance: null })

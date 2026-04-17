@@ -16,6 +16,7 @@ import {
   createRepayInstallmentMessage,
   createRequestCollateralizedLoanMessage,
   createRequestLoanMessage,
+  isRepayInstallmentMoveExecuteMessage,
   createSpendPointsMessage,
   createStakeMessage,
 } from './lib/move'
@@ -384,6 +385,7 @@ function App() {
   })
   const {
     autoSignSessionExpiresAt,
+    disableAutoSignPermission,
     enableAutoSignPermission,
     ensureAutoSignPermission,
     hasActiveAutoSignPermission,
@@ -392,6 +394,13 @@ function App() {
     chainId: appEnv.appchainId,
     confirmWalletAction,
     initiaAddress,
+    isAllowedAutoSignMessage: (message) =>
+      isRepayInstallmentMoveExecuteMessage(message, {
+        functionName: appEnv.repayFunctionName,
+        moduleAddress: appEnv.packageAddress,
+        moduleName: appEnv.loanModuleName,
+        sender: initiaAddress,
+      }),
     isUserRejectedWalletError,
     showToast,
   })
@@ -412,6 +421,16 @@ function App() {
     : requests.find((request) => request.status === 'pending') ?? null
   const nextDueItem = activeLoan?.schedule.find((item) => item.status === 'due') ?? null
   const canUseInterwovenAutoSign = autoSignPreferenceEnabled && hasActiveAutoSignPermission
+  const supportsRepaymentAutoSign = (messages: EncodeObject[]) =>
+    Boolean(messages.length) &&
+    messages.every((message) =>
+      isRepayInstallmentMoveExecuteMessage(message, {
+        functionName: appEnv.repayFunctionName,
+        moduleAddress: appEnv.packageAddress,
+        moduleName: appEnv.loanModuleName,
+        sender: initiaAddress,
+      }),
+    )
   const latestRequest = activeLoanRequest ?? requests[0] ?? null
   const scoreIsPreview = score?.source === 'preview' || score?.provider === 'heuristic'
   const requestedAmount = Number(draft.amount || '0')
@@ -1474,16 +1493,28 @@ function App() {
     }
   }
 
-  const handleDisableAutoSignPreference = () => {
+  const handleDisableAutoSignPreference = async () => {
     setAutoSignPreferenceEnabled(false)
     setAutonomousRepayEnabled(false)
-    showToast({
-      tone: 'info',
-      title: 'Manual approvals restored',
-      message: autoSignSessionExpiresAt
-        ? 'LendPay will stop using the InterwovenKit auto-sign session and go back to manual wallet approvals until you re-enable it.'
-        : 'LendPay will keep asking your wallet before each supported action.',
-    })
+
+    try {
+      await disableAutoSignPermission()
+      showToast({
+        tone: 'info',
+        title: 'Manual approvals restored',
+        message: autoSignSessionExpiresAt
+          ? 'LendPay revoked the active InterwovenKit helper session for this chain and switched back to manual repayment approvals.'
+          : 'LendPay will keep asking your wallet before each repayment action.',
+      })
+    } catch (error) {
+      console.warn('Auto-sign revoke flow failed, falling back to manual app gating', error)
+      showToast({
+        tone: 'warning',
+        title: 'Manual approvals restored',
+        message:
+          'LendPay switched back to manual wallet approvals, but the wallet helper session could not be revoked cleanly. It will expire on its own.',
+      })
+    }
   }
 
   const handleEnableAutonomousRepay = async () => {
@@ -1491,7 +1522,7 @@ function App() {
       showToast({
         tone: 'info',
         title: 'No due installment',
-        message: 'Autonomous repay arms only when there is an active loan with a due installment.',
+        message: 'Session auto-repay only arms when there is an active loan with a due installment.',
       })
       return
     }
@@ -1536,8 +1567,8 @@ function App() {
     setAutonomousRepayEnabled(true)
     showToast({
       tone: 'success',
-      title: 'Autonomous repay armed',
-      message: `LendPay Agent can now repay ${formatCurrency(nextDueItem.amount)} by ${formatDate(nextDueItem.dueAt)} with InterwovenKit while this browser session stays active.`,
+      title: 'Session auto-repay armed',
+      message: `LendPay Agent can now repay ${formatCurrency(nextDueItem.amount)} by ${formatDate(nextDueItem.dueAt)} while this InterwovenKit session stays active.`,
     })
   }
 
@@ -1545,19 +1576,20 @@ function App() {
     setAutonomousRepayEnabled(false)
     showToast({
       tone: 'info',
-      title: 'Autonomous repay paused',
-      message: 'LendPay Agent will stop submitting repayments on its own. Manual repay is still available anytime.',
+      title: 'Session auto-repay paused',
+      message:
+        'LendPay Agent will stop submitting repayments during this wallet session. Manual repay is still available anytime.',
     })
   }
 
   const handleShowAutoSignSessionInfo = () => {
     showToast({
       tone: 'info',
-      title: canUseInterwovenAutoSign ? 'InterwovenKit auto-sign active' : 'Manual approvals active',
+      title: canUseInterwovenAutoSign ? 'InterwovenKit session active' : 'Manual approvals active',
       message: canUseInterwovenAutoSign
         ? autoSignSessionExpiresAt
-          ? `LendPay can reuse the InterwovenKit wallet session for supported Move actions until ${formatDate(autoSignSessionExpiresAt.toISOString())}.`
-          : 'LendPay can reuse the active InterwovenKit wallet session for supported Move actions until the wallet expires it.'
+          ? `LendPay can reuse the InterwovenKit wallet session for repayment calls until ${formatDate(autoSignSessionExpiresAt.toISOString())}.`
+          : 'LendPay can reuse the active InterwovenKit wallet session for repayment calls until the wallet expires it.'
         : 'LendPay is currently set to manual wallet approvals, even if a temporary InterwovenKit session is still alive.',
     })
   }
@@ -1819,9 +1851,8 @@ function App() {
     if (!options?.skipPreviewConfirmation) {
       await confirmWalletAction(messages, preview)
     }
-    // Auto-sign is now explicit opt-in so the first loan request goes straight to
-    // the actual Move transaction instead of detouring through wallet permission setup.
-    const autoSignReady = canUseInterwovenAutoSign
+    const autoSignEligible = supportsRepaymentAutoSign(messages)
+    const autoSignReady = canUseInterwovenAutoSign && autoSignEligible
       ? await ensureAutoSignPermission(messages)
       : false
 
@@ -1877,6 +1908,12 @@ function App() {
 
     try {
       if (options?.requireActiveAutoSign) {
+        if (!autoSignEligible) {
+          throw new Error(
+            'InterwovenKit auto-sign is reserved for LendPay repayment calls. This action needs a normal wallet approval.',
+          )
+        }
+
         if (!autoSignReady) {
           throw new Error(
             'InterwovenKit auto-sign is not active right now. Refresh the session or repay manually.',
@@ -2991,9 +3028,9 @@ function App() {
           setAutonomousRepayEnabled(false)
           showToast({
             tone: 'warning',
-            title: 'Agent auto-repay paused',
+            title: 'Session auto-repay paused',
             message:
-              'InterwovenKit auto-sign was not ready for an autonomous repayment. Re-arm the agent after refreshing the wallet session.',
+              'InterwovenKit auto-sign was not ready for this session repayment. Re-arm the agent after refreshing the wallet session.',
             layout: 'center',
           })
         }
@@ -3018,9 +3055,9 @@ function App() {
       }
       showToast({
         tone: initiatedByAgent ? 'warning' : 'danger',
-        title: initiatedByAgent ? 'Agent auto-repay paused' : 'Repayment failed',
+        title: initiatedByAgent ? 'Session auto-repay paused' : 'Repayment failed',
         message: initiatedByAgent
-          ? `${failureMessage} LendPay switched back to manual repayment until you arm autonomy again.`
+          ? `${failureMessage} LendPay switched back to manual repayment until you re-arm session auto-repay.`
           : failureMessage,
         layout: 'center',
       })
@@ -3043,6 +3080,20 @@ function App() {
       autoRepayAttemptRef.current = null
     }
   }, [autoRepayTargetKey])
+
+  useEffect(() => {
+    if (!autonomousRepayEnabled || hasActiveAutoSignPermission) {
+      return
+    }
+
+    setAutonomousRepayEnabled(false)
+    showToast({
+      tone: 'info',
+      title: 'Session auto-repay expired',
+      message:
+        'The InterwovenKit auto-sign session has ended, so LendPay switched back to manual approvals until you re-arm it.',
+    })
+  }, [autonomousRepayEnabled, hasActiveAutoSignPermission, setAutonomousRepayEnabled])
 
   useEffect(() => {
     if (!autoRepayTargetKey) return
@@ -4720,13 +4771,13 @@ function App() {
   } else {
     topbarStatus = autonomousRepayEnabled
       ? canUseInterwovenAutoSign
-        ? 'Agent auto-repay armed'
-        : 'Auto-sign refresh needed'
+        ? 'Session auto-repay armed'
+        : 'Session refresh needed'
       : hasActiveAutoSignPermission
         ? autoSignPreferenceEnabled
           ? 'Temporary session active'
           : 'Manual approvals active'
-        : 'Wallet asks each time'
+        : 'Manual approvals only'
     topbarPrimaryLabel = hasActiveAutoSignPermission ? 'InterwovenKit session' : 'Enable auto-sign'
     topbarSecondaryLabel = score ? 'Use credit' : undefined
     handleTopbarPrimaryAction = hasActiveAutoSignPermission
@@ -4785,16 +4836,16 @@ function App() {
 
   if (activeLoan && nextDueItem && autonomousRepayEnabled) {
     agentPanelTitle = canUseInterwovenAutoSign
-      ? `Agent can repay ${formatCurrency(nextDueItem.amount)} by ${formatDate(nextDueItem.dueAt)} automatically`
-      : `Auto-repay is armed for ${formatCurrency(nextDueItem.amount)}, but InterwovenKit needs a refresh`
+      ? `Session auto-repay can cover ${formatCurrency(nextDueItem.amount)} by ${formatDate(nextDueItem.dueAt)}`
+      : `Session auto-repay was armed for ${formatCurrency(nextDueItem.amount)}, but InterwovenKit needs a refresh`
     agentPanelBody = canUseInterwovenAutoSign
-      ? `InterwovenKit auto-sign is active for ${shortenAddress(initiaAddress ?? '')}. LendPay Agent can submit the next due installment on its own while this browser session stays open.`
-      : 'LendPay will keep watching this due installment, but it needs a fresh InterwovenKit wallet session before autonomous repayment can run again.'
+      ? `InterwovenKit auto-sign is active for ${shortenAddress(initiaAddress ?? '')}. LendPay Agent can submit the next due installment while this browser session stays open.`
+      : 'LendPay will keep watching this due installment, but it needs a fresh InterwovenKit wallet session before session auto-repay can run again.'
     agentPanelRecommendation = canUseInterwovenAutoSign
       ? 'Pause auto-repay anytime if you want to go back to manual approvals'
-      : 'Refresh InterwovenKit auto-sign to keep autonomy live'
+      : 'Refresh InterwovenKit auto-sign before the next due date'
     agentPanelTone = canUseInterwovenAutoSign ? 'success' : 'warning'
-    agentPanelStatusLabel = canUseInterwovenAutoSign ? 'Autonomous repayment armed' : 'Autonomy waiting on wallet'
+    agentPanelStatusLabel = canUseInterwovenAutoSign ? 'Session auto-repay armed' : 'Session re-arm required'
     agentPanelActionLabel = canUseInterwovenAutoSign ? 'Pause auto-repay' : 'Enable auto-sign'
     handleAgentPanelAction = canUseInterwovenAutoSign
       ? handleDisableAutonomousRepay
