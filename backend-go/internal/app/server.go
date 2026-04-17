@@ -91,6 +91,90 @@ type minitiadTxResponse struct {
 	TxHash string `json:"txhash"`
 }
 
+func parseMinitiadTxResponse(output []byte) (minitiadTxResponse, error) {
+	result := minitiadTxResponse{}
+	trimmed := strings.TrimSpace(string(output))
+	if trimmed == "" {
+		return result, fmt.Errorf("minitiad returned empty output")
+	}
+
+	if err := json.Unmarshal([]byte(trimmed), &result); err == nil {
+		return result, nil
+	}
+
+	start := strings.Index(trimmed, "{")
+	end := strings.LastIndex(trimmed, "}")
+	if start >= 0 && end > start {
+		if err := json.Unmarshal([]byte(trimmed[start:end+1]), &result); err == nil {
+			return result, nil
+		}
+	}
+
+	return result, fmt.Errorf("could not parse minitiad output: %s", trimmed)
+}
+
+func extractGasEstimate(output []byte) (int, bool) {
+	for _, line := range strings.Split(string(output), "\n") {
+		trimmed := strings.TrimSpace(line)
+		lower := strings.ToLower(trimmed)
+		if !strings.HasPrefix(lower, "gas estimate:") {
+			continue
+		}
+
+		rawEstimate := strings.TrimSpace(trimmed[len("gas estimate:"):])
+		estimate, err := strconv.Atoi(rawEstimate)
+		if err == nil && estimate > 0 {
+			return estimate, true
+		}
+	}
+
+	return 0, false
+}
+
+func adjustedGasLimit(estimate int, adjustmentRaw string) int {
+	if estimate <= 0 {
+		return 0
+	}
+
+	adjustment, err := strconv.ParseFloat(strings.TrimSpace(adjustmentRaw), 64)
+	if err != nil || adjustment < 1 {
+		adjustment = 1
+	}
+
+	return maxInt(estimate, int(math.Ceil(float64(estimate)*adjustment)))
+}
+
+func usesAutoGas(args []string) bool {
+	for index := 0; index < len(args)-1; index += 1 {
+		if args[index] == "--gas" {
+			return strings.EqualFold(strings.TrimSpace(args[index+1]), "auto")
+		}
+	}
+
+	return false
+}
+
+func argsWithFixedGas(args []string, gasLimit int) []string {
+	if gasLimit <= 0 {
+		return append([]string(nil), args...)
+	}
+
+	nextArgs := make([]string, 0, len(args))
+	for index := 0; index < len(args); index += 1 {
+		switch args[index] {
+		case "--gas":
+			nextArgs = append(nextArgs, "--gas", strconv.Itoa(gasLimit))
+			index += 1
+		case "--gas-adjustment":
+			index += 1
+		default:
+			nextArgs = append(nextArgs, args[index])
+		}
+	}
+
+	return nextArgs
+}
+
 func NewServer(ctx context.Context, cfg Config) (*Server, error) {
 	db, err := NewDatabase(ctx, cfg)
 	if err != nil {
@@ -2895,36 +2979,59 @@ func approvalAPRbps(apr float64) int {
 }
 
 func (s *Server) runMinitiadTx(ctx context.Context, args ...string) (minitiadTxResponse, error) {
-	cmd := exec.CommandContext(ctx, s.cfg.MinitiadBin, args...)
-	cmd.Env = os.Environ()
+	runCommand := func(commandArgs []string) ([]byte, error) {
+		cmd := exec.CommandContext(ctx, s.cfg.MinitiadBin, commandArgs...)
+		cmd.Env = os.Environ()
 
-	if strings.Contains(s.cfg.MinitiadBin, "/") {
-		minitiadDir := filepath.Dir(s.cfg.MinitiadBin)
-		moveVMLib := filepath.Join(minitiadDir, "libmovevm.x86_64.so")
-		if _, err := os.Stat(moveVMLib); err == nil {
-			currentLD := ""
-			for _, envVar := range cmd.Env {
-				if strings.HasPrefix(envVar, "LD_LIBRARY_PATH=") {
-					currentLD = strings.TrimPrefix(envVar, "LD_LIBRARY_PATH=")
-					break
+		if strings.Contains(s.cfg.MinitiadBin, "/") {
+			minitiadDir := filepath.Dir(s.cfg.MinitiadBin)
+			moveVMLib := filepath.Join(minitiadDir, "libmovevm.x86_64.so")
+			if _, err := os.Stat(moveVMLib); err == nil {
+				currentLD := ""
+				for _, envVar := range cmd.Env {
+					if strings.HasPrefix(envVar, "LD_LIBRARY_PATH=") {
+						currentLD = strings.TrimPrefix(envVar, "LD_LIBRARY_PATH=")
+						break
+					}
 				}
-			}
 
-			nextLD := minitiadDir
-			if currentLD != "" {
-				nextLD = fmt.Sprintf("%s:%s", minitiadDir, currentLD)
+				nextLD := minitiadDir
+				if currentLD != "" {
+					nextLD = fmt.Sprintf("%s:%s", minitiadDir, currentLD)
+				}
+				cmd.Env = append(cmd.Env, fmt.Sprintf("LD_LIBRARY_PATH=%s", nextLD))
 			}
-			cmd.Env = append(cmd.Env, fmt.Sprintf("LD_LIBRARY_PATH=%s", nextLD))
 		}
+
+		return cmd.CombinedOutput()
 	}
 
-	output, err := cmd.CombinedOutput()
-	result := minitiadTxResponse{}
-	if parseErr := json.Unmarshal(output, &result); parseErr != nil {
+	output, err := runCommand(args)
+	result, parseErr := parseMinitiadTxResponse(output)
+	if parseErr != nil {
+		if estimate, ok := extractGasEstimate(output); ok && usesAutoGas(args) {
+			retryArgs := argsWithFixedGas(args, adjustedGasLimit(estimate, s.cfg.RollupGasAdjustment))
+			retryOutput, retryErr := runCommand(retryArgs)
+			retryResult, retryParseErr := parseMinitiadTxResponse(retryOutput)
+			if retryParseErr == nil {
+				if retryErr != nil {
+					return retryResult, fmt.Errorf("%w: %s", retryErr, strings.TrimSpace(retryResult.RawLog))
+				}
+
+				return retryResult, nil
+			}
+			if retryErr != nil {
+				return retryResult, fmt.Errorf("%w: %s", retryErr, strings.TrimSpace(string(retryOutput)))
+			}
+
+			return retryResult, retryParseErr
+		}
+
 		if err != nil {
 			return result, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
 		}
-		return result, fmt.Errorf("could not parse minitiad output: %s", strings.TrimSpace(string(output)))
+
+		return result, parseErr
 	}
 	if err != nil {
 		return result, fmt.Errorf("%w: %s", err, strings.TrimSpace(result.RawLog))

@@ -2791,9 +2791,10 @@ function App() {
 
     setReviewingPendingRequestId(request.id)
     let approvalTxHash = ''
+    let token = ''
 
     try {
-      const token = await ensureBackendSession()
+      token = await ensureBackendSession()
       const approval = await lendpayApi.reviewLoanRequest(
         token,
         request.id,
@@ -2818,6 +2819,22 @@ function App() {
           layout: 'center',
         })
         return
+      }
+
+      if (error instanceof ApiError && error.code === 'REQUEST_NOT_PENDING') {
+        const latestToken = token || sessionTokenRef.current
+        if (latestToken) {
+          const latestState = await syncBorrowerState(latestToken).catch(() => null)
+          const refreshedRequest =
+            latestState?.requests.find((candidate) => candidate.id === request.id) ?? null
+          const latestActiveLoan =
+            latestState?.loans.find((loan) => loan.status === 'active') ?? null
+
+          if (!refreshedRequest || refreshedRequest.status !== 'pending' || latestActiveLoan) {
+            setActivePage('loan')
+            return
+          }
+        }
       }
 
       const reviewErrorMessage =
