@@ -169,6 +169,7 @@ const defaultMerchantDraft = {
 const interwovenGasPrice = GasPrice.fromString(`0.015${appEnv.nativeDenom}`)
 const INTERWOVEN_APPROVAL_TIMEOUT_MS = 45_000
 const REQUEST_TENOR_OPTIONS = [1, 3, 6] as const
+const AGENT_AUTONOMY_AVAILABLE = false
 
 type WalletTxRequestOptions = {
   requireActiveAutoSign?: boolean
@@ -302,6 +303,7 @@ function App() {
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
   const [reviewingPendingRequestId, setReviewingPendingRequestId] = useState<string | null>(null)
   const [isRepaying, setIsRepaying] = useState(false)
+  const [isAutoSignSessionPending, setIsAutoSignSessionPending] = useState(false)
   const [pendingProtocolAction, setPendingProtocolAction] = useState<string | null>(null)
   const [walletPubKeyType, setWalletPubKeyType] = useState<string | null>(null)
   const [toast, setToast] = useState<ToastState | null>(null)
@@ -420,7 +422,8 @@ function App() {
     ? null
     : requests.find((request) => request.status === 'pending') ?? null
   const nextDueItem = activeLoan?.schedule.find((item) => item.status === 'due') ?? null
-  const canUseInterwovenAutoSign = autoSignPreferenceEnabled && hasActiveAutoSignPermission
+  const canUseInterwovenAutoSign =
+    AGENT_AUTONOMY_AVAILABLE && autoSignPreferenceEnabled && hasActiveAutoSignPermission
   const supportsRepaymentAutoSign = (messages: EncodeObject[]) =>
     Boolean(messages.length) &&
     messages.every((message) =>
@@ -1470,11 +1473,25 @@ function App() {
   }
 
   const handleEnableAutoSignSession = async () => {
+    if (!AGENT_AUTONOMY_AVAILABLE) {
+      showToast({
+        tone: 'info',
+        title: 'Coming soon',
+        message: 'Agent Autonomy is temporarily hidden while we stabilize the wallet flow.',
+      })
+      return
+    }
+
+    if (isAutoSignSessionPending) {
+      return
+    }
+
     if (!isConnected) {
       await openPreferredWalletConnect()
       return
     }
 
+    setIsAutoSignSessionPending(true)
     try {
       const didEnable = await enableAutoSignPermission()
       if (didEnable) {
@@ -1490,6 +1507,8 @@ function App() {
         title: 'Auto-sign unavailable',
         message: getErrorMessage(error, 'Wallet auto-sign setup could not be completed right now.'),
       })
+    } finally {
+      setIsAutoSignSessionPending(false)
     }
   }
 
@@ -1518,6 +1537,19 @@ function App() {
   }
 
   const handleEnableAutonomousRepay = async () => {
+    if (!AGENT_AUTONOMY_AVAILABLE) {
+      showToast({
+        tone: 'info',
+        title: 'Coming soon',
+        message: 'Agent Autonomy is temporarily hidden while we stabilize the wallet flow.',
+      })
+      return
+    }
+
+    if (isAutoSignSessionPending) {
+      return
+    }
+
     if (!activeLoan || !nextDueItem) {
       showToast({
         tone: 'info',
@@ -1535,6 +1567,7 @@ function App() {
     let autoSignReady = canUseInterwovenAutoSign
 
     if (!autoSignReady) {
+      setIsAutoSignSessionPending(true)
       try {
         const didEnable = await enableAutoSignPermission()
         if (!didEnable) {
@@ -1557,6 +1590,8 @@ function App() {
           ),
         })
         return
+      } finally {
+        setIsAutoSignSessionPending(false)
       }
     }
 
@@ -3076,6 +3111,14 @@ function App() {
       : null
 
   useEffect(() => {
+    if (AGENT_AUTONOMY_AVAILABLE || !autonomousRepayEnabled) {
+      return
+    }
+
+    setAutonomousRepayEnabled(false)
+  }, [autonomousRepayEnabled, setAutonomousRepayEnabled])
+
+  useEffect(() => {
     if (!autoRepayTargetKey) {
       autoRepayAttemptRef.current = null
     }
@@ -4529,6 +4572,7 @@ function App() {
       : 'Run profile'
   let topbarStatus: string | undefined = undefined
   let topbarPrimaryLabel: string | undefined = activeLoan ? 'Repay now' : undefined
+  let topbarPrimaryDisabled = false
   let topbarSecondaryLabel: string | undefined = activeLoan ? 'Use credit' : undefined
   let handleTopbarPrimaryAction: (() => void) | undefined = activeLoan ? handleRepay : undefined
   let handleTopbarSecondaryAction: (() => void) | undefined = activeLoan ? () => setActivePage('request') : undefined
@@ -4769,21 +4813,43 @@ function App() {
     handleTopbarPrimaryAction = () => setActivePage('request')
     handleTopbarSecondaryAction = undefined
   } else {
-    topbarStatus = autonomousRepayEnabled
-      ? canUseInterwovenAutoSign
-        ? 'Session auto-repay armed'
-        : 'Session refresh needed'
-      : hasActiveAutoSignPermission
-        ? autoSignPreferenceEnabled
-          ? 'Temporary session active'
-          : 'Manual approvals active'
-        : 'Manual approvals only'
-    topbarPrimaryLabel = hasActiveAutoSignPermission ? 'InterwovenKit session' : 'Enable auto-sign'
-    topbarSecondaryLabel = score ? 'Use credit' : undefined
-    handleTopbarPrimaryAction = hasActiveAutoSignPermission
-      ? handleShowAutoSignSessionInfo
-      : () => void handleEnableAutoSignSession()
-    handleTopbarSecondaryAction = score ? () => setActivePage('request') : undefined
+    if (AGENT_AUTONOMY_AVAILABLE) {
+      topbarStatus = isAutoSignSessionPending
+        ? 'Preparing wallet session'
+        : autonomousRepayEnabled
+          ? canUseInterwovenAutoSign
+            ? 'Session auto-repay armed'
+            : 'Session refresh needed'
+          : hasActiveAutoSignPermission
+            ? autoSignPreferenceEnabled
+              ? 'Temporary session active'
+              : 'Manual approvals active'
+            : 'Manual approvals only'
+      topbarPrimaryLabel = hasActiveAutoSignPermission
+        ? 'InterwovenKit session'
+        : isAutoSignSessionPending
+          ? 'Opening wallet...'
+          : 'Enable auto-sign'
+      topbarPrimaryDisabled = !hasActiveAutoSignPermission && isAutoSignSessionPending
+      topbarSecondaryLabel = score ? 'Use credit' : undefined
+      handleTopbarPrimaryAction = hasActiveAutoSignPermission
+        ? handleShowAutoSignSessionInfo
+        : () => void handleEnableAutoSignSession()
+      handleTopbarSecondaryAction = score ? () => setActivePage('request') : undefined
+    } else {
+      topbarStatus = activeLoan
+        ? nextDueItem
+          ? 'Repayment watch active'
+          : 'Account current'
+        : score
+          ? `${score.risk} risk profile`
+          : undefined
+      topbarPrimaryLabel = activeLoan ? 'Repay now' : score ? 'Use credit' : undefined
+      topbarPrimaryDisabled = false
+      topbarSecondaryLabel = activeLoan ? 'Use credit' : undefined
+      handleTopbarPrimaryAction = activeLoan ? handleRepay : score ? () => setActivePage('request') : undefined
+      handleTopbarSecondaryAction = activeLoan ? () => setActivePage('request') : undefined
+    }
     agentPanelTitle = score
       ? scoreIsPreview
         ? `Preview guidance suggests spending up to ${formatCurrency(suggestedSpendToday)} today`
@@ -4944,6 +5010,7 @@ function App() {
           onSecondaryAction={handleTopbarSecondaryAction}
           pageSubtitle={topbarSubtitle}
           pageTitle={topbarTitle}
+          primaryDisabled={topbarPrimaryDisabled}
           primaryLabel={topbarPrimaryLabel}
           secondaryLabel={topbarSecondaryLabel}
           statusLabel={topbarStatus}
@@ -5223,6 +5290,7 @@ function App() {
                 heroSafeSpendPrefix={heroSafeSpendPrefix}
                 heroSafeSpendLabel={heroSafeSpendLabel}
                 installmentsLabel={installmentsLabel}
+                isAutoSignPending={isAutoSignSessionPending}
                 isClaimingRewards={isProtocolActionPending('claim-all')}
                 isRepaying={isRepaying}
                 outstandingValue={activeLoan ? outstandingAmount : null}
@@ -5334,6 +5402,7 @@ function App() {
                 handleEnableAutoRepay={handleEnableAutonomousRepay}
                 handleEnableAutoSign={handleEnableAutoSignSession}
                 hasActiveAutoSignPermission={hasActiveAutoSignPermission}
+                isAutoSignPending={isAutoSignSessionPending}
                 isClaimingDropCollectible={isClaimingDropCollectible}
                 isProtocolActionPending={isProtocolActionPending}
                 isRepayGuideOpen={isRepayGuideOpen}

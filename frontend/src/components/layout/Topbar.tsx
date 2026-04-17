@@ -8,6 +8,7 @@ interface TopbarProps {
   onSecondaryAction?: () => void
   pageSubtitle: string
   pageTitle: string
+  primaryDisabled?: boolean
   primaryLabel?: string
   secondaryLabel?: string
   statusLabel?: string
@@ -22,6 +23,7 @@ export function Topbar({
   onSecondaryAction,
   pageSubtitle,
   pageTitle,
+  primaryDisabled = false,
   primaryLabel,
   secondaryLabel,
   statusLabel,
@@ -56,7 +58,11 @@ export function Topbar({
                 {secondaryLabel}
               </Button>
             ) : null}
-            {primaryLabel && onPrimaryAction ? <Button onClick={onPrimaryAction}>{primaryLabel}</Button> : null}
+            {primaryLabel && onPrimaryAction ? (
+              <Button onClick={onPrimaryAction} disabled={primaryDisabled}>
+                {primaryLabel}
+              </Button>
+            ) : null}
           </>
         ) : null}
       </div>

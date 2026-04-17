@@ -43,6 +43,7 @@ type RepayPageProps = {
   handleRepay: () => void | Promise<void>
   handleRetryLoad: () => void | Promise<void>
   hasActiveAutoSignPermission: boolean
+  isAutoSignPending: boolean
   isClaimingDropCollectible: boolean
   isProtocolActionPending: (key: string) => boolean
   isRepayGuideOpen: boolean
@@ -86,6 +87,7 @@ export function RepayPage({
   handleRepay,
   handleRetryLoad,
   hasActiveAutoSignPermission,
+  isAutoSignPending,
   isClaimingDropCollectible,
   isProtocolActionPending,
   isRepayGuideOpen,
@@ -255,7 +257,7 @@ export function RepayPage({
           autoSignPreferenceEnabled={autoSignPreferenceEnabled}
           autoSignSessionExpiresAt={autoSignSessionExpiresAt}
           hasActiveAutoSignPermission={hasActiveAutoSignPermission}
-          isBusy={isRepaying}
+          isBusy={isRepaying || isAutoSignPending}
           nextDueAmount={nextDueItem?.amount ?? null}
           nextDueAt={nextDueItem?.dueAt ?? null}
           onDisableAutoRepay={handleDisableAutoRepay}

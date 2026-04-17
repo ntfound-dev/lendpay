@@ -38,6 +38,7 @@ type OverviewPageProps = {
   heroSafeSpendPrefix: string
   heroSafeSpendLabel: string
   installmentsLabel: string
+  isAutoSignPending: boolean
   isClaimingRewards: boolean
   isRepaying: boolean
   outstandingValue: number | null
@@ -79,6 +80,7 @@ export function OverviewPage({
   heroSafeSpendPrefix,
   heroSafeSpendLabel,
   installmentsLabel,
+  isAutoSignPending,
   isClaimingRewards,
   isRepaying,
   outstandingLabel,
@@ -187,6 +189,7 @@ export function OverviewPage({
           autoSignPreferenceEnabled={autoSignPreferenceEnabled}
           autoSignSessionExpiresAt={autoSignSessionExpiresAt}
           hasActiveAutoSignPermission={hasActiveAutoSignPermission}
+          isBusy={isRepaying || isAutoSignPending}
           nextDueAmount={heroDueAmount}
           nextDueAt={activeLoan?.schedule.find((item) => item.status === 'due')?.dueAt ?? null}
           onDisableAutoRepay={handleDisableAutoRepay}
