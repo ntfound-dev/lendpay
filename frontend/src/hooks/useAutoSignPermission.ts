@@ -215,7 +215,7 @@ export function useAutoSignPermission({
           showToast({
             tone: 'info',
             title: 'Auto-sign skipped',
-            message: 'Wallet auto-sign was not enabled. LendPay will continue with the normal approval flow.',
+            message: 'Wallet auto-sign was not enabled. Approve the wallet prompt, then try again.',
           })
           return false
         }
@@ -248,7 +248,7 @@ export function useAutoSignPermission({
         tone: 'info',
         title: 'Auto-sign still syncing',
         message:
-          'Wallet permission was granted, but the extension is still refreshing. LendPay will use the normal approval flow for this transaction.',
+          'Wallet permission was granted, but the extension is still refreshing. Wait for the session to finish syncing, then try again.',
       })
     }
 

@@ -1863,7 +1863,8 @@ function App() {
       await confirmWalletAction(messages, preview)
     }
     const autoSignEligible = supportsInterwovenAutoSign(messages)
-    const autoSignReady = canUseInterwovenAutoSign && autoSignEligible
+    const autoSignRequested = canUseInterwovenAutoSign && autoSignEligible
+    const autoSignReady = autoSignRequested
       ? await ensureAutoSignPermission(messages)
       : false
 
@@ -1944,6 +1945,12 @@ function App() {
         return result
       }
 
+      if (autoSignRequested) {
+        throw new Error(
+          'InterwovenKit auto-sign did not become active for this transaction. Approve the wallet session and try again.',
+        )
+      }
+
       const result = await requestWithInterwovenDrawer()
       setShowWalletRecovery(false)
       setWalletRecoveryActionKey(null)
@@ -1957,38 +1964,8 @@ function App() {
         throw primaryError
       }
 
-      if (autoSignReady) {
-        console.warn('Auto-sign submit failed, falling back to Interwoven drawer approval', primaryError)
-
-        try {
-          const result = await requestWithInterwovenDrawer()
-          setShowWalletRecovery(false)
-          setWalletRecoveryActionKey(null)
-          return result
-        } catch (drawerError) {
-          if (isUserRejectedWalletError(drawerError)) {
-            throw drawerError
-          }
-
-          if (!isTransactionTimedOut(drawerError) && !isWalletInfrastructureError(drawerError)) {
-            throw drawerError
-          }
-
-          if (
-            isWalletInfrastructureError(primaryError) &&
-            (isWalletInfrastructureError(drawerError) || isTransactionTimedOut(drawerError))
-          ) {
-            setShowWalletRecovery(true)
-            setWalletRecoveryActionKey(recoveryActionKey ?? null)
-            showToast({
-              tone: 'warning',
-              title: 'Wallet not responding',
-              message: 'The Interwoven drawer is still loading. Reconnect your wallet and try again.',
-            })
-          }
-
-          throw drawerError
-        }
+      if (autoSignRequested) {
+        throw primaryError
       }
 
       if (!isTransactionTimedOut(primaryError) && !isWalletInfrastructureError(primaryError)) {

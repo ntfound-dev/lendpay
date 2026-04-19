@@ -51,13 +51,6 @@ injectStyles(InterwovenKitStyles)
 
 const queryClient = new QueryClient()
 const localRollupRestOrigins = new Set(['http://127.0.0.1:1317', 'http://localhost:1317'])
-const hiddenWalletSuggestionUrls = new Set([
-  'https://metamask.io',
-  'https://phantom.com',
-  'https://rabby.io',
-  'https://keplr.app',
-  'https://leapwallet.io',
-])
 
 const readStoredString = (rawValue: string | null) => {
   if (rawValue === null) {
@@ -126,67 +119,6 @@ const readRequestOrigin = (requestUrl: string) => {
   }
 }
 
-const normalizeHref = (href: string | null) => href?.replace(/\/+$/, '') ?? null
-
-const pruneInterwovenWalletSuggestions = (root: Document | ShadowRoot) => {
-  root.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((anchor) => {
-    const href = normalizeHref(anchor.getAttribute('href'))
-    if (!href || !hiddenWalletSuggestionUrls.has(href)) {
-      return
-    }
-
-    anchor.style.display = 'none'
-    const itemContainer = anchor.closest<HTMLElement>('a, button, [role="button"]')
-    if (itemContainer) {
-      itemContainer.style.display = 'none'
-    }
-  })
-
-  root.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
-    const ariaLabel = button.getAttribute('aria-label')?.toLowerCase() ?? ''
-    if (button.disabled && ariaLabel.includes('(not installed)')) {
-      button.style.display = 'none'
-    }
-  })
-}
-
-const installInterwovenWalletSuggestionPruner = () => {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  const observedRoots = new WeakSet<Document | ShadowRoot>()
-
-  const scanRoot = (root: Document | ShadowRoot) => {
-    pruneInterwovenWalletSuggestions(root)
-
-    if (!observedRoots.has(root)) {
-      const observer = new MutationObserver(() => {
-        pruneInterwovenWalletSuggestions(root)
-        root.querySelectorAll<HTMLElement>('*').forEach((element) => {
-          if (element.shadowRoot) {
-            scanRoot(element.shadowRoot)
-          }
-        })
-      })
-
-      observer.observe(root, {
-        childList: true,
-        subtree: true,
-      })
-      observedRoots.add(root)
-    }
-
-    root.querySelectorAll<HTMLElement>('*').forEach((element) => {
-      if (element.shadowRoot) {
-        scanRoot(element.shadowRoot)
-      }
-    })
-  }
-
-  scanRoot(document)
-}
-
 const originalFetch = globalThis.fetch?.bind(globalThis)
 if (originalFetch) {
   globalThis.fetch = async (input, init) => {
@@ -252,8 +184,6 @@ if (typeof window !== 'undefined') {
   } catch {
     // Ignore storage parsing/security errors and continue with a clean boot.
   }
-
-  installInterwovenWalletSuggestionPruner()
 }
 
 const wagmiConfig = createConfig({
