@@ -139,6 +139,69 @@ const defaultDraft: RequestDraft = {
   tenorMonths: 3,
 }
 
+const PUBLIC_REFERRAL_BASE_URL = 'https://lendpay.vercel.app'
+const LOCAL_URL_MARKERS = ['localhost', '127.0.0.1', '0.0.0.0']
+const REFERRAL_QUERY_KEYS = ['ref', 'referral'] as const
+
+const normalizeReferralCode = (value: string | null | undefined) => {
+  const trimmed = value?.trim().toUpperCase() ?? ''
+  return /^[A-Z0-9-]{3,32}$/.test(trimmed) ? trimmed : ''
+}
+
+const resolveReferralBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    return PUBLIC_REFERRAL_BASE_URL
+  }
+
+  const currentOrigin = window.location.origin
+  if (LOCAL_URL_MARKERS.some((marker) => currentOrigin.includes(marker))) {
+    return PUBLIC_REFERRAL_BASE_URL
+  }
+
+  return currentOrigin
+}
+
+const buildReferralInviteUrl = (referralCode: string) => {
+  const normalizedCode = normalizeReferralCode(referralCode)
+  const inviteUrl = new URL('/', resolveReferralBaseUrl())
+  inviteUrl.searchParams.set('ref', normalizedCode)
+  return inviteUrl.toString()
+}
+
+const readReferralCodeFromLocation = () => {
+  if (typeof window === 'undefined') return ''
+
+  const searchParams = new URLSearchParams(window.location.search)
+  for (const key of REFERRAL_QUERY_KEYS) {
+    const normalizedCode = normalizeReferralCode(searchParams.get(key))
+    if (normalizedCode) {
+      return normalizedCode
+    }
+  }
+
+  return ''
+}
+
+const clearReferralCodeFromLocation = () => {
+  if (typeof window === 'undefined') return
+
+  const nextUrl = new URL(window.location.href)
+  let didChange = false
+
+  for (const key of REFERRAL_QUERY_KEYS) {
+    if (nextUrl.searchParams.has(key)) {
+      nextUrl.searchParams.delete(key)
+      didChange = true
+    }
+  }
+
+  if (!didChange) return
+
+  const nextSearch = nextUrl.searchParams.toString()
+  const nextPath = `${nextUrl.pathname}${nextSearch ? `?${nextSearch}` : ''}${nextUrl.hash}`
+  window.history.replaceState({}, '', nextPath)
+}
+
 const defaultGovernanceDraft = {
   proposalType: '',
   title: '',
@@ -338,6 +401,14 @@ function App() {
   const [walletRecoveryActionKey, setWalletRecoveryActionKey] = useState<string | null>(null)
   const borrowerSyncCacheRef = useRef<Map<string, { at: number; data: unknown }>>(new Map())
   const autoReviewedRequestIdsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    const inviteReferralCode = readReferralCodeFromLocation()
+    if (!inviteReferralCode) return
+
+    setReferralCodeInput((currentValue) => currentValue.trim() || inviteReferralCode)
+    setActivePage('rewards')
+  }, [])
   const autoClaimedPurchaseIdsRef = useRef<Set<string>>(new Set())
   const autoRepayAttemptRef = useRef<string | null>(null)
   const bridgeRecipientSeedRef = useRef<string | null>(null)
@@ -2250,18 +2321,20 @@ function App() {
   const handleCopyReferralCode = async () => {
     if (!referral?.referralCode) return
 
+    const inviteUrl = buildReferralInviteUrl(referral.referralCode)
+
     try {
-      await navigator.clipboard.writeText(referral.referralCode)
+      await navigator.clipboard.writeText(inviteUrl)
       showToast({
         tone: 'success',
-        title: 'Referral code copied',
-        message: `${referral.referralCode} is ready to share.`,
+        title: 'Invite link copied',
+        message: 'Your referral invite link is ready to share.',
       })
     } catch (error) {
       showToast({
         tone: 'danger',
         title: 'Copy failed',
-        message: getErrorMessage(error, 'Referral code could not be copied.'),
+        message: getErrorMessage(error, 'Referral invite link could not be copied.'),
       })
     }
   }
@@ -2269,25 +2342,30 @@ function App() {
   const handleShareReferralCode = async () => {
     if (!referral?.referralCode) return
 
-    const text = `I'm using LendPay — AI credit on Initia. Use my code ${referral.referralCode} to get a credit limit boost on signup. lendpay.xyz`
+    const inviteUrl = buildReferralInviteUrl(referral.referralCode)
+    const text = `I'm using LendPay — AI credit on Initia. Use my invite link to join with my referral code pre-filled: ${inviteUrl}`
 
     try {
       if (navigator.share) {
-        await navigator.share({ text })
+        await navigator.share({
+          title: 'Join me on LendPay',
+          text,
+          url: inviteUrl,
+        })
       } else {
         await navigator.clipboard.writeText(text)
       }
 
       showToast({
         tone: 'success',
-        title: 'Referral text ready',
-        message: 'Your referral message is ready to share.',
+        title: 'Invite ready',
+        message: 'Your referral invite is ready to share.',
       })
     } catch (error) {
       showToast({
         tone: 'danger',
         title: 'Share failed',
-        message: getErrorMessage(error, 'Referral message could not be shared.'),
+        message: getErrorMessage(error, 'Referral invite could not be shared.'),
       })
     }
   }
@@ -2318,6 +2396,7 @@ function App() {
       const nextReferral = await lendpayApi.applyReferralCode(token, code)
       setReferral(nextReferral)
       setReferralCodeInput('')
+      clearReferralCodeFromLocation()
       await syncBorrowerState(token)
       showToast({
         tone: 'success',
@@ -4130,6 +4209,9 @@ function App() {
   const technicalModeEnabled =
     typeof window !== 'undefined' &&
     (window.location.search.includes('technical=1') || window.location.hash.includes('technical'))
+  const referralInviteUrl = referral?.referralCode
+    ? buildReferralInviteUrl(referral.referralCode)
+    : null
 
   const verifiedUsername = profile?.usernameVerified ? username ?? undefined : undefined
   const previewUsername = !profile?.usernameVerified ? username ?? undefined : undefined
@@ -5414,6 +5496,7 @@ function App() {
                 redeemPreviewLend={redeemPreviewLend}
                 referral={referral}
                 referralCodeInput={referralCodeInput}
+                referralInviteUrl={referralInviteUrl}
                 rewards={rewards}
                 sectionErrors={sectionErrors}
                 showWalletRecovery={showWalletRecovery && walletRecoveryActionKey === 'claim-all'}

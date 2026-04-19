@@ -65,6 +65,7 @@ type LoyaltyHubPageProps = {
   redeemPreviewLend: number
   referral: ReferralState | null
   referralCodeInput: string
+  referralInviteUrl: string | null
   rewards: RewardsState | null
   sectionErrors: Partial<Record<string, string>>
   showWalletRecovery: boolean
@@ -121,6 +122,7 @@ export function LoyaltyHubPage({
   redeemPreviewLend,
   referral,
   referralCodeInput,
+  referralInviteUrl,
   rewards,
   sectionErrors,
   showWalletRecovery,
@@ -244,12 +246,13 @@ export function LoyaltyHubPage({
                   <div className="muted-copy">
                     Invite healthy borrowers. You earn when they borrow and keep repaying on time.
                   </div>
+                  {referralInviteUrl ? <div className="referral-invite-link">{referralInviteUrl}</div> : null}
                 </div>
                 <div className="card-action-row">
                   <Button variant="secondary" onClick={handleCopyReferralCode}>
-                    Copy
+                    Copy link
                   </Button>
-                  <Button onClick={handleShareReferralCode}>Share</Button>
+                  <Button onClick={handleShareReferralCode}>Share invite</Button>
                 </div>
               </div>
 
