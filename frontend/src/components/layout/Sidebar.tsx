@@ -25,7 +25,7 @@ export function Sidebar({
           <div className="sidebar__brandmark" aria-hidden="true">
             <img
               className="sidebar__brandmark-svg"
-              src="/favicon.svg"
+              src="/brand/lendpay-mark.svg"
               alt=""
             />
           </div>
