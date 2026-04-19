@@ -2,12 +2,18 @@ import { useEffect, useRef } from 'react'
 import type { EncodeObject } from '@cosmjs/proto-signing'
 import type { TxPreviewContent } from '../components/shared/TxPreviewModal'
 import { shortenAddress } from '../lib/format'
+import { getErrorMessage } from '../lib/appHelpers'
 import type { ToastState } from '../types/domain'
 
 const AUTO_SIGN_STATUS_WAIT_MS = 12_000
 const AUTO_SIGN_STATUS_POLL_MS = 150
 const AUTO_SIGN_FALLBACK_SESSION_MS = 10 * 60 * 1000
 const AUTO_SIGN_STORAGE_PREFIX = 'lendpay.autosign:'
+
+type AutoSignEnableFailureReason =
+  | 'helper_signature_cancelled'
+  | 'setup_closed'
+  | 'wallet_approval_skipped'
 
 type AutoSignController = {
   disable: (chainId?: string) => Promise<unknown>
@@ -67,6 +73,53 @@ const clearStoredAutoSignExpiry = (address: string | null | undefined, chainId: 
     window.localStorage.removeItem(getAutoSignStorageKey(address, chainId))
   } catch {
     // Ignore storage failures and continue with in-memory auto-sign state.
+  }
+}
+
+const getAutoSignEnableFailureReason = (
+  error: unknown,
+  isUserRejectedWalletError: (error: unknown) => boolean,
+): AutoSignEnableFailureReason | null => {
+  const message = getErrorMessage(error, '').toLowerCase()
+
+  if (message.includes('wallet derivation was cancelled')) {
+    return 'helper_signature_cancelled'
+  }
+
+  if (message.includes('user exited before response arrived')) {
+    return 'setup_closed'
+  }
+
+  if (isUserRejectedWalletError(error)) {
+    return 'wallet_approval_skipped'
+  }
+
+  return null
+}
+
+const buildAutoSignEnableFailureToast = (reason: AutoSignEnableFailureReason): ToastState => {
+  switch (reason) {
+    case 'helper_signature_cancelled':
+      return {
+        tone: 'info',
+        title: 'Auto-sign signature cancelled',
+        message:
+          'The wallet signature InterwovenKit needs to create the helper signer was cancelled. Approve the signature request, then try again.',
+      }
+    case 'setup_closed':
+      return {
+        tone: 'info',
+        title: 'Auto-sign setup closed',
+        message:
+          'InterwovenKit was closed before the wallet session finished enabling. Keep the drawer open and approve the prompts, then try again.',
+      }
+    case 'wallet_approval_skipped':
+      return {
+        tone: 'info',
+        title: 'Auto-sign not approved',
+        message:
+          'The wallet session was not enabled. This usually means the wallet or InterwovenKit prompt was closed or rejected before setup finished.',
+      }
   }
 }
 
@@ -211,17 +264,15 @@ export function useAutoSignPermission({
         return true
       })
       .catch((error) => {
-        if (isUserRejectedWalletError(error)) {
-          showToast({
-            tone: 'info',
-            title: 'Auto-sign skipped',
-            message: 'Wallet auto-sign was not enabled. Approve the wallet prompt, then try again.',
-          })
+        const failureReason = getAutoSignEnableFailureReason(error, isUserRejectedWalletError)
+
+        if (failureReason) {
+          showToast(buildAutoSignEnableFailureToast(failureReason))
           return false
         }
 
-        console.warn('Auto-sign enable flow failed, continuing with standard approvals', error)
-        return false
+        console.warn('Auto-sign enable flow failed', error)
+        throw error
       })
       .finally(() => {
         autoSignEnablePromiseRef.current = null

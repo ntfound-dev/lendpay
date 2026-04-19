@@ -577,6 +577,7 @@ function App() {
     Boolean(cancellingRequestId) ||
     Boolean(reviewingPendingRequestId) ||
     isRepaying ||
+    isAutoSignSessionPending ||
     Boolean(pendingProtocolAction) ||
     isAnalyzing ||
     isApplyingReferral ||
