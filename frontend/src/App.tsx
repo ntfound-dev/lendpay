@@ -5573,7 +5573,6 @@ function App() {
                 setStakeAmount={setStakeAmount}
                 setUnstakeAmount={setUnstakeAmount}
                 stakeAmount={stakeAmount}
-                technicalModeEnabled={technicalModeEnabled}
                 unstakeAmount={unstakeAmount}
               />
             ) : null}

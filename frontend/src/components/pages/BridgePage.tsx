@@ -18,7 +18,6 @@ type BridgePageProps = {
   setStakeAmount: (value: string) => void
   setUnstakeAmount: (value: string) => void
   stakeAmount: string
-  technicalModeEnabled: boolean
   unstakeAmount: string
 }
 
@@ -37,7 +36,6 @@ export function BridgePage({
   setStakeAmount,
   setUnstakeAmount,
   stakeAmount,
-  technicalModeEnabled,
   unstakeAmount,
 }: BridgePageProps) {
   const bridgeReferencePrice = lendLiquidityRoute?.oracleQuote.price ?? 0.08
@@ -49,6 +47,13 @@ export function BridgePage({
   const bridgeAmountNumber = Math.max(0, Number(bridgeAmount || 0))
   const bridgePreviewUsd = formatCurrency(bridgeAmountNumber * bridgeReferencePrice)
   const routeModeLabel = lendLiquidityRoute?.routeMode === 'live' ? 'Live route' : 'Preview route'
+  const bridgeRouteLive = lendLiquidityRoute?.routeMode === 'live'
+  const bridgePending = isProtocolActionPending('bridge-intent')
+  const bridgeButtonLabel = bridgePending
+    ? 'Opening bridge...'
+    : bridgeRouteLive
+      ? 'Bridge Now'
+      : 'Bridge coming soon'
 
   return (
     <div className="bridge-page">
@@ -155,12 +160,13 @@ export function BridgePage({
               </div>
 
               <div className="bridge-builder__actions">
-                <Button wide onClick={handleOpenLendBridge}>
-                  Bridge Now
+                <Button wide onClick={handleOpenLendBridge} disabled={bridgePending || !bridgeRouteLive}>
+                  {bridgeButtonLabel}
                 </Button>
                 <p className="bridge-builder__hint">
-                  Recipient stays editable here so you can bridge straight into the MiniEVM address
-                  you want to use next.
+                  {bridgeRouteLive
+                    ? 'Recipient stays editable here so you can bridge straight into the MiniEVM address you want to use next.'
+                    : 'Bridge opens automatically here once the MiniEVM token mapping and live route are published by the backend.'}
                 </p>
               </div>
             </div>
@@ -223,22 +229,14 @@ export function BridgePage({
             <div className="bridge-staking__actions">
               <Button
                 onClick={handleStake}
-                disabled={
-                  isProtocolActionPending('stake') ||
-                  !technicalModeEnabled ||
-                  !(rewards?.liquidLend ?? 0)
-                }
+                disabled={isProtocolActionPending('stake') || !(rewards?.liquidLend ?? 0)}
               >
                 {isProtocolActionPending('stake') ? 'Staking...' : 'Stake'}
               </Button>
               <Button
                 variant="secondary"
                 onClick={handleUnstake}
-                disabled={
-                  isProtocolActionPending('unstake') ||
-                  !technicalModeEnabled ||
-                  !(rewards?.stakedLend ?? 0)
-                }
+                disabled={isProtocolActionPending('unstake') || !(rewards?.stakedLend ?? 0)}
               >
                 {isProtocolActionPending('unstake') ? 'Unstaking...' : 'Unstake'}
               </Button>
