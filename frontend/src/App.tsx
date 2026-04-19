@@ -388,6 +388,7 @@ function App() {
   const [buyingDropItemId, setBuyingDropItemId] = useState<string | null>(null)
   const [selectedDropItemId, setSelectedDropItemId] = useState('')
   const [referralCodeInput, setReferralCodeInput] = useState('')
+  const [pendingReferralCode, setPendingReferralCode] = useState('')
   const [isApplyingReferral, setIsApplyingReferral] = useState(false)
   const [leaderboardTab, setLeaderboardTab] = useState<
     'borrowers' | 'repayers' | 'referrers' | 'risingStars'
@@ -401,14 +402,39 @@ function App() {
   const [walletRecoveryActionKey, setWalletRecoveryActionKey] = useState<string | null>(null)
   const borrowerSyncCacheRef = useRef<Map<string, { at: number; data: unknown }>>(new Map())
   const autoReviewedRequestIdsRef = useRef<Set<string>>(new Set())
+  const hasHandledReferralLandingRef = useRef(false)
 
   useEffect(() => {
     const inviteReferralCode = readReferralCodeFromLocation()
     if (!inviteReferralCode) return
 
+    setPendingReferralCode(inviteReferralCode)
     setReferralCodeInput((currentValue) => currentValue.trim() || inviteReferralCode)
-    setActivePage('rewards')
   }, [])
+
+  useEffect(() => {
+    if (!pendingReferralCode) return
+
+    setReferralCodeInput((currentValue) => currentValue.trim() || pendingReferralCode)
+  }, [pendingReferralCode])
+
+  useEffect(() => {
+    if (!pendingReferralCode || !hasLoadedBorrowerState || hasHandledReferralLandingRef.current) {
+      return
+    }
+
+    hasHandledReferralLandingRef.current = true
+    setActivePage('rewards')
+  }, [hasLoadedBorrowerState, pendingReferralCode])
+
+  useEffect(() => {
+    if (!pendingReferralCode || !referral?.referredBy) {
+      return
+    }
+
+    setPendingReferralCode('')
+    clearReferralCodeFromLocation()
+  }, [pendingReferralCode, referral?.referredBy])
   const autoClaimedPurchaseIdsRef = useRef<Set<string>>(new Set())
   const autoRepayAttemptRef = useRef<string | null>(null)
   const bridgeRecipientSeedRef = useRef<string | null>(null)
@@ -2396,6 +2422,9 @@ function App() {
       const nextReferral = await lendpayApi.applyReferralCode(token, code)
       setReferral(nextReferral)
       setReferralCodeInput('')
+      if (pendingReferralCode === code.toUpperCase()) {
+        setPendingReferralCode('')
+      }
       clearReferralCodeFromLocation()
       await syncBorrowerState(token)
       showToast({
@@ -5246,6 +5275,12 @@ function App() {
                   actionLabel={hasInitialLoadCancelled ? 'Continue sign-in' : 'Retry load'}
                   onAction={handleRetryLoad}
                 />
+                {pendingReferralCode ? (
+                  <div className="loyalty-panel__note">
+                    Referral invite detected: <strong>{pendingReferralCode}</strong>. Finish account
+                    setup and retry load. LendPay will keep this code ready on the Loyalty Hub.
+                  </div>
+                ) : null}
               </Card>
             ) : null}
 
