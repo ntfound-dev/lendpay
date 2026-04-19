@@ -9,3 +9,6 @@ export const NAV_ITEMS: Array<{ key: NavKey; label: string; index: string; mobil
   { key: 'admin', label: 'Ecosystem', index: '06' },
   { key: 'bridge', label: 'Bridge', index: '07' },
 ]
+
+export const getVisibleNavItems = (connected: boolean) =>
+  connected ? NAV_ITEMS : NAV_ITEMS.filter((item) => item.key === 'overview')

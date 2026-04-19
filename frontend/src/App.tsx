@@ -601,6 +601,13 @@ function App() {
   const showRepayWalletRecovery =
     showWalletRecovery &&
     (walletRecoveryActionKey === 'repay-loan' || walletRecoveryActionKey === 'pay-fees')
+
+  useEffect(() => {
+    if (!isConnected && activePage !== 'overview') {
+      setActivePage('overview')
+    }
+  }, [activePage, isConnected])
+
   const requiredCollateralAmount =
     selectedProfile?.requiresCollateral && requestedAmount > 0
       ? Math.ceil((requestedAmount * selectedProfile.collateralRatioBps) / 10_000)
@@ -5696,7 +5703,7 @@ function App() {
           />
         ) : null}
 
-        <MobileNav active={activePage} onChange={setActivePage} />
+        <MobileNav active={activePage} connected={isConnected} onChange={setActivePage} />
 
         {toast ? (
           <div className={toast.layout === 'center' ? 'toast-overlay' : undefined}>

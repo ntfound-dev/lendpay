@@ -1,15 +1,18 @@
 import type { NavKey } from '../../types/domain'
-import { NAV_ITEMS } from '../../lib/nav'
+import { getVisibleNavItems } from '../../lib/nav'
 
 interface MobileNavProps {
   active: NavKey
+  connected: boolean
   onChange: (value: NavKey) => void
 }
 
-export function MobileNav({ active, onChange }: MobileNavProps) {
+export function MobileNav({ active, connected, onChange }: MobileNavProps) {
+  const visibleNavItems = getVisibleNavItems(connected)
+
   return (
     <nav className="mobile-nav" aria-label="Mobile">
-      {NAV_ITEMS.map((item) => (
+      {visibleNavItems.map((item) => (
         <button
           key={item.key}
           className={`mobile-nav__link ${active === item.key ? 'mobile-nav__link--active' : ''}`}

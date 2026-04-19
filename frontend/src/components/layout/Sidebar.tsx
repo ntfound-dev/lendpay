@@ -1,5 +1,5 @@
 import type { NavKey } from '../../types/domain'
-import { NAV_ITEMS } from '../../lib/nav'
+import { getVisibleNavItems } from '../../lib/nav'
 
 interface SidebarProps {
   active: NavKey
@@ -18,6 +18,8 @@ export function Sidebar({
   identityLabel,
   onChange,
 }: SidebarProps) {
+  const visibleNavItems = getVisibleNavItems(connected)
+
   return (
     <aside className="sidebar">
       <div className="sidebar__top">
@@ -25,7 +27,7 @@ export function Sidebar({
           <div className="sidebar__brandmark" aria-hidden="true">
             <img
               className="sidebar__brandmark-svg"
-              src="/brand/lendpay-mark.svg"
+              src="/favicon.svg"
               alt=""
             />
           </div>
@@ -53,7 +55,7 @@ export function Sidebar({
         </div>
 
         <nav className="sidebar__nav" aria-label="Primary">
-          {NAV_ITEMS.map((item) => (
+          {visibleNavItems.map((item) => (
             <button
               key={item.key}
               className={`sidebar__link ${item.key === active ? 'sidebar__link--active' : ''}`}
