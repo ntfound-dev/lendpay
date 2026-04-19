@@ -4771,51 +4771,39 @@ function App() {
     topbarTitle = 'Repay'
     topbarSubtitle = 'Current payment, purchase details, and what is left to repay'
     topbarTitleBadge = undefined
-    topbarStatus = AGENT_AUTONOMY_AVAILABLE
-      ? isAutoSignSessionPending
-        ? 'Preparing auto-sign'
-        : hasActiveAutoSignPermission
-          ? autoSignPreferenceEnabled
-            ? 'Auto-sign active'
-            : 'Manual approvals selected'
-          : activeLoan
-            ? nextDueItem
-              ? 'Payment due'
-              : 'No payment due'
-            : claimableDropPurchase
-              ? 'Collectible ready'
-              : 'No active loan'
-      : activeLoan
-        ? nextDueItem
-          ? 'Payment due'
-          : 'No payment due'
-        : claimableDropPurchase
-          ? 'Collectible ready'
-          : 'No active loan'
+    topbarStatus = isAutoSignSessionPending
+      ? 'Preparing auto-sign'
+      : hasActiveAutoSignPermission
+        ? autoSignPreferenceEnabled
+          ? 'Auto-sign active'
+          : 'Manual approvals selected'
+        : activeLoan
+          ? nextDueItem
+            ? 'Payment due'
+            : 'No payment due'
+          : claimableDropPurchase
+            ? 'Collectible ready'
+            : 'No active loan'
     topbarPrimaryLabel = claimableDropPurchase
       ? 'Claim collectible'
       : activeLoan && latestDropPurchase
         ? 'Repay now'
         : 'Use credit'
-    topbarSecondaryLabel = AGENT_AUTONOMY_AVAILABLE
-      ? hasActiveAutoSignPermission
-        ? 'Auto-sign'
-        : !isAutoSignSessionPending
-          ? 'Enable auto-sign'
-          : 'Opening wallet...'
-      : undefined
+    topbarSecondaryLabel = hasActiveAutoSignPermission
+      ? 'Auto-sign'
+      : !isAutoSignSessionPending
+        ? 'Enable auto-sign'
+        : 'Opening wallet...'
     handleTopbarPrimaryAction = claimableDropPurchase
       ? () => void handleClaimCollectible(claimableDropPurchase)
       : activeLoan && latestDropPurchase
         ? handleRepay
         : () => setActivePage('request')
-    handleTopbarSecondaryAction = AGENT_AUTONOMY_AVAILABLE
-      ? hasActiveAutoSignPermission
-        ? handleShowAutoSignSessionInfo
-        : !isAutoSignSessionPending
-          ? () => void handleEnableAutoSignSession()
-          : undefined
-      : undefined
+    handleTopbarSecondaryAction = hasActiveAutoSignPermission
+      ? handleShowAutoSignSessionInfo
+      : !isAutoSignSessionPending
+        ? () => void handleEnableAutoSignSession()
+        : undefined
     agentPanelTitle = claimableDropPurchase
       ? `${claimableDropPurchase.itemName} is ready to claim`
       : activeLoan
@@ -4924,56 +4912,30 @@ function App() {
     handleTopbarPrimaryAction = () => setActivePage('request')
     handleTopbarSecondaryAction = undefined
   } else {
-    topbarStatus = AGENT_AUTONOMY_AVAILABLE
-      ? isAutoSignSessionPending
-        ? 'Preparing auto-sign'
-        : hasActiveAutoSignPermission
-          ? autoSignPreferenceEnabled
-            ? 'Auto-sign active'
-            : 'Manual approvals selected'
-          : activeLoan
-            ? nextDueItem
-              ? 'Repayment watch active'
-              : 'Account current'
-            : score
-              ? `${score.risk} risk profile`
-              : undefined
-      : activeLoan
-        ? nextDueItem
-          ? 'Repayment watch active'
-          : 'Account current'
-        : score
-          ? `${score.risk} risk profile`
-          : undefined
-    topbarPrimaryLabel = AGENT_AUTONOMY_AVAILABLE
-      ? hasActiveAutoSignPermission
-        ? 'Auto-sign'
-        : isAutoSignSessionPending
-          ? 'Opening wallet...'
-          : 'Enable auto-sign'
-      : activeLoan
-        ? 'Repay now'
-        : score
-          ? 'Use credit'
-          : undefined
-    topbarPrimaryDisabled = AGENT_AUTONOMY_AVAILABLE ? isAutoSignSessionPending : false
-    topbarSecondaryLabel = AGENT_AUTONOMY_AVAILABLE ? activeLoan ? 'Repay now' : score ? 'Use credit' : undefined : undefined
-    handleTopbarPrimaryAction = AGENT_AUTONOMY_AVAILABLE
-      ? hasActiveAutoSignPermission
-        ? handleShowAutoSignSessionInfo
-        : () => void handleEnableAutoSignSession()
-      : activeLoan
-        ? handleRepay
-        : score
-          ? () => setActivePage('request')
-          : undefined
-    handleTopbarSecondaryAction = AGENT_AUTONOMY_AVAILABLE
-      ? activeLoan
-        ? handleRepay
-        : score
-          ? () => setActivePage('request')
-          : undefined
-      : undefined
+    topbarStatus = isAutoSignSessionPending
+      ? 'Preparing auto-sign'
+      : hasActiveAutoSignPermission
+        ? autoSignPreferenceEnabled
+          ? 'Auto-sign active'
+          : 'Manual approvals selected'
+        : activeLoan
+          ? nextDueItem
+            ? 'Repayment watch active'
+            : 'Account current'
+          : score
+            ? `${score.risk} risk profile`
+            : undefined
+    topbarPrimaryLabel = hasActiveAutoSignPermission
+      ? 'Auto-sign'
+      : isAutoSignSessionPending
+        ? 'Opening wallet...'
+        : 'Enable auto-sign'
+    topbarPrimaryDisabled = isAutoSignSessionPending
+    topbarSecondaryLabel = activeLoan ? 'Repay now' : score ? 'Use credit' : undefined
+    handleTopbarPrimaryAction = hasActiveAutoSignPermission
+      ? handleShowAutoSignSessionInfo
+      : () => void handleEnableAutoSignSession()
+    handleTopbarSecondaryAction = activeLoan ? handleRepay : score ? () => setActivePage('request') : undefined
     agentPanelTitle = score
       ? scoreIsPreview
         ? `Preview guidance suggests spending up to ${formatCurrency(suggestedSpendToday)} today`
