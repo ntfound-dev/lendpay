@@ -12,6 +12,7 @@ import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { LoanSchedule } from '../loans/LoanSchedule'
 import { AgentAutonomyCard } from '../shared/AgentAutonomyCard'
+import { AutoSignSessionCard } from '../shared/AutoSignSessionCard'
 import { EmptyState } from '../shared/EmptyState'
 
 type UnlockRow = {
@@ -109,6 +110,15 @@ export function RepayPage({
 }: RepayPageProps) {
   return (
     <>
+      <AutoSignSessionCard
+        autoSignPreferenceEnabled={autoSignPreferenceEnabled}
+        autoSignSessionExpiresAt={autoSignSessionExpiresAt}
+        hasActiveAutoSignPermission={hasActiveAutoSignPermission}
+        isBusy={isAutoSignPending}
+        onDisableAutoSignPreference={handleDisableAutoSignPreference}
+        onEnableAutoSign={handleEnableAutoSign}
+      />
+
       <div className="page__heading">
         <div>
           <h2 className="page__title">Repay</h2>

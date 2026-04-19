@@ -186,18 +186,18 @@ export function useAutoSignPermission({
       eyebrow: 'Auto-sign setup',
       title: 'Enable faster wallet approvals',
       subtitle:
-        'LendPay is about to ask InterwovenKit for a temporary wallet session that this app will only use for borrower-approved repayment calls on this chain.',
+        'LendPay is about to ask InterwovenKit for a temporary wallet session for supported Move actions on this chain.',
       rows: [
         { label: 'App', value: 'LendPay' },
         { label: 'Origin', value: origin },
         { label: 'Wallet', value: initiaAddress ? shortenAddress(initiaAddress) : 'Connected wallet' },
         { label: 'Chain', value: chainId },
         { label: 'Provider', value: 'InterwovenKit wallet session' },
-        { label: 'LendPay usage', value: 'Repayment calls only' },
+        { label: 'LendPay usage', value: 'Supported Move actions' },
         { label: 'Session window', value: 'Temporary wallet-managed session (often 10 minutes)' },
       ],
       note:
-        'InterwovenKit may open two prompts next: first a signature to create the helper signer, then a temporary grant/allowance. LendPay will still keep all non-repayment Move actions on manual approval.',
+        'InterwovenKit may open two prompts next: first a signature to create the helper signer, then a temporary grant/allowance for supported Move actions on this chain.',
     })
 
     const pendingAutoSignEnable = autoSign
@@ -206,8 +206,7 @@ export function useAutoSignPermission({
         showToast({
           tone: 'success',
           title: 'Auto-sign ready',
-          message:
-            'LendPay can now reuse this short wallet session for borrower-approved repayment calls on this chain.',
+          message: 'LendPay can now reuse this short wallet session for supported Move actions on this chain.',
         })
         return true
       })

@@ -16,7 +16,6 @@ import {
   createRepayInstallmentMessage,
   createRequestCollateralizedLoanMessage,
   createRequestLoanMessage,
-  isRepayInstallmentMoveExecuteMessage,
   createSpendPointsMessage,
   createStakeMessage,
 } from './lib/move'
@@ -396,13 +395,7 @@ function App() {
     chainId: appEnv.appchainId,
     confirmWalletAction,
     initiaAddress,
-    isAllowedAutoSignMessage: (message) =>
-      isRepayInstallmentMoveExecuteMessage(message, {
-        functionName: appEnv.repayFunctionName,
-        moduleAddress: appEnv.packageAddress,
-        moduleName: appEnv.loanModuleName,
-        sender: initiaAddress,
-      }),
+    isAllowedAutoSignMessage: (message) => message.typeUrl === '/initia.move.v1.MsgExecute',
     isUserRejectedWalletError,
     showToast,
   })
@@ -422,18 +415,10 @@ function App() {
     ? null
     : requests.find((request) => request.status === 'pending') ?? null
   const nextDueItem = activeLoan?.schedule.find((item) => item.status === 'due') ?? null
-  const canUseInterwovenAutoSign =
-    AGENT_AUTONOMY_AVAILABLE && autoSignPreferenceEnabled && hasActiveAutoSignPermission
-  const supportsRepaymentAutoSign = (messages: EncodeObject[]) =>
+  const canUseInterwovenAutoSign = autoSignPreferenceEnabled && hasActiveAutoSignPermission
+  const supportsInterwovenAutoSign = (messages: EncodeObject[]) =>
     Boolean(messages.length) &&
-    messages.every((message) =>
-      isRepayInstallmentMoveExecuteMessage(message, {
-        functionName: appEnv.repayFunctionName,
-        moduleAddress: appEnv.packageAddress,
-        moduleName: appEnv.loanModuleName,
-        sender: initiaAddress,
-      }),
-    )
+    messages.every((message) => message.typeUrl === '/initia.move.v1.MsgExecute')
   const latestRequest = activeLoanRequest ?? requests[0] ?? null
   const scoreIsPreview = score?.source === 'preview' || score?.provider === 'heuristic'
   const requestedAmount = Number(draft.amount || '0')
@@ -1473,15 +1458,6 @@ function App() {
   }
 
   const handleEnableAutoSignSession = async () => {
-    if (!AGENT_AUTONOMY_AVAILABLE) {
-      showToast({
-        tone: 'info',
-        title: 'Coming soon',
-        message: 'Agent Autonomy is temporarily hidden while we stabilize the wallet flow.',
-      })
-      return
-    }
-
     if (isAutoSignSessionPending) {
       return
     }
@@ -1522,8 +1498,8 @@ function App() {
         tone: 'info',
         title: 'Manual approvals restored',
         message: autoSignSessionExpiresAt
-          ? 'LendPay revoked the active InterwovenKit helper session for this chain and switched back to manual repayment approvals.'
-          : 'LendPay will keep asking your wallet before each repayment action.',
+          ? 'LendPay revoked the active InterwovenKit helper session for this chain and switched back to manual wallet approvals.'
+          : 'LendPay will keep asking your wallet before each supported action.',
       })
     } catch (error) {
       console.warn('Auto-sign revoke flow failed, falling back to manual app gating', error)
@@ -1623,8 +1599,8 @@ function App() {
       title: canUseInterwovenAutoSign ? 'InterwovenKit session active' : 'Manual approvals active',
       message: canUseInterwovenAutoSign
         ? autoSignSessionExpiresAt
-          ? `LendPay can reuse the InterwovenKit wallet session for repayment calls until ${formatDate(autoSignSessionExpiresAt.toISOString())}.`
-          : 'LendPay can reuse the active InterwovenKit wallet session for repayment calls until the wallet expires it.'
+          ? `LendPay can reuse the InterwovenKit wallet session for supported Move actions until ${formatDate(autoSignSessionExpiresAt.toISOString())}.`
+          : 'LendPay can reuse the active InterwovenKit wallet session for supported Move actions until the wallet expires it.'
         : 'LendPay is currently set to manual wallet approvals, even if a temporary InterwovenKit session is still alive.',
     })
   }
@@ -1886,7 +1862,7 @@ function App() {
     if (!options?.skipPreviewConfirmation) {
       await confirmWalletAction(messages, preview)
     }
-    const autoSignEligible = supportsRepaymentAutoSign(messages)
+    const autoSignEligible = supportsInterwovenAutoSign(messages)
     const autoSignReady = canUseInterwovenAutoSign && autoSignEligible
       ? await ensureAutoSignPermission(messages)
       : false
@@ -4685,26 +4661,39 @@ function App() {
     topbarTitle = 'Repay'
     topbarSubtitle = 'Current payment, purchase details, and what is left to repay'
     topbarTitleBadge = undefined
-    topbarStatus = activeLoan
-      ? nextDueItem
-        ? 'Payment due'
-        : 'No payment due'
-      : claimableDropPurchase
-        ? 'Collectible ready'
-        : 'No active loan'
+    topbarStatus = isAutoSignSessionPending
+      ? 'Preparing auto-sign'
+      : hasActiveAutoSignPermission
+        ? autoSignPreferenceEnabled
+          ? 'Auto-sign active'
+          : 'Manual approvals selected'
+        : activeLoan
+          ? nextDueItem
+            ? 'Payment due'
+            : 'No payment due'
+          : claimableDropPurchase
+            ? 'Collectible ready'
+            : 'No active loan'
     topbarPrimaryLabel = claimableDropPurchase
       ? 'Claim collectible'
       : activeLoan && latestDropPurchase
         ? 'Repay now'
         : 'Use credit'
-    topbarSecondaryLabel = !claimableDropPurchase && activeLoan && latestDropPurchase ? 'Use credit' : undefined
+    topbarSecondaryLabel = hasActiveAutoSignPermission
+      ? 'Auto-sign'
+      : !isAutoSignSessionPending
+        ? 'Enable auto-sign'
+        : 'Opening wallet...'
     handleTopbarPrimaryAction = claimableDropPurchase
       ? () => void handleClaimCollectible(claimableDropPurchase)
       : activeLoan && latestDropPurchase
         ? handleRepay
         : () => setActivePage('request')
-    handleTopbarSecondaryAction =
-      !claimableDropPurchase && activeLoan && latestDropPurchase ? () => setActivePage('request') : undefined
+    handleTopbarSecondaryAction = hasActiveAutoSignPermission
+      ? handleShowAutoSignSessionInfo
+      : !isAutoSignSessionPending
+        ? () => void handleEnableAutoSignSession()
+        : undefined
     agentPanelTitle = claimableDropPurchase
       ? `${claimableDropPurchase.itemName} is ready to claim`
       : activeLoan
@@ -4813,43 +4802,30 @@ function App() {
     handleTopbarPrimaryAction = () => setActivePage('request')
     handleTopbarSecondaryAction = undefined
   } else {
-    if (AGENT_AUTONOMY_AVAILABLE) {
-      topbarStatus = isAutoSignSessionPending
-        ? 'Preparing wallet session'
-        : autonomousRepayEnabled
-          ? canUseInterwovenAutoSign
-            ? 'Session auto-repay armed'
-            : 'Session refresh needed'
-          : hasActiveAutoSignPermission
-            ? autoSignPreferenceEnabled
-              ? 'Temporary session active'
-              : 'Manual approvals active'
-            : 'Manual approvals only'
-      topbarPrimaryLabel = hasActiveAutoSignPermission
-        ? 'InterwovenKit session'
-        : isAutoSignSessionPending
-          ? 'Opening wallet...'
-          : 'Enable auto-sign'
-      topbarPrimaryDisabled = !hasActiveAutoSignPermission && isAutoSignSessionPending
-      topbarSecondaryLabel = score ? 'Use credit' : undefined
-      handleTopbarPrimaryAction = hasActiveAutoSignPermission
-        ? handleShowAutoSignSessionInfo
-        : () => void handleEnableAutoSignSession()
-      handleTopbarSecondaryAction = score ? () => setActivePage('request') : undefined
-    } else {
-      topbarStatus = activeLoan
-        ? nextDueItem
-          ? 'Repayment watch active'
-          : 'Account current'
-        : score
-          ? `${score.risk} risk profile`
-          : undefined
-      topbarPrimaryLabel = activeLoan ? 'Repay now' : score ? 'Use credit' : undefined
-      topbarPrimaryDisabled = false
-      topbarSecondaryLabel = activeLoan ? 'Use credit' : undefined
-      handleTopbarPrimaryAction = activeLoan ? handleRepay : score ? () => setActivePage('request') : undefined
-      handleTopbarSecondaryAction = activeLoan ? () => setActivePage('request') : undefined
-    }
+    topbarStatus = isAutoSignSessionPending
+      ? 'Preparing auto-sign'
+      : hasActiveAutoSignPermission
+        ? autoSignPreferenceEnabled
+          ? 'Auto-sign active'
+          : 'Manual approvals selected'
+        : activeLoan
+          ? nextDueItem
+            ? 'Repayment watch active'
+            : 'Account current'
+          : score
+            ? `${score.risk} risk profile`
+            : undefined
+    topbarPrimaryLabel = hasActiveAutoSignPermission
+      ? 'Auto-sign'
+      : isAutoSignSessionPending
+        ? 'Opening wallet...'
+        : 'Enable auto-sign'
+    topbarPrimaryDisabled = isAutoSignSessionPending
+    topbarSecondaryLabel = activeLoan ? 'Repay now' : score ? 'Use credit' : undefined
+    handleTopbarPrimaryAction = hasActiveAutoSignPermission
+      ? handleShowAutoSignSessionInfo
+      : () => void handleEnableAutoSignSession()
+    handleTopbarSecondaryAction = activeLoan ? handleRepay : score ? () => setActivePage('request') : undefined
     agentPanelTitle = score
       ? scoreIsPreview
         ? `Preview guidance suggests spending up to ${formatCurrency(suggestedSpendToday)} today`
