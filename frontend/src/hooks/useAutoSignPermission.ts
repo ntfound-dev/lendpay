@@ -30,6 +30,7 @@ type UseAutoSignPermissionInput = {
   initiaAddress?: string | null
   isAllowedAutoSignMessage?: (message: EncodeObject) => boolean
   isUserRejectedWalletError: (error: unknown) => boolean
+  onBeforeWalletAction?: () => void
   showToast: (nextToast: ToastState) => void
 }
 
@@ -130,6 +131,7 @@ export function useAutoSignPermission({
   initiaAddress,
   isAllowedAutoSignMessage,
   isUserRejectedWalletError,
+  onBeforeWalletAction,
   showToast,
 }: UseAutoSignPermissionInput) {
   const autoSignEnablePromiseRef = useRef<Promise<boolean> | null>(null)
@@ -253,6 +255,7 @@ export function useAutoSignPermission({
         'InterwovenKit may open two prompts next: first a signature to create the helper signer, then a temporary grant/allowance for supported Move actions on this chain.',
     })
 
+    onBeforeWalletAction?.()
     const pendingAutoSignEnable = autoSign
       .enable(chainId)
       .then(() => {
@@ -317,6 +320,7 @@ export function useAutoSignPermission({
     }
 
     try {
+      onBeforeWalletAction?.()
       await autoSign.disable(chainId)
       return true
     } finally {

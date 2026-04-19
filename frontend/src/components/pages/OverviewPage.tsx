@@ -6,7 +6,6 @@ import type {
 } from '../../types/domain'
 import { ActivityFeed } from '../shared/ActivityFeed'
 import { AgentAutonomyCard } from '../shared/AgentAutonomyCard'
-import { AutoSignSessionCard } from '../shared/AutoSignSessionCard'
 import { EmptyState } from '../shared/EmptyState'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
@@ -95,15 +94,6 @@ export function OverviewPage({
 }: OverviewPageProps) {
   return (
     <>
-      <AutoSignSessionCard
-        autoSignPreferenceEnabled={autoSignPreferenceEnabled}
-        autoSignSessionExpiresAt={autoSignSessionExpiresAt}
-        hasActiveAutoSignPermission={hasActiveAutoSignPermission}
-        isBusy={isAutoSignPending}
-        onDisableAutoSignPreference={handleDisableAutoSignPreference}
-        onEnableAutoSign={handleEnableAutoSign}
-      />
-
       <Card className="overview-hero-card">
         <div className="overview-hero-card__main">
           <div>

@@ -230,6 +230,7 @@ const defaultMerchantDraft = {
 
 const interwovenGasPrice = GasPrice.fromString(`0.015${appEnv.nativeDenom}`)
 const INTERWOVEN_APPROVAL_TIMEOUT_MS = 45_000
+const INTERWOVEN_EXPECTED_DRAWER_WINDOW_MS = 120_000
 const REQUEST_TENOR_OPTIONS = [1, 3, 6] as const
 const AGENT_AUTONOMY_AVAILABLE = false
 
@@ -439,8 +440,18 @@ function App() {
   const autoRepayAttemptRef = useRef<string | null>(null)
   const bridgeRecipientSeedRef = useRef<string | null>(null)
   const hasUserSelectedProfileRef = useRef(false)
+  const interwovenDrawerExpectedUntilRef = useRef(0)
   const requestTxBlockRef = useRef(requestTxBlock)
   const submitTxBlockRef = useRef(submitTxBlock)
+
+  const markInterwovenDrawerExpected = (
+    durationMs = INTERWOVEN_EXPECTED_DRAWER_WINDOW_MS,
+  ) => {
+    interwovenDrawerExpectedUntilRef.current = Date.now() + durationMs
+  }
+
+  const isInterwovenDrawerExpected = () =>
+    interwovenDrawerExpectedUntilRef.current > Date.now()
 
   const apiEnabled = Boolean(appEnv.apiBaseUrl)
   const isConnected = Boolean(initiaAddress)
@@ -494,6 +505,7 @@ function App() {
     initiaAddress,
     isAllowedAutoSignMessage: (message) => message.typeUrl === '/initia.move.v1.MsgExecute',
     isUserRejectedWalletError,
+    onBeforeWalletAction: markInterwovenDrawerExpected,
     showToast,
   })
   const {
@@ -895,7 +907,12 @@ function App() {
   }, [initiaAddress])
 
   useEffect(() => {
-    if (!isConnected || !isInterwovenOpen || shouldKeepInterwovenDrawerOpen) {
+    if (
+      !isConnected ||
+      !isInterwovenOpen ||
+      shouldKeepInterwovenDrawerOpen ||
+      isInterwovenDrawerExpected()
+    ) {
       return
     }
 
@@ -1552,6 +1569,7 @@ function App() {
   }
 
   const openPreferredWalletConnect = async () => {
+    markInterwovenDrawerExpected()
     openConnect()
   }
 
@@ -1712,6 +1730,7 @@ function App() {
     recipient: string
     route: LendLiquidityRouteState
   }) => {
+    markInterwovenDrawerExpected()
     openBridge({
       srcChainId: route.sourceChainId,
       srcDenom: route.assetDenom,
@@ -1978,6 +1997,7 @@ function App() {
         messages,
       }
 
+      markInterwovenDrawerExpected()
       return executeWithTimeout(
         () => requestTxBlockFn(payload),
         INTERWOVEN_APPROVAL_TIMEOUT_MS,
@@ -2000,6 +2020,7 @@ function App() {
       })
       const fee = calculateFee(Math.max(Math.ceil(estimatedGas * 1.25), estimatedGas), interwovenGasPrice)
 
+      markInterwovenDrawerExpected()
       return submitTxBlockFn(
         {
           chainId: appEnv.appchainId,
@@ -4750,39 +4771,51 @@ function App() {
     topbarTitle = 'Repay'
     topbarSubtitle = 'Current payment, purchase details, and what is left to repay'
     topbarTitleBadge = undefined
-    topbarStatus = isAutoSignSessionPending
-      ? 'Preparing auto-sign'
-      : hasActiveAutoSignPermission
-        ? autoSignPreferenceEnabled
-          ? 'Auto-sign active'
-          : 'Manual approvals selected'
-        : activeLoan
-          ? nextDueItem
-            ? 'Payment due'
-            : 'No payment due'
-          : claimableDropPurchase
-            ? 'Collectible ready'
-            : 'No active loan'
+    topbarStatus = AGENT_AUTONOMY_AVAILABLE
+      ? isAutoSignSessionPending
+        ? 'Preparing auto-sign'
+        : hasActiveAutoSignPermission
+          ? autoSignPreferenceEnabled
+            ? 'Auto-sign active'
+            : 'Manual approvals selected'
+          : activeLoan
+            ? nextDueItem
+              ? 'Payment due'
+              : 'No payment due'
+            : claimableDropPurchase
+              ? 'Collectible ready'
+              : 'No active loan'
+      : activeLoan
+        ? nextDueItem
+          ? 'Payment due'
+          : 'No payment due'
+        : claimableDropPurchase
+          ? 'Collectible ready'
+          : 'No active loan'
     topbarPrimaryLabel = claimableDropPurchase
       ? 'Claim collectible'
       : activeLoan && latestDropPurchase
         ? 'Repay now'
         : 'Use credit'
-    topbarSecondaryLabel = hasActiveAutoSignPermission
-      ? 'Auto-sign'
-      : !isAutoSignSessionPending
-        ? 'Enable auto-sign'
-        : 'Opening wallet...'
+    topbarSecondaryLabel = AGENT_AUTONOMY_AVAILABLE
+      ? hasActiveAutoSignPermission
+        ? 'Auto-sign'
+        : !isAutoSignSessionPending
+          ? 'Enable auto-sign'
+          : 'Opening wallet...'
+      : undefined
     handleTopbarPrimaryAction = claimableDropPurchase
       ? () => void handleClaimCollectible(claimableDropPurchase)
       : activeLoan && latestDropPurchase
         ? handleRepay
         : () => setActivePage('request')
-    handleTopbarSecondaryAction = hasActiveAutoSignPermission
-      ? handleShowAutoSignSessionInfo
-      : !isAutoSignSessionPending
-        ? () => void handleEnableAutoSignSession()
-        : undefined
+    handleTopbarSecondaryAction = AGENT_AUTONOMY_AVAILABLE
+      ? hasActiveAutoSignPermission
+        ? handleShowAutoSignSessionInfo
+        : !isAutoSignSessionPending
+          ? () => void handleEnableAutoSignSession()
+          : undefined
+      : undefined
     agentPanelTitle = claimableDropPurchase
       ? `${claimableDropPurchase.itemName} is ready to claim`
       : activeLoan
@@ -4891,30 +4924,56 @@ function App() {
     handleTopbarPrimaryAction = () => setActivePage('request')
     handleTopbarSecondaryAction = undefined
   } else {
-    topbarStatus = isAutoSignSessionPending
-      ? 'Preparing auto-sign'
-      : hasActiveAutoSignPermission
-        ? autoSignPreferenceEnabled
-          ? 'Auto-sign active'
-          : 'Manual approvals selected'
-        : activeLoan
-          ? nextDueItem
-            ? 'Repayment watch active'
-            : 'Account current'
-          : score
-            ? `${score.risk} risk profile`
-            : undefined
-    topbarPrimaryLabel = hasActiveAutoSignPermission
-      ? 'Auto-sign'
-      : isAutoSignSessionPending
-        ? 'Opening wallet...'
-        : 'Enable auto-sign'
-    topbarPrimaryDisabled = isAutoSignSessionPending
-    topbarSecondaryLabel = activeLoan ? 'Repay now' : score ? 'Use credit' : undefined
-    handleTopbarPrimaryAction = hasActiveAutoSignPermission
-      ? handleShowAutoSignSessionInfo
-      : () => void handleEnableAutoSignSession()
-    handleTopbarSecondaryAction = activeLoan ? handleRepay : score ? () => setActivePage('request') : undefined
+    topbarStatus = AGENT_AUTONOMY_AVAILABLE
+      ? isAutoSignSessionPending
+        ? 'Preparing auto-sign'
+        : hasActiveAutoSignPermission
+          ? autoSignPreferenceEnabled
+            ? 'Auto-sign active'
+            : 'Manual approvals selected'
+          : activeLoan
+            ? nextDueItem
+              ? 'Repayment watch active'
+              : 'Account current'
+            : score
+              ? `${score.risk} risk profile`
+              : undefined
+      : activeLoan
+        ? nextDueItem
+          ? 'Repayment watch active'
+          : 'Account current'
+        : score
+          ? `${score.risk} risk profile`
+          : undefined
+    topbarPrimaryLabel = AGENT_AUTONOMY_AVAILABLE
+      ? hasActiveAutoSignPermission
+        ? 'Auto-sign'
+        : isAutoSignSessionPending
+          ? 'Opening wallet...'
+          : 'Enable auto-sign'
+      : activeLoan
+        ? 'Repay now'
+        : score
+          ? 'Use credit'
+          : undefined
+    topbarPrimaryDisabled = AGENT_AUTONOMY_AVAILABLE ? isAutoSignSessionPending : false
+    topbarSecondaryLabel = AGENT_AUTONOMY_AVAILABLE ? activeLoan ? 'Repay now' : score ? 'Use credit' : undefined : undefined
+    handleTopbarPrimaryAction = AGENT_AUTONOMY_AVAILABLE
+      ? hasActiveAutoSignPermission
+        ? handleShowAutoSignSessionInfo
+        : () => void handleEnableAutoSignSession()
+      : activeLoan
+        ? handleRepay
+        : score
+          ? () => setActivePage('request')
+          : undefined
+    handleTopbarSecondaryAction = AGENT_AUTONOMY_AVAILABLE
+      ? activeLoan
+        ? handleRepay
+        : score
+          ? () => setActivePage('request')
+          : undefined
+      : undefined
     agentPanelTitle = score
       ? scoreIsPreview
         ? `Preview guidance suggests spending up to ${formatCurrency(suggestedSpendToday)} today`
