@@ -352,6 +352,8 @@ export interface ToastState {
   title: string
   message: string
   layout?: 'corner' | 'center'
+  actionHref?: string
+  actionLabel?: string
 }
 
 export interface AgentChecklistItem {

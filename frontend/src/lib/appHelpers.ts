@@ -385,6 +385,25 @@ export const buildRpcTxUrl = (txHash?: string) =>
 export const buildRestTxInfoUrl = (txHash?: string) =>
   txHash ? `${appEnv.chainRestUrl.replace(/\/$/, '')}/cosmos/tx/v1beta1/txs/${txHash.replace(/^0x/i, '')}` : null
 
+const SCAN_EXPLORER_FALLBACK_URL = 'https://lendpay.vercel.app/scan.html'
+
+const resolveScanExplorerBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    return SCAN_EXPLORER_FALLBACK_URL
+  }
+
+  return new URL('/scan.html', window.location.origin).toString()
+}
+
+export const buildExplorerTxUrl = (txHash?: string) => {
+  const normalizedHash = txHash?.trim().replace(/^0x/i, '')
+  if (!normalizedHash) return null
+
+  const explorerUrl = new URL(resolveScanExplorerBaseUrl())
+  explorerUrl.searchParams.set('tx', normalizedHash)
+  return explorerUrl.toString()
+}
+
 export const formatNativeDisplay = (value?: string | null) => {
   if (!value) return '—'
   const normalized = value.replace(new RegExp(`\\b${appEnv.nativeDenom}\\b`, 'gi'), appEnv.nativeSymbol)

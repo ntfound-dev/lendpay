@@ -38,6 +38,7 @@ import {
   REDEEM_LEND_OUTPUT,
   REDEEM_POINTS_BASE,
   appCategoryMeta,
+  buildExplorerTxUrl,
   buildRestTxInfoUrl,
   buildRpcTxUrl,
   consumerScoreLine,
@@ -624,7 +625,7 @@ function App() {
     : `100 ${appEnv.nativeSymbol}`
   const needsTestnetFunds =
     isConnected && hasLoadedBorrowerState && (walletNativeBalance === null || walletNativeBalance <= 0)
-  const faucetTxUrl = buildRestTxInfoUrl(faucet?.txHash)
+  const faucetTxUrl = buildExplorerTxUrl(faucet?.txHash)
   const faucetAvailabilityLabel = faucet?.canClaim
     ? 'Available now'
     : faucet?.nextClaimAt
@@ -1225,6 +1226,60 @@ function App() {
     Boolean(txHash) && (isAbortError(error) || isTxConfirmationPendingError(error))
   const submittedTxMessage = (txHash: string, noun = 'transaction') =>
     `The ${noun} was broadcast${txHash ? `: ${formatTxHash(txHash)}` : ''}. LendPay is still waiting for final onchain confirmation. Refresh again in a moment.`
+  const getExplorerTxUrls = (...txHashes: Array<string | null | undefined>) => {
+    const seenHashes = new Set<string>()
+    const explorerUrls: string[] = []
+
+    for (const txHash of txHashes) {
+      const normalizedHash = txHash?.trim().replace(/^0x/i, '')
+      if (!normalizedHash || seenHashes.has(normalizedHash)) {
+        continue
+      }
+
+      seenHashes.add(normalizedHash)
+      const explorerUrl = buildExplorerTxUrl(normalizedHash)
+      if (explorerUrl) {
+        explorerUrls.push(explorerUrl)
+      }
+    }
+
+    return explorerUrls
+  }
+  const openExplorerTxs = (...txHashes: Array<string | null | undefined>) => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    for (const explorerUrl of getExplorerTxUrls(...txHashes)) {
+      const explorerWindow = window.open(explorerUrl, '_blank', 'noopener,noreferrer')
+      if (explorerWindow) {
+        explorerWindow.opener = null
+      }
+    }
+  }
+  const showTransactionToast = (
+    nextToast: ToastState,
+    txHashes: Array<string | null | undefined>,
+    options: { autoOpen?: boolean } = {},
+  ) => {
+    const explorerUrls = getExplorerTxUrls(...txHashes)
+
+    showToast(
+      explorerUrls[0]
+        ? {
+            ...nextToast,
+            actionHref: explorerUrls[0],
+            actionLabel: 'Open in explorer',
+          }
+        : nextToast,
+    )
+
+    if (options.autoOpen === false) {
+      return
+    }
+
+    openExplorerTxs(...txHashes)
+  }
   const throwIfAborted = (signal?: AbortSignal) => {
     if (signal?.aborted) {
       throw new DOMException('The operation was aborted.', 'AbortError')
@@ -1751,12 +1806,22 @@ function App() {
       ? `Continue in Interwoven Bridge, then move to ${route.liquidityVenue}${route.poolReference ? ` (${route.poolReference})` : ''} for the sell step.`
       : 'Continue in Interwoven Bridge, then swap or sell in the destination venue.'
 
+    if (announceIntentTxHash) {
+      showTransactionToast(
+        {
+          tone: 'success',
+          title: 'Bridge intent recorded',
+          message: `${formatTxHash(announceIntentTxHash)} recorded onchain. ${bridgeStepLabel}`,
+        },
+        [announceIntentTxHash],
+      )
+      return
+    }
+
     showToast({
-      tone: announceIntentTxHash ? 'success' : 'info',
-      title: announceIntentTxHash ? 'Bridge intent recorded' : 'Bridge opened',
-      message: announceIntentTxHash
-        ? `${formatTxHash(announceIntentTxHash)} recorded onchain. ${bridgeStepLabel}`
-        : bridgeStepLabel,
+      tone: 'info',
+      title: 'Bridge opened',
+      message: bridgeStepLabel,
     })
   }
 
@@ -1878,14 +1943,17 @@ function App() {
         })
         setBridgeAmount('')
       } catch (bridgeError) {
-        showToast({
-          tone: 'warning',
-          title: 'Intent recorded, bridge unavailable',
-          message: getErrorMessage(
-            bridgeError,
-            `The bridge intent was recorded${txHash ? ` (${formatTxHash(txHash)})` : ''}, but Interwoven Bridge could not be opened right now.`,
-          ),
-        })
+        showTransactionToast(
+          {
+            tone: 'warning',
+            title: 'Intent recorded, bridge unavailable',
+            message: getErrorMessage(
+              bridgeError,
+              `The bridge intent was recorded${txHash ? ` (${formatTxHash(txHash)})` : ''}, but Interwoven Bridge could not be opened right now.`,
+            ),
+          },
+          [txHash],
+        )
       }
 
       try {
@@ -1923,6 +1991,7 @@ function App() {
     actionKey: string
     message: EncodeObject
     preview?: TxPreviewContent | false
+    openExplorerOnSuccess?: boolean
     successMessage: string
     successTitle: string
   }) => {
@@ -1951,12 +2020,16 @@ function App() {
       }
 
       await syncProtocolAfterTx(token, txHash || undefined)
-      showToast({
-        tone: 'success',
-        title: input.successTitle,
-        message: `${input.successMessage}${txHash ? ` ${formatTxHash(txHash)}` : ''}`,
-        layout: 'center',
-      })
+      showTransactionToast(
+        {
+          tone: 'success',
+          title: input.successTitle,
+          message: `${input.successMessage}${txHash ? ` ${formatTxHash(txHash)}` : ''}`,
+          layout: 'center',
+        },
+        [txHash],
+        { autoOpen: input.openExplorerOnSuccess !== false },
+      )
     } catch (error) {
       if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
         return
@@ -2486,11 +2559,14 @@ function App() {
       setFaucet(nextFaucet)
       await syncBorrowerState(token)
       const claimedAmountLabel = `${formatTokenAmount(nextFaucet.claimAmount, appEnv.nativeDecimals)} ${appEnv.nativeSymbol}`
-      showToast({
-        tone: 'success',
-        title: 'Testnet LEND sent',
-        message: `${claimedAmountLabel} was sent to your wallet${nextFaucet.txHash ? `: ${formatTxHash(nextFaucet.txHash)}` : '.'}`,
-      })
+      showTransactionToast(
+        {
+          tone: 'success',
+          title: 'Testnet LEND sent',
+          message: `${claimedAmountLabel} was sent to your wallet${nextFaucet.txHash ? `: ${formatTxHash(nextFaucet.txHash)}` : '.'}`,
+        },
+        [nextFaucet.txHash],
+      )
     } catch (error) {
       showToast({
         tone: 'danger',
@@ -2711,24 +2787,27 @@ function App() {
       setSelectedDropItemId('')
       setActivePage('loan')
 
-      showToast({
-        tone: 'success',
-        title: approvalMode ? 'Request approved' : 'Request submitted',
-        message: approvalMode
-          ? approvalMode === 'preview'
-            ? selectedProfile?.requiresCollateral
-              ? `Collateral locked and a preview loan was created for ${selectedMerchantTitle}. Repayment can be tested locally, but app purchases still need a live onchain approval.`
-              : `A preview loan was created for ${selectedMerchantTitle}. Repayment can be tested locally, but app purchases still need a live onchain approval.`
-            : selectedProfile?.requiresCollateral
-              ? `Collateral locked and app credit is live for ${selectedMerchantTitle}.`
-              : `App credit is live for ${selectedMerchantTitle}.`
-          : approvalPendingMessage
-            ? approvalPendingMessage
-            : selectedProfile?.requiresCollateral
-            ? `Collateral locked and credit request submitted for ${selectedMerchantTitle}${txHash ? `: ${formatTxHash(txHash)}` : '.'}`
-            : `Credit request submitted for ${selectedMerchantTitle}${txHash ? `: ${formatTxHash(txHash)}` : '.'}`,
-        layout: 'center',
-      })
+      showTransactionToast(
+        {
+          tone: 'success',
+          title: approvalMode ? 'Request approved' : 'Request submitted',
+          message: approvalMode
+            ? approvalMode === 'preview'
+              ? selectedProfile?.requiresCollateral
+                ? `Collateral locked and a preview loan was created for ${selectedMerchantTitle}. Repayment can be tested locally, but app purchases still need a live onchain approval.`
+                : `A preview loan was created for ${selectedMerchantTitle}. Repayment can be tested locally, but app purchases still need a live onchain approval.`
+              : selectedProfile?.requiresCollateral
+                ? `Collateral locked and app credit is live for ${selectedMerchantTitle}.`
+                : `App credit is live for ${selectedMerchantTitle}.`
+            : approvalPendingMessage
+              ? approvalPendingMessage
+              : selectedProfile?.requiresCollateral
+                ? `Collateral locked and credit request submitted for ${selectedMerchantTitle}${txHash ? `: ${formatTxHash(txHash)}` : '.'}`
+                : `Credit request submitted for ${selectedMerchantTitle}${txHash ? `: ${formatTxHash(txHash)}` : '.'}`,
+          layout: 'center',
+        },
+        [txHash, approvalTxHash],
+      )
     } catch (error) {
       if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
         return
@@ -2786,14 +2865,17 @@ function App() {
         setDraft(defaultDraft)
         setSelectedDropItemId('')
         setActivePage('loan')
-        showToast({
-          tone: 'success',
-          title: 'Request submitted',
-          message: latestPendingRequest.onchainRequestId
-            ? `Your wallet transaction already created live request #${latestPendingRequest.onchainRequestId}. LendPay synced it automatically.`
-            : 'Your wallet transaction already created a pending credit request. LendPay synced it automatically.',
-          layout: 'center',
-        })
+        showTransactionToast(
+          {
+            tone: 'success',
+            title: 'Request submitted',
+            message: latestPendingRequest.onchainRequestId
+              ? `Your wallet transaction already created live request #${latestPendingRequest.onchainRequestId}. LendPay synced it automatically.`
+              : 'Your wallet transaction already created a pending credit request. LendPay synced it automatically.',
+            layout: 'center',
+          },
+          [txHash],
+        )
         return
       }
 
@@ -2807,12 +2889,15 @@ function App() {
         setDraft(defaultDraft)
         setSelectedDropItemId('')
         setActivePage('loan')
-        showToast({
-          tone: 'success',
-          title: 'Credit is already live',
-          message: `The latest request was already approved and ${formatCurrency(latestActiveLoan.principal)} is now active on your loan page.`,
-          layout: 'center',
-        })
+        showTransactionToast(
+          {
+            tone: 'success',
+            title: 'Credit is already live',
+            message: `The latest request was already approved and ${formatCurrency(latestActiveLoan.principal)} is now active on your loan page.`,
+            layout: 'center',
+          },
+          [txHash],
+        )
         return
       }
 
@@ -2911,12 +2996,15 @@ function App() {
       txHash = extractTxHash(result)
       await syncProtocolAfterTx(token, txHash || undefined)
 
-      showToast({
-        tone: 'success',
-        title: 'Pending request cleared',
-        message: `Request #${numericRequestId} was cancelled onchain${txHash ? `: ${formatTxHash(txHash)}` : '.'}`,
-        layout: 'center',
-      })
+      showTransactionToast(
+        {
+          tone: 'success',
+          title: 'Pending request cleared',
+          message: `Request #${numericRequestId} was cancelled onchain${txHash ? `: ${formatTxHash(txHash)}` : '.'}`,
+          layout: 'center',
+        },
+        [txHash],
+      )
     } catch (error) {
       if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
         return
@@ -2942,7 +3030,10 @@ function App() {
     }
   }
 
-  const handleReviewPendingRequest = async (request: LoanRequestState) => {
+  const handleReviewPendingRequest = async (
+    request: LoanRequestState,
+    options: { openExplorerOnSuccess?: boolean } = {},
+  ) => {
     if (!canRunPendingDemoReview) {
       showToast({
         tone: 'info',
@@ -2967,12 +3058,16 @@ function App() {
 
       await syncProtocolAfterTx(token, approval.txHash || undefined)
       setActivePage('loan')
-      showToast({
-        tone: 'success',
-        title: 'Request reviewed',
-        message: `Pending request moved through operator review${approval.txHash ? `: ${formatTxHash(approval.txHash)}` : '.'}`,
-        layout: 'center',
-      })
+      showTransactionToast(
+        {
+          tone: 'success',
+          title: 'Request reviewed',
+          message: `Pending request moved through operator review${approval.txHash ? `: ${formatTxHash(approval.txHash)}` : '.'}`,
+          layout: 'center',
+        },
+        [approval.txHash],
+        { autoOpen: options.openExplorerOnSuccess !== false },
+      )
     } catch (error) {
       if (shouldShowSubmittedTxToast(error, approvalTxHash)) {
         showToast({
@@ -3050,15 +3145,18 @@ function App() {
       if (!numericLoanId) {
         const repayment = await lendpayApi.repayLoan(token, activeLoan.id)
         await syncBorrowerState(token)
-        showToast({
-          tone: 'success',
-          title: 'Repayment confirmed',
-          message:
-            repayment.mode === 'live'
-              ? `Payment received${repayment.txHash ? `: ${formatTxHash(repayment.txHash)}` : '.'}`
-              : 'Payment status has been updated in preview mode.',
-          layout: 'center',
-        })
+        showTransactionToast(
+          {
+            tone: 'success',
+            title: 'Repayment confirmed',
+            message:
+              repayment.mode === 'live'
+                ? `Payment received${repayment.txHash ? `: ${formatTxHash(repayment.txHash)}` : '.'}`
+                : 'Payment status has been updated in preview mode.',
+            layout: 'center',
+          },
+          [repayment.txHash],
+        )
         return
       }
 
@@ -3128,15 +3226,19 @@ function App() {
         return
       }
       const syncedState = await syncProtocolAfterTx(token, txHash || undefined)
-      showToast({
-        tone: 'success',
-        title: initiatedByAgent ? 'Agent repayment confirmed' : 'Repayment confirmed',
-        message:
-          repayment.mode === 'live'
-            ? `Payment received${repayment.txHash ? `: ${formatTxHash(repayment.txHash)}` : '.'}`
-            : 'Payment status has been updated.',
-        layout: 'center',
-      })
+      showTransactionToast(
+        {
+          tone: 'success',
+          title: initiatedByAgent ? 'Agent repayment confirmed' : 'Repayment confirmed',
+          message:
+            repayment.mode === 'live'
+              ? `Payment received${repayment.txHash ? `: ${formatTxHash(repayment.txHash)}` : '.'}`
+              : 'Payment status has been updated.',
+          layout: 'center',
+        },
+        [repayment.txHash, txHash],
+        { autoOpen: !initiatedByAgent },
+      )
 
       const claimablePurchase =
         syncedState.viralDropPurchases.find(
@@ -3336,14 +3438,17 @@ function App() {
       const token = await ensureBackendSession()
       await syncProtocolAfterTx(token, txHash || undefined)
       const instantDelivery = activeLoan.collateralAmount >= item.instantCollateralRequired
-      showToast({
-        tone: 'success',
-        title: 'Purchase completed',
-        message: instantDelivery
-          ? `${item.name} receipt and collectible were delivered onchain${txHash ? `: ${formatTxHash(txHash)}` : '.'}`
-          : `${item.name} receipt was minted onchain. The full collectible unlocks after full repayment${txHash ? `: ${formatTxHash(txHash)}` : '.'}`,
-        layout: 'center',
-      })
+      showTransactionToast(
+        {
+          tone: 'success',
+          title: 'Purchase completed',
+          message: instantDelivery
+            ? `${item.name} receipt and collectible were delivered onchain${txHash ? `: ${formatTxHash(txHash)}` : '.'}`
+            : `${item.name} receipt was minted onchain. The full collectible unlocks after full repayment${txHash ? `: ${formatTxHash(txHash)}` : '.'}`,
+          layout: 'center',
+        },
+        [txHash],
+      )
     } catch (error) {
       if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
         return
@@ -3371,7 +3476,7 @@ function App() {
 
   const handleClaimCollectible = async (
     purchase: ViralDropPurchaseState,
-    options: { skipPreview?: boolean } = {},
+    options: { skipPreview?: boolean; openExplorerOnSuccess?: boolean } = {},
   ) => {
     if (purchase.collectibleClaimed) {
       showToast({
@@ -3429,6 +3534,7 @@ function App() {
             },
         successMessage: `${purchase.itemName} collectible was delivered to your wallet.`,
         successTitle: 'Collectible claimed',
+        openExplorerOnSuccess: options.openExplorerOnSuccess ?? !options.skipPreview,
       })
     } catch (error) {
       showToast({
@@ -3459,7 +3565,7 @@ function App() {
     }
 
     autoReviewedRequestIdsRef.current.add(pendingRequest.id)
-    void handleReviewPendingRequest(pendingRequest)
+    void handleReviewPendingRequest(pendingRequest, { openExplorerOnSuccess: false })
   }, [
     activeLoan,
     canRunPendingDemoReview,
@@ -3490,7 +3596,7 @@ function App() {
     }
 
     autoClaimedPurchaseIdsRef.current.add(claimableDropPurchase.id)
-    void handleClaimCollectible(claimableDropPurchase, { skipPreview: true })
+    void handleClaimCollectible(claimableDropPurchase, { skipPreview: true, openExplorerOnSuccess: false })
   }, [
     activeLoan,
     claimableDropPurchase,
@@ -3769,14 +3875,17 @@ function App() {
         await syncProtocolAfterTx(token, stakingHash || undefined)
       }
 
-      showToast({
-        tone: 'success',
-        title: 'Rewards claimed',
-        message: txHashes.length
-          ? `Available rewards were claimed.${txHashes[0] ? ` ${formatTxHash(txHashes[0])}` : ''}`
-          : 'Available rewards were claimed.',
-        layout: 'center',
-      })
+      showTransactionToast(
+        {
+          tone: 'success',
+          title: 'Rewards claimed',
+          message: txHashes.length
+            ? `Available rewards were claimed.${txHashes[0] ? ` ${formatTxHash(txHashes[0])}` : ''}`
+            : 'Available rewards were claimed.',
+          layout: 'center',
+        },
+        txHashes,
+      )
     } catch (error) {
       if (isTransactionTimedOut(error) || isTransactionPreviewCancelled(error)) {
         return
@@ -5402,7 +5511,7 @@ function App() {
                         target="_blank"
                         rel="noreferrer"
                       >
-                        Latest faucet tx {formatTxHash(faucet.txHash)}
+                        View latest faucet tx in explorer ({formatTxHash(faucet.txHash)}) ↗
                       </a>
                     ) : null}
                   </div>
@@ -5768,6 +5877,13 @@ function App() {
               ) : null}
               <div className="toast__title">{toast.title}</div>
               <div className="toast__message">{toast.message}</div>
+              {toast.actionHref ? (
+                <div className="toast__actions">
+                  <a className="toast__link" href={toast.actionHref} target="_blank" rel="noreferrer">
+                    {toast.actionLabel ?? 'Open'}
+                  </a>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}

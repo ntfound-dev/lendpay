@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { appEnv } from '../../config/env'
 import {
+  buildExplorerTxUrl,
   buildRestTxInfoUrl,
   buildRpcTxUrl,
   formatNativeDisplay,
@@ -31,8 +32,10 @@ export function ProofModal({
   registrationTxDetails,
   selectedAppProof,
 }: ProofModalProps) {
-  const proofRegistrationUrl = buildRpcTxUrl(selectedAppProof.proof?.registrationTxHash)
-  const proofInteractionUrl = buildRpcTxUrl(selectedAppProof.proof?.interactionTxHash)
+  const proofRegistrationExplorerUrl = buildExplorerTxUrl(selectedAppProof.proof?.registrationTxHash)
+  const proofRegistrationRpcUrl = buildRpcTxUrl(selectedAppProof.proof?.registrationTxHash)
+  const proofInteractionExplorerUrl = buildExplorerTxUrl(selectedAppProof.proof?.interactionTxHash)
+  const proofInteractionRpcUrl = buildRpcTxUrl(selectedAppProof.proof?.interactionTxHash)
   const proofChainId = selectedAppProof.proof?.chainId ?? appEnv.appchainId
   const proofRouteId = selectedAppProof.proof?.merchantId ?? selectedAppProof.id ?? '—'
   const primaryProofTx = interactionTxDetails ?? registrationTxDetails
@@ -55,6 +58,7 @@ export function ProofModal({
     selectedAppProof.proof?.interactionTxHash ??
     selectedAppProof.proof?.registrationTxHash ??
     ''
+  const proofPrimaryExplorerUrl = buildExplorerTxUrl(proofPrimaryHash)
   const proofPrimaryJsonUrl = buildRestTxInfoUrl(proofPrimaryHash)
 
   const proofNftUriNeedsHostingNote = (() => {
@@ -117,6 +121,7 @@ export function ProofModal({
   const renderExplorerTxCard = (
     label: string,
     details: TxExplorerState | null,
+    explorerUrl?: string,
     rpcUrl?: string,
   ) => {
     if (!details) return null
@@ -136,8 +141,13 @@ export function ProofModal({
             {details.timestamp ? formatDate(details.timestamp) : 'Confirmed'}
           </div>
         </div>
-        {rpcUrl ? (
-          <a className="explorer-tx-card__hash" href={rpcUrl} target="_blank" rel="noreferrer">
+        {explorerUrl || rpcUrl ? (
+          <a
+            className="explorer-tx-card__hash"
+            href={explorerUrl ?? rpcUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
             {formatTxHash(details.txHash)}
           </a>
         ) : (
@@ -161,6 +171,11 @@ export function ProofModal({
           </div>
         </div>
         <div className="explorer-tx-card__footer">
+          {explorerUrl ? (
+            <a className="explorer-rpc-link" href={explorerUrl} target="_blank" rel="noreferrer">
+              Open in explorer ↗
+            </a>
+          ) : null}
           {rpcUrl ? (
             <a className="explorer-rpc-link" href={rpcUrl} target="_blank" rel="noreferrer">
               Open raw RPC ↗
@@ -416,6 +431,11 @@ export function ProofModal({
                   >
                     ⧉
                   </button>
+                  {proofPrimaryExplorerUrl ? (
+                    <a className="explorer-rpc-link" href={proofPrimaryExplorerUrl} target="_blank" rel="noreferrer">
+                      Open in explorer ↗
+                    </a>
+                  ) : null}
                   {proofPrimaryJsonUrl ? (
                     <a className="explorer-rpc-link" href={proofPrimaryJsonUrl} target="_blank" rel="noreferrer">
                       Open tx JSON ↗
@@ -442,8 +462,18 @@ export function ProofModal({
             </div>
           ) : (
             <div className="proof-explorer-stack">
-              {renderExplorerTxCard('Registration tx', registrationTxDetails, proofRegistrationUrl ?? undefined)}
-              {renderExplorerTxCard('Proof tx', interactionTxDetails, proofInteractionUrl ?? undefined)}
+              {renderExplorerTxCard(
+                'Registration tx',
+                registrationTxDetails,
+                proofRegistrationExplorerUrl ?? undefined,
+                proofRegistrationRpcUrl ?? undefined,
+              )}
+              {renderExplorerTxCard(
+                'Proof tx',
+                interactionTxDetails,
+                proofInteractionExplorerUrl ?? undefined,
+                proofInteractionRpcUrl ?? undefined,
+              )}
             </div>
           )}
         </div>

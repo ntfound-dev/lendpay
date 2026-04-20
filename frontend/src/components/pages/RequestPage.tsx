@@ -1,8 +1,7 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import {
   appCategoryMeta,
-  buildRestTxInfoUrl,
-  buildRpcTxUrl,
+  buildExplorerTxUrl,
   describeDropItemDelivery,
   describeProductCard,
   formatAppLabel,
@@ -209,12 +208,12 @@ export function RequestPage({
   }
 
   const getRequestProofUrl = (request?: LoanRequestState | null) => {
-    if (!request?.onchainRequestId || !request.txHash) return null
-    return buildRestTxInfoUrl(request.txHash) ?? buildRpcTxUrl(request.txHash)
+    if (!request?.txHash) return null
+    return buildExplorerTxUrl(request.txHash)
   }
   const getApprovalProofUrl = (request: LoanRequestState) =>
     activeLoan?.requestId === request.id && activeLoan.routeMode === 'live'
-      ? buildRestTxInfoUrl(activeLoan.txHashApprove) ?? buildRpcTxUrl(activeLoan.txHashApprove)
+      ? buildExplorerTxUrl(activeLoan.txHashApprove)
       : null
   const pendingRequestAwaitingOnchainId = Boolean(pendingRequest && !pendingRequest.onchainRequestId)
   const pendingRequestIsLive = Boolean(pendingRequest?.onchainRequestId)
@@ -499,7 +498,7 @@ export function RequestPage({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Request tx {formatTxHash(pendingRequest.txHash!)}
+                    View request in explorer ({formatTxHash(pendingRequest.txHash!)}) ↗
                   </a>
                 ) : null}
               </div>
@@ -773,7 +772,7 @@ export function RequestPage({
                             target="_blank"
                             rel="noreferrer"
                           >
-                            Request tx {formatTxHash(request.txHash)}
+                            View request in explorer ({formatTxHash(request.txHash)}) ↗
                           </a>
                         </div>
                       ) : null}
@@ -785,7 +784,7 @@ export function RequestPage({
                             target="_blank"
                             rel="noreferrer"
                           >
-                            Approval tx {formatTxHash(activeLoan?.txHashApprove ?? '')}
+                            View approval in explorer ({formatTxHash(activeLoan?.txHashApprove ?? '')}) ↗
                           </a>
                         </div>
                       ) : null}
