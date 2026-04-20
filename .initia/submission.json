@@ -10,7 +10,12 @@
   "deployment": {
     "rollup_chain_id": "lendpay-4",
     "deployment_tx_url": "",
-    "deployment_url": ""
+    "deployment_url": "https://lendpay.vercel.app/"
+  },
+  "public_urls": {
+    "app_url": "https://lendpay.vercel.app/",
+    "explorer_url": "https://lendpay.vercel.app/scan.html",
+    "docs_url": "https://lendpay-docs.vercel.app/"
   },
   "initia_integration": {
     "interwovenkit_used": true,

@@ -21,12 +21,40 @@ Docs by layer:
 - smart contract technical docs: [smarcontract/README.md](./smarcontract/README.md)
 - standalone docs site: [docs-site](./docs-site)
 
-## What Problem It Solves
+## Problem
 
-Most onchain users can trade and swap, but they still cannot access simple credit for real app experiences. Wallet activity and identity signals rarely become usable financing, and Initia apps still lack a clean pay-later rail for drops, passes, collectibles, and other consumer actions.
+Onchain finance is already good at moving assets, but it is still bad at financing real app usage.
 
-LendPay turns wallet activity, `.init` identity, and repayment history into ecosystem-aware installment credit.
-Small app requests are reputation-based and unsecured. A separate advanced profile supports locked `LEND` collateral for larger secured requests.
+Users can bridge, trade, and swap, yet they still cannot easily pay over time for the experiences they actually want inside apps: drops, passes, collectibles, memberships, and other consumer actions.
+
+The result is a real ecosystem gap:
+
+- borrowers may have visible onchain reputation, but no usable installment credit
+- partner apps have demand at checkout, but no reusable credit rail built for Initia-native flows
+- repayment behavior can happen onchain, but it still rarely compounds into stronger future access
+
+## Solution
+
+LendPay turns wallet activity, `.init` identity, and repayment history into an app-native credit rail for Initia.
+
+It combines:
+
+- a borrower-facing frontend for request, usage, repayment, rewards, and ecosystem actions
+- a Go backend for wallet-authenticated sessions, underwriting, state sync, and operator actions
+- Move contracts on a MiniMove rollup for requests, approvals, repayments, collateral, rewards, staking, governance, campaigns, and app-linked rails
+
+Instead of treating credit as a detached lending screen, LendPay keeps the flow tied to a real product action: connect wallet, refresh profile state, request app credit, receive operator approval, use the funded balance in `viral_drop`, mint an onchain receipt, and repay over time.
+
+Small app requests are reputation-based and unsecured. A separate advanced profile supports locked `LEND` collateral for larger secured requests. The goal is not abstract leverage. The goal is usable pay-later access inside real Initia app flows.
+
+## Real-World Impact
+
+If LendPay works as intended, it pushes wallet reputation out of dashboards and into real economic utility:
+
+- borrowers get a real pay-later path for Initia app experiences instead of being limited to spot spending
+- partner apps get a reusable credit checkout layer without rebuilding financing logic from scratch
+- good repayment behavior becomes a compounding onchain reputation signal instead of a passive record
+- the Initia ecosystem gets stronger commerce infrastructure built around app usage, not only swaps, bridges, and speculative activity
 
 ## Core Flow
 
@@ -38,6 +66,18 @@ LendPay is currently tightened around one truthful internal borrower flow:
 4. the borrower uses that funded balance in `viral_drop`
 5. an onchain receipt is minted to the borrower wallet
 6. the borrower repays installments and improves reputation
+
+```mermaid
+flowchart TD
+    A[Connect wallet] --> B[Refresh borrower analysis]
+    B --> C[Request credit for a live Initia app]
+    C --> D[Operator approval]
+    D --> E[Borrower wallet receives funded balance]
+    E --> F[Use credit inside viral_drop]
+    F --> G[Onchain receipt minted to borrower wallet]
+    G --> H[Repay installments]
+    H --> I[Reputation improves]
+```
 
 ## Initia Native Features Used
 
@@ -95,6 +135,12 @@ make logs
 - backend: `http://localhost:8080`
 - rollup RPC: `http://localhost:26657`
 - rollup REST: `http://localhost:1317`
+
+## Production URLs
+
+- app: `https://lendpay.vercel.app/`
+- explorer: `https://lendpay.vercel.app/scan.html`
+- docs: `https://lendpay-docs.vercel.app/`
 
 ## Local Demo Flow
 
