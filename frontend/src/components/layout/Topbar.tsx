@@ -1,9 +1,12 @@
 import { Button } from '../ui/Button'
 
 interface TopbarProps {
+  accountActionDisabled?: boolean
+  accountActionLabel?: string
   agentDetail?: string
   agentLabel?: string
   connected: boolean
+  onAccountAction?: () => void
   onPrimaryAction?: () => void
   onSecondaryAction?: () => void
   pageSubtitle: string
@@ -16,9 +19,12 @@ interface TopbarProps {
 }
 
 export function Topbar({
+  accountActionDisabled = false,
+  accountActionLabel,
   agentDetail,
   agentLabel,
   connected,
+  onAccountAction,
   onPrimaryAction,
   onSecondaryAction,
   pageSubtitle,
@@ -53,6 +59,11 @@ export function Topbar({
 
         {connected ? (
           <>
+            {accountActionLabel && onAccountAction ? (
+              <Button variant="ghost" onClick={onAccountAction} disabled={accountActionDisabled}>
+                {accountActionLabel}
+              </Button>
+            ) : null}
             {secondaryLabel && onSecondaryAction ? (
               <Button variant="secondary" onClick={onSecondaryAction}>
                 {secondaryLabel}

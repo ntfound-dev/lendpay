@@ -401,6 +401,7 @@ function App() {
   const [isClaimingFaucet, setIsClaimingFaucet] = useState(false)
   const [showWalletRecovery, setShowWalletRecovery] = useState(false)
   const [walletRecoveryActionKey, setWalletRecoveryActionKey] = useState<string | null>(null)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const borrowerSyncCacheRef = useRef<Map<string, { at: number; data: unknown }>>(new Map())
   const autoReviewedRequestIdsRef = useRef<Set<string>>(new Set())
   const hasHandledReferralLandingRef = useRef(false)
@@ -3812,6 +3813,52 @@ function App() {
     await openPreferredWalletConnect()
   }
 
+  const handleLogout = async () => {
+    if (isLoggingOut) {
+      return
+    }
+
+    setIsLoggingOut(true)
+
+    const activeToken = sessionTokenRef.current ?? readPersistedSessionToken(initiaAddress)
+    let walletDisconnected = false
+
+    try {
+      if (activeToken) {
+        try {
+          await lendpayApi.logoutSession(activeToken)
+        } catch (error) {
+          if (!(error instanceof ApiError && error.status === 401)) {
+            console.warn('Backend logout request failed', error)
+          }
+        }
+      }
+
+      setActivePage('overview')
+      setHasLoadedBorrowerState(false)
+      setIsBackendSyncing(false)
+      setLoadError('You signed out of LendPay. Sign in again to load this wallet.')
+      resetBorrowerState()
+
+      try {
+        await disconnect()
+        walletDisconnected = true
+      } catch (error) {
+        console.warn('Wallet disconnect failed during logout', error)
+      }
+
+      showToast({
+        tone: walletDisconnected ? 'success' : 'info',
+        title: walletDisconnected ? 'Logged out' : 'Session cleared',
+        message: walletDisconnected
+          ? 'Your LendPay session was cleared and the wallet connection was disconnected.'
+          : 'Your LendPay session was cleared. The wallet stayed connected, so you can sign back in anytime.',
+      })
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
+
   const handleDismissWalletRecovery = () => {
     setShowWalletRecovery(false)
     setWalletRecoveryActionKey(null)
@@ -5096,9 +5143,12 @@ function App() {
       />
       <div className="main-shell">
         <Topbar
+          accountActionDisabled={isLoggingOut}
+          accountActionLabel={isLoggingOut ? 'Logging out...' : 'Log out'}
           agentDetail={assistantDetail}
           agentLabel={isConnected ? assistantLabel : undefined}
           connected={isConnected}
+          onAccountAction={() => void handleLogout()}
           onPrimaryAction={handleTopbarPrimaryAction}
           onSecondaryAction={handleTopbarSecondaryAction}
           pageSubtitle={topbarSubtitle}

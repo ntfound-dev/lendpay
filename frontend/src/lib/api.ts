@@ -185,6 +185,13 @@ export const lendpayApi = {
     })
   },
 
+  logoutSession(token: string) {
+    return request<{ success: boolean }>('/api/v1/auth/logout', {
+      method: 'POST',
+      token,
+    })
+  },
+
   getMe(token: string, signal?: AbortSignal) {
     return request<UserProfile>('/api/v1/me', { signal, token })
   },
