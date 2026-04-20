@@ -60,9 +60,11 @@ export function Topbar({
         {connected ? (
           <>
             {accountActionLabel && onAccountAction ? (
-              <Button variant="ghost" onClick={onAccountAction} disabled={accountActionDisabled}>
-                {accountActionLabel}
-              </Button>
+              <span className="topbar__account-action">
+                <Button variant="ghost" onClick={onAccountAction} disabled={accountActionDisabled}>
+                  {accountActionLabel}
+                </Button>
+              </span>
             ) : null}
             {secondaryLabel && onSecondaryAction ? (
               <Button variant="secondary" onClick={onSecondaryAction}>

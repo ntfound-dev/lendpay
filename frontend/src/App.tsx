@@ -5135,10 +5135,13 @@ function App() {
     <div className="app-shell">
       <Sidebar
         active={activePage}
+        accountActionDisabled={isLoggingOut}
+        accountActionLabel={isLoggingOut ? 'Logging out...' : 'Log out'}
         assistantDetail={assistantDetail}
         assistantLabel={assistantLabel}
         connected={isConnected}
         identityLabel={identityLabel}
+        onAccountAction={() => void handleLogout()}
         onChange={setActivePage}
       />
       <div className="main-shell">
