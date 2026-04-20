@@ -6,7 +6,7 @@
 const chart = String.raw`flowchart TB
   user["Borrower + Wallet\nconnect, sign, approve, repay"]
   frontend["Frontend\nReact + Vite\nInterwovenKit wallet flow\nsigned backend session"]
-  backend["Backend\nFastify + Prisma\nborrower sync and underwriting\noperator actions and mirrored state"]
+  backend["Backend\nGo API + PostgreSQL\nborrower sync and underwriting\noperator actions and mirrored state"]
   rollup["Rollup\nMiniMove runtime\nRPC, REST, blocks, state, execution"]
   move["Move Contract\nloan book, treasury, rewards,\nstaking, governance"]
   postgres["Postgres\nbackend mirror data"]

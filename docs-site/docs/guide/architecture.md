@@ -4,7 +4,7 @@ LendPay is split into four practical layers.
 
 ## Visual Overview
 
-<figure class="docs-diagram docs-diagram--wide">
+<figure class="docs-diagram">
   <ArchitectureStackMermaid />
   <figcaption>
     The stack has one user-facing layer, one normalization and policy layer, one runtime layer, and one protocol-logic layer.
@@ -13,7 +13,7 @@ LendPay is split into four practical layers.
 
 ## Borrower Flow
 
-<figure class="docs-diagram docs-diagram--wide">
+<figure class="docs-diagram">
   <BorrowerFlowMermaid />
   <figcaption>
     The product should stay legible as one clean borrower path first: connect, authenticate, refresh profile, request credit, use it in an app, then repay and earn stronger access.
@@ -36,7 +36,7 @@ See [Frontend](/app/frontend) for details.
 
 ## Backend
 
-The backend is a TypeScript service built with Fastify.
+The backend is a Go service built around the `backend-go/` runtime.
 
 It handles:
 
