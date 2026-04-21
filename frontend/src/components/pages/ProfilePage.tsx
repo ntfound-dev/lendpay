@@ -66,21 +66,27 @@ export function ProfilePage({
   usernameVerified,
   usernameVerifiedOnL1,
 }: ProfilePageProps) {
+  const hasConnectedWallet = Boolean(initiaAddress)
+  const hasDetectedUsername = Boolean(username)
+  const hasVerifiedIdentity = usernameVerified || usernameAttestedOnRollup || usernameVerifiedOnL1
   const avatarLabel =
-    (username || 'Z2')
+    (username || initiaAddress || 'Z2')
       .replace('.init', '')
       .replace(/[^a-zA-Z0-9]/g, '')
       .slice(0, 2)
       .toUpperCase() || 'Z2'
-  const hasWalletOnlyUsername = Boolean(username && !usernameVerified && !usernameSource)
-  const linkedIdentityLabel = usernameVerified
+  const hasWalletOnlyUsername = Boolean(username && !hasVerifiedIdentity && !usernameSource)
+  const shouldOfferIdentityRefresh = hasConnectedWallet && (!hasVerifiedIdentity || !usernameAttestedOnRollup)
+  const linkedIdentityLabel = hasVerifiedIdentity
     ? score?.signals?.username ?? username ?? 'Not available yet'
     : username
       ? username
-      : 'Wallet only'
+      : hasConnectedWallet
+        ? 'Wallet connected'
+        : 'Not connected'
   const identityBadgeTone =
-    usernameVerified ? 'success' : hasWalletOnlyUsername ? 'info' : username ? 'warning' : 'warning'
-  const identityBadgeLabel = usernameVerified
+    hasVerifiedIdentity ? 'success' : hasWalletOnlyUsername || hasConnectedWallet ? 'info' : 'warning'
+  const identityBadgeLabel = hasVerifiedIdentity
     ? usernameAttestedOnRollup && usernameVerifiedOnL1
       ? 'L1 + rollup verified'
       : usernameAttestedOnRollup
@@ -94,15 +100,21 @@ export function ProfilePage({
         ? 'Preview username'
         : username
           ? 'Unverified'
-          : 'Not linked'
+          : hasConnectedWallet
+            ? 'Wallet connected'
+            : 'Not linked'
   const identityActionLabel =
-    hasWalletOnlyUsername || usernameSource === 'preview' ? 'Check live identity' : 'Refresh identity status'
+    hasWalletOnlyUsername || usernameSource === 'preview' || !hasDetectedUsername
+      ? 'Check live identity'
+      : 'Refresh identity status'
   const identityActionHint = hasWalletOnlyUsername
     ? 'This re-checks whether the same wallet has already been verified by Initia or attested on the LendPay rollup.'
+    : hasConnectedWallet && !hasDetectedUsername
+      ? 'This re-checks whether the connected wallet already has a live Initia or rollup identity linked to it.'
     : usernameSource === 'preview'
       ? 'This clears preview identity data and re-checks live Initia or rollup identity status for the connected wallet.'
       : 'Use this to re-check live Initia or rollup identity status for the connected wallet.'
-  const identitySubline = usernameVerified
+  const identitySubline = hasVerifiedIdentity
     ? usernameAttestedOnRollup && usernameVerifiedOnL1
       ? 'Verified on Initia L1 and attested into the LendPay rollup.'
       : usernameAttestedOnRollup
@@ -116,6 +128,8 @@ export function ProfilePage({
         ? 'This username came from preview mode and is not accepted as live identity.'
         : username
           ? 'Identity is present, but live verification is still missing.'
+          : hasConnectedWallet
+            ? 'Wallet is connected, but no live .init username has been verified for this address yet.'
           : 'Connect a wallet with a .init username to strengthen identity checks.'
 
   return (
@@ -244,7 +258,7 @@ export function ProfilePage({
               </div>
             </div>
 
-            {username && (!usernameVerified || !usernameAttestedOnRollup) ? (
+            {shouldOfferIdentityRefresh ? (
               <div className="card-action-row">
                 <Button onClick={handleRefreshUsernameVerification} disabled={isRefreshingUsername}>
                   {isRefreshingUsername ? 'Checking live identity...' : identityActionLabel}

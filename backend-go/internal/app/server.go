@@ -508,12 +508,12 @@ func (s *Server) handleGetUsername(w http.ResponseWriter, r *http.Request) {
 
 	profile := s.presentUserProfile(r.Context(), user)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"address":                 user.InitiaAddress,
-		"username":                profile.Username,
+		"address":                  user.InitiaAddress,
+		"username":                 profile.Username,
 		"usernameAttestedOnRollup": profile.UsernameAttestedOnRollup,
-		"usernameSource":          profile.UsernameSource,
-		"usernameVerified":        profile.UsernameVerified,
-		"usernameVerifiedOnL1":    profile.UsernameVerifiedOnL1,
+		"usernameSource":           profile.UsernameSource,
+		"usernameVerified":         profile.UsernameVerified,
+		"usernameVerifiedOnL1":     profile.UsernameVerifiedOnL1,
 	})
 }
 
@@ -1331,7 +1331,7 @@ func defaultMerchants() []merchantState {
 func (s *Server) presentUserProfile(ctx context.Context, row userRow) userProfile {
 	resolution, err := s.usernames.ResolveNameWithSource(ctx, row.InitiaAddress, s.cfg)
 	if err != nil {
-		return mapUserProfileWithResolution(row, &usernameResolution{Source: "rollup"})
+		return mapUserProfile(row)
 	}
 
 	return mapUserProfileWithResolution(row, &resolution)

@@ -8,57 +8,58 @@ import (
 )
 
 type Config struct {
-	AppEnv                   string
-	AIProvider               string
-	ApproveFunctionName      string
-	AuthAcceptAnySignature   bool
-	ConnectBaseCurrency      string
-	ConnectQuoteCurrency     string
-	ConnectRestURL           string
-	CORSOrigin               string
-	DatabaseURL              string
-	DirectDatabaseURL        string
-	EnableLiveInitiaReads    bool
-	EnableLiveRollupWrites   bool
-	FaucetClaimAmount        int
-	FaucetCooldownHours      int
-	InitiaL1RestURL          string
-	JWTSecret                string
-	JWTTTLSeconds            int
-	LendpayPackageAddress    string
-	LoanModuleName           string
-	MinitiadBin              string
-	MinievmChainID           string
-	MinievmChainName         string
-	MinievmLookupDenom       string
-	MinievmRestURL           string
-	OllamaBaseURL            string
-	OllamaModel              string
-	OllamaTemperature        float64
-	OllamaTimeoutMS          int
-	Port                     string
-	PreviewApprovalEnabled   bool
-	PreviewOperatorToken     string
-	RateLimitAIMaxRequests   int
-	RateLimitAuthMaxRequests int
-	RateLimitEnabled         bool
-	RateLimitGlobalMax       int
-	RateLimitMutationMax     int
-	RateLimitWindowMS        int
-	RollupChainID            string
-	RollupGasAdjustment      string
-	RollupGasPrices          string
-	RollupHome               string
-	RollupKeyName            string
-	RollupKeyringBackend     string
-	RollupNativeDecimals     int
-	RollupNativeDenom        string
-	RollupNativeSymbol       string
-	RollupOperatorMnemonic   string
-	PublicRollupRESTURL      string
-	PublicRollupRPCURL       string
-	RollupRESTURL            string
-	RollupRPCURL             string
+	AppEnv                       string
+	AIProvider                   string
+	ApproveFunctionName          string
+	AuthAcceptAnySignature       bool
+	ConnectBaseCurrency          string
+	ConnectQuoteCurrency         string
+	ConnectRestURL               string
+	CORSOrigin                   string
+	DatabaseURL                  string
+	DirectDatabaseURL            string
+	EnableLiveInitiaReads        bool
+	EnableLiveRollupWrites       bool
+	FaucetClaimAmount            int
+	FaucetCooldownHours          int
+	InitiaL1RestURL              string
+	InitiaUsernamesModuleAddress string
+	JWTSecret                    string
+	JWTTTLSeconds                int
+	LendpayPackageAddress        string
+	LoanModuleName               string
+	MinitiadBin                  string
+	MinievmChainID               string
+	MinievmChainName             string
+	MinievmLookupDenom           string
+	MinievmRestURL               string
+	OllamaBaseURL                string
+	OllamaModel                  string
+	OllamaTemperature            float64
+	OllamaTimeoutMS              int
+	Port                         string
+	PreviewApprovalEnabled       bool
+	PreviewOperatorToken         string
+	RateLimitAIMaxRequests       int
+	RateLimitAuthMaxRequests     int
+	RateLimitEnabled             bool
+	RateLimitGlobalMax           int
+	RateLimitMutationMax         int
+	RateLimitWindowMS            int
+	RollupChainID                string
+	RollupGasAdjustment          string
+	RollupGasPrices              string
+	RollupHome                   string
+	RollupKeyName                string
+	RollupKeyringBackend         string
+	RollupNativeDecimals         int
+	RollupNativeDenom            string
+	RollupNativeSymbol           string
+	RollupOperatorMnemonic       string
+	PublicRollupRESTURL          string
+	PublicRollupRPCURL           string
+	RollupRESTURL                string
+	RollupRPCURL                 string
 }
 
 func LoadConfig() Config {
@@ -71,21 +72,25 @@ func LoadConfig() Config {
 	rollupRPCURL := getEnv("ROLLUP_RPC_URL", "http://localhost:26657")
 
 	return Config{
-		ApproveFunctionName:      getEnv("APPROVE_FUNCTION_NAME", "approve_request"),
-		AppEnv:                   getEnv("APP_ENV", "development"),
-		AIProvider:               getEnv("AI_PROVIDER", "heuristic"),
-		AuthAcceptAnySignature:   getEnvBool("AUTH_ACCEPT_ANY_SIGNATURE", false),
-		ConnectBaseCurrency:      getEnv("CONNECT_BASE_CURRENCY", "INIT"),
-		ConnectQuoteCurrency:     getEnv("CONNECT_QUOTE_CURRENCY", "USD"),
-		ConnectRestURL:           getEnv("CONNECT_REST_URL", "https://rest.testnet.initia.xyz"),
-		CORSOrigin:               getEnv("CORS_ORIGIN", "*"),
-		DatabaseURL:              databaseURL,
-		DirectDatabaseURL:        directDatabaseURL,
-		EnableLiveInitiaReads:    getEnvBool("ENABLE_LIVE_INITIA_READS", false),
-		EnableLiveRollupWrites:   getEnvBool("ENABLE_LIVE_ROLLUP_WRITES", false),
-		FaucetClaimAmount:        getEnvInt("FAUCET_CLAIM_AMOUNT", 100000000),
-		FaucetCooldownHours:      getEnvInt("FAUCET_COOLDOWN_HOURS", 24),
-		InitiaL1RestURL:          getEnv("INITIA_L1_REST_URL", "https://rest.testnet.initia.xyz"),
+		ApproveFunctionName:    getEnv("APPROVE_FUNCTION_NAME", "approve_request"),
+		AppEnv:                 getEnv("APP_ENV", "development"),
+		AIProvider:             getEnv("AI_PROVIDER", "heuristic"),
+		AuthAcceptAnySignature: getEnvBool("AUTH_ACCEPT_ANY_SIGNATURE", false),
+		ConnectBaseCurrency:    getEnv("CONNECT_BASE_CURRENCY", "INIT"),
+		ConnectQuoteCurrency:   getEnv("CONNECT_QUOTE_CURRENCY", "USD"),
+		ConnectRestURL:         getEnv("CONNECT_REST_URL", "https://rest.testnet.initia.xyz"),
+		CORSOrigin:             getEnv("CORS_ORIGIN", "*"),
+		DatabaseURL:            databaseURL,
+		DirectDatabaseURL:      directDatabaseURL,
+		EnableLiveInitiaReads:  getEnvBool("ENABLE_LIVE_INITIA_READS", false),
+		EnableLiveRollupWrites: getEnvBool("ENABLE_LIVE_ROLLUP_WRITES", false),
+		FaucetClaimAmount:      getEnvInt("FAUCET_CLAIM_AMOUNT", 100000000),
+		FaucetCooldownHours:    getEnvInt("FAUCET_COOLDOWN_HOURS", 24),
+		InitiaL1RestURL:        getEnv("INITIA_L1_REST_URL", "https://rest.testnet.initia.xyz"),
+		InitiaUsernamesModuleAddress: getEnv(
+			"INITIA_USERNAMES_MODULE_ADDRESS",
+			defaultInitiaUsernamesModuleAddress(getEnv("INITIA_L1_REST_URL", "https://rest.testnet.initia.xyz")),
+		),
 		JWTSecret:                getEnv("JWT_SECRET", "change-me-now"),
 		JWTTTLSeconds:            getEnvInt("JWT_TTL_SECONDS", 60*60*24*7),
 		LendpayPackageAddress:    getEnv("LENDPAY_PACKAGE_ADDRESS", ""),
@@ -105,19 +110,19 @@ func LoadConfig() Config {
 		RateLimitAIMaxRequests:   getEnvInt("RATE_LIMIT_AI_MAX_REQUESTS", 10),
 		RateLimitAuthMaxRequests: getEnvInt("RATE_LIMIT_AUTH_MAX_REQUESTS", 20),
 		RateLimitEnabled:         getEnvBool("RATE_LIMIT_ENABLED", true),
-			RateLimitGlobalMax:       getEnvInt("RATE_LIMIT_GLOBAL_MAX_REQUESTS", 240),
-			RateLimitMutationMax:     getEnvInt("RATE_LIMIT_MUTATION_MAX_REQUESTS", 60),
-			RateLimitWindowMS:        getEnvInt("RATE_LIMIT_WINDOW_MS", 60000),
-			RollupChainID:            getEnv("ROLLUP_CHAIN_ID", "lendpay-4"),
-			RollupGasAdjustment:      getEnv("ROLLUP_GAS_ADJUSTMENT", "1.5"),
-			RollupGasPrices:          getEnv("ROLLUP_GAS_PRICES", "0.015ulend"),
-			RollupHome:               getEnv("ROLLUP_HOME", ""),
-			RollupKeyName:            getEnv("ROLLUP_KEY_NAME", ""),
-			RollupKeyringBackend:     getEnv("ROLLUP_KEYRING_BACKEND", "test"),
-			RollupNativeDecimals:     getEnvInt("ROLLUP_NATIVE_DECIMALS", 6),
-			RollupNativeDenom:        getEnv("ROLLUP_NATIVE_DENOM", "ulend"),
-			RollupNativeSymbol:       getEnv("ROLLUP_NATIVE_SYMBOL", "LEND"),
-			RollupOperatorMnemonic:   getEnv("ROLLUP_OPERATOR_MNEMONIC", ""),
+		RateLimitGlobalMax:       getEnvInt("RATE_LIMIT_GLOBAL_MAX_REQUESTS", 240),
+		RateLimitMutationMax:     getEnvInt("RATE_LIMIT_MUTATION_MAX_REQUESTS", 60),
+		RateLimitWindowMS:        getEnvInt("RATE_LIMIT_WINDOW_MS", 60000),
+		RollupChainID:            getEnv("ROLLUP_CHAIN_ID", "lendpay-4"),
+		RollupGasAdjustment:      getEnv("ROLLUP_GAS_ADJUSTMENT", "1.5"),
+		RollupGasPrices:          getEnv("ROLLUP_GAS_PRICES", "0.015ulend"),
+		RollupHome:               getEnv("ROLLUP_HOME", ""),
+		RollupKeyName:            getEnv("ROLLUP_KEY_NAME", ""),
+		RollupKeyringBackend:     getEnv("ROLLUP_KEYRING_BACKEND", "test"),
+		RollupNativeDecimals:     getEnvInt("ROLLUP_NATIVE_DECIMALS", 6),
+		RollupNativeDenom:        getEnv("ROLLUP_NATIVE_DENOM", "ulend"),
+		RollupNativeSymbol:       getEnv("ROLLUP_NATIVE_SYMBOL", "LEND"),
+		RollupOperatorMnemonic:   getEnv("ROLLUP_OPERATOR_MNEMONIC", ""),
 		PublicRollupRESTURL:      resolvePublicServiceURL(getEnv("PUBLIC_ROLLUP_REST_URL", ""), rollupRESTURL),
 		PublicRollupRPCURL:       resolvePublicServiceURL(getEnv("PUBLIC_ROLLUP_RPC_URL", ""), rollupRPCURL),
 		RollupRESTURL:            rollupRESTURL,
@@ -256,4 +261,13 @@ func resolvePublicServiceURL(explicitValue, configuredValue string) string {
 	}
 
 	return "https://" + serviceURL
+}
+
+func defaultInitiaUsernamesModuleAddress(restURL string) string {
+	normalized := strings.ToLower(strings.TrimSpace(restURL))
+	if strings.Contains(normalized, "testnet") || strings.Contains(normalized, "initiation-2") {
+		return "0x42cd8467b1c86e59bf319e5664a09b6b5840bb3fac64f5ce690b5041c530565a"
+	}
+
+	return ""
 }

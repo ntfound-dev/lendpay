@@ -368,13 +368,9 @@ func mapUserProfileWithResolution(row userRow, resolution *usernameResolution) u
 			value := strings.TrimSpace(resolution.Source)
 			usernameSource = &value
 		}
-		if resolution.Source == "rollup" {
-			usernameAttestedOnRollup = resolution.Verified
-		}
-		if resolution.Source == "initia_l1" {
-			usernameVerifiedOnL1 = resolution.Verified
-		}
-		usernameVerified = resolution.Verified
+		usernameAttestedOnRollup = resolution.VerifiedOnRollup
+		usernameVerifiedOnL1 = resolution.VerifiedOnL1
+		usernameVerified = resolution.Verified || resolution.VerifiedOnRollup || resolution.VerifiedOnL1
 		effectiveUsername = resolution.Username
 	} else if row.Username != nil && *row.Username != "" {
 		value := "preview"
