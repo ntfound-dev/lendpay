@@ -17,6 +17,22 @@ const toEncodeObject = (message: MsgExecute): EncodeObject => ({
   value: message.toProto(),
 })
 
+const encodeU64 = (value: bigint | number) => {
+  if (typeof value === 'bigint') {
+    if (value < 0n) {
+      throw new Error('u64 values must be non-negative.')
+    }
+
+    return bcs.u64().serialize(value).toBase64()
+  }
+
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error('u64 values must be a non-negative safe integer or bigint.')
+  }
+
+  return bcs.u64().serialize(BigInt(value)).toBase64()
+}
+
 const isRecord = (value: unknown): value is MoveExecuteValueRecord =>
   typeof value === 'object' && value !== null
 
@@ -181,7 +197,7 @@ export const createRepayInstallmentMessage = ({
   sender,
   functionName,
 }: {
-  loanId: number
+  loanId: bigint | number
   moduleAddress: string
   moduleName: string
   sender: string
@@ -189,7 +205,7 @@ export const createRepayInstallmentMessage = ({
 }) =>
   toEncodeObject(
     new MsgExecute(sender, moduleAddress, moduleName, functionName, [], [
-      bcs.u64().serialize(loanId).toBase64(),
+      encodeU64(loanId),
     ]),
   )
 
@@ -200,7 +216,7 @@ export const createCancelLoanRequestMessage = ({
   sender,
   functionName,
 }: {
-  requestId: number
+  requestId: bigint | number
   moduleAddress: string
   moduleName: string
   sender: string
@@ -208,7 +224,7 @@ export const createCancelLoanRequestMessage = ({
 }) =>
   toEncodeObject(
     new MsgExecute(sender, moduleAddress, moduleName, functionName, [], [
-      bcs.u64().serialize(requestId).toBase64(),
+      encodeU64(requestId),
     ]),
   )
 
@@ -241,7 +257,7 @@ export const createClaimViralDropCollectibleMessage = ({
   sender,
   functionName,
 }: {
-  purchaseId: number
+  purchaseId: bigint | number
   moduleAddress: string
   moduleName: string
   sender: string
@@ -249,7 +265,7 @@ export const createClaimViralDropCollectibleMessage = ({
 }) =>
   toEncodeObject(
     new MsgExecute(sender, moduleAddress, moduleName, functionName, [], [
-      bcs.u64().serialize(purchaseId).toBase64(),
+      encodeU64(purchaseId),
     ]),
   )
 

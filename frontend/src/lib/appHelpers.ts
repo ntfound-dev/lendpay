@@ -55,7 +55,18 @@ export const BADGE_COST = 1000
 export const WALLET_SIGN_IN_CANCELLED_MESSAGE =
   'Wallet sign-in was canceled. Continue when you are ready.'
 
-export const parseNumericId = (value?: string | null) => Number(value?.replace(/\D/g, '') || 0)
+export const parseNumericId = (value?: string | null) => {
+  const digits = value?.replace(/\D/g, '') ?? ''
+  if (!digits) {
+    return null
+  }
+
+  try {
+    return BigInt(digits)
+  } catch {
+    return null
+  }
+}
 
 export const sanitizeErrorMessage = (message: string) =>
   message
@@ -86,6 +97,14 @@ export const parseMoveAbort = (message: string) => {
 export const humanizeRepayError = (message: string) => {
   if (message.includes('does not exist on chain') || message.includes('account sequence')) {
     return `This wallet needs testnet ${appEnv.nativeSymbol} before it can sign a repayment. Claim faucet funds first.`
+  }
+
+  if (message.includes('does not expose a repay event for this loan')) {
+    return 'The repayment transaction landed, but it was not recognized as a payment for this loan. Refresh your account and try the repayment again.'
+  }
+
+  if (message.includes('belongs to a different loan')) {
+    return 'The repayment transaction was confirmed for a different loan id than the one shown in the app. Refresh your account and try again.'
   }
 
   const moveAbort = parseMoveAbort(message)
