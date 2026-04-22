@@ -6,10 +6,10 @@
   "vm": "MoveVM",
   "summary": "LendPay is an Initia MiniMove appchain for agent-guided credit across Initia apps. It combines .init identity, AI-assisted underwriting, live viral drop usage, and installment repayment in one internal flow.",
   "repository_url": "https://github.com/ntfound-dev/lendpay",
-  "demo_video_url": "",
+  "demo_video_url": "https://www.youtube.com/watch?v=0vaRIwbt7kg",
   "deployment": {
     "rollup_chain_id": "lendpay-4",
-    "deployment_tx_url": "",
+    "deployment_tx_url": "https://lendpay.vercel.app/scan.html?tx=F93B0FA4D598833E7664DE8F0A88B5DCC7F921D2CB0EFB3F0C3D95C2D1D66D78",
     "deployment_url": "https://lendpay.vercel.app/"
   },
   "public_urls": {
@@ -49,6 +49,7 @@
     "submission_json_path": ".initia/submission.json"
   },
   "notes": [
+    "Public URLs in this submission are public pre-production demo deployments, not a final production release",
     "Package address: 0x5972A1C7118A8977852DC3307621535D5C1CDA63",
     "Native rollup asset: LEND (internal base denom: ulend)",
     "Deploy tx hash on lendpay-4: F93B0FA4D598833E7664DE8F0A88B5DCC7F921D2CB0EFB3F0C3D95C2D1D66D78",

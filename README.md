@@ -136,11 +136,14 @@ make logs
 - rollup RPC: `http://localhost:26657`
 - rollup REST: `http://localhost:1317`
 
-## Production URLs
+## Public Pre-Production URLs
 
 - app: `https://lendpay.vercel.app/`
 - explorer: `https://lendpay.vercel.app/scan.html`
 - docs: `https://lendpay-docs.vercel.app/`
+
+These URLs are public demo or pre-production surfaces.
+Some backend-admin flows and the final `LEND -> MiniEVM` sell path still remain in preview until the missing live mapping and write paths are fully ready.
 
 ## Local Demo Flow
 
