@@ -76,7 +76,7 @@ Supporting modules:
 - `backend-go/internal/app/minievm_client.go`
   MiniEVM metadata lookups.
 - `backend-go/internal/app/usernames_client.go`
-  Initia username integration.
+  Initia username integration and refresh-time rollup attestation when live operator writes are enabled.
 - `backend-go/internal/app/ollama_client.go`
   AI provider status integration.
 - `backend-go/internal/app/models.go`

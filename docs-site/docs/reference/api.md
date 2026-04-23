@@ -284,6 +284,8 @@ Use it when you only need lightweight username status instead of the full profil
 
 Forces a fresh username refresh from the configured identity sources.
 
+When live rollup writes are enabled and the connected wallet already resolves to a live `.init` on Initia L1, this route also tries to attest that username into the LendPay rollup reputation state before returning the refreshed profile.
+
 Use it after:
 
 - a new `.init` name was set

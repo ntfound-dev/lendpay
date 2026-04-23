@@ -2402,7 +2402,7 @@ function App() {
       let tone: 'success' | 'warning' | 'info' = 'info'
       let title = 'No L1 username or rollup attestation'
       let message =
-        'LendPay checked both Initia L1 and the rollup reputation state but could not find a live identity for this wallet yet.'
+        'LendPay checked the exact connected wallet address on Initia L1 and in the rollup reputation state, but could not find a live identity for this wallet yet.'
 
       if (hasRollupIdentity && hasL1Identity) {
         tone = 'success'
@@ -2423,7 +2423,7 @@ function App() {
         tone = 'warning'
         title = 'Username detected, not live yet'
         message =
-          'A username is visible locally for this wallet, but no live Initia L1 verification or rollup attestation was found yet.'
+          'A username is visible locally for this wallet, but no live Initia L1 verification or rollup attestation was found for this exact connected address yet.'
       }
 
       showToast({

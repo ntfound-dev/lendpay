@@ -524,7 +524,7 @@ func (s *Server) handleRefreshUsername(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	refreshed, appErr := s.syncUsername(r.Context(), user)
+	refreshed, appErr := s.refreshLiveIdentity(r.Context(), user)
 	if appErr != nil {
 		writeAppError(w, appErr)
 		return
@@ -1405,6 +1405,15 @@ func (s *Server) syncUsername(ctx context.Context, user userRow) (userRow, *appE
 		return user, nil
 	}
 
+	return s.syncUsernameWithResolution(ctx, user, resolution)
+}
+
+func (s *Server) syncUsernameWithResolution(
+	ctx context.Context,
+	user userRow,
+	resolution usernameResolution,
+) (userRow, *appError) {
+
 	resolvedUsername := ""
 	if resolution.Username != nil {
 		resolvedUsername = strings.TrimSpace(*resolution.Username)
@@ -1440,6 +1449,127 @@ func (s *Server) syncUsername(ctx context.Context, user userRow) (userRow, *appE
 	}
 
 	return row, nil
+}
+
+func moveAddressHexLiteral(value string) (string, error) {
+	addressBytes, err := decodeInitiaAddressBytes(value)
+	if err != nil {
+		return "", err
+	}
+
+	return "0x" + hex.EncodeToString(addressBytes), nil
+}
+
+func moveVectorU8Literal(value string) string {
+	raw := []byte(strings.TrimSpace(value))
+	if len(raw) == 0 {
+		return ""
+	}
+
+	values := make([]string, 0, len(raw))
+	for _, item := range raw {
+		values = append(values, strconv.Itoa(int(item)))
+	}
+
+	return strings.Join(values, ",")
+}
+
+func (s *Server) attestUsernameOnRollup(ctx context.Context, borrowerAddress, username string) (string, error) {
+	if !s.liveRollupWritesEnabled() {
+		return "", fmt.Errorf("live rollup writes are not enabled")
+	}
+
+	borrowerHex, err := moveAddressHexLiteral(borrowerAddress)
+	if err != nil {
+		return "", err
+	}
+
+	usernameLiteral := moveVectorU8Literal(username)
+	if usernameLiteral == "" {
+		return "", fmt.Errorf("username literal is empty")
+	}
+
+	args := []string{
+		"tx", "move", "execute",
+		s.cfg.LendpayPackageAddress,
+		"reputation",
+		"attest_username",
+		"--args",
+		fmt.Sprintf("[\"address:%s\", \"vector<u8>:%s\"]", borrowerHex, usernameLiteral),
+	}
+
+	if home := strings.TrimSpace(s.cfg.RollupHome); home != "" {
+		args = append(args, "--home", home)
+	}
+
+	args = append(
+		args,
+		"--from", s.cfg.RollupKeyName,
+		"--keyring-backend", s.cfg.RollupKeyringBackend,
+		"--node", s.cfg.RollupRPCURL,
+		"--chain-id", s.cfg.RollupChainID,
+		"--gas", "auto",
+		"--gas-adjustment", s.cfg.RollupGasAdjustment,
+		"--gas-prices", s.cfg.RollupGasPrices,
+		"--yes",
+		"--output", "json",
+	)
+
+	result, err := s.runMinitiadTx(ctx, args...)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(result.TxHash) == "" {
+		return "", fmt.Errorf("username attestation did not return a tx hash")
+	}
+	if result.Code != 0 {
+		return "", fmt.Errorf("username attestation failed with code %d", result.Code)
+	}
+
+	return strings.TrimSpace(result.TxHash), nil
+}
+
+func (s *Server) refreshLiveIdentity(ctx context.Context, user userRow) (userRow, *appError) {
+	resolution, err := s.usernames.ResolveNameWithSource(ctx, user.InitiaAddress, s.cfg)
+	if err != nil {
+		return user, nil
+	}
+
+	if resolution.VerifiedOnL1 && !resolution.VerifiedOnRollup && resolution.Username != nil && s.liveRollupWritesEnabled() {
+		txHash, attestErr := s.attestUsernameOnRollup(ctx, user.InitiaAddress, *resolution.Username)
+		if attestErr != nil {
+			log.Printf(
+				"[identity] username attestation failed address=%s username=%s err=%v",
+				user.InitiaAddress,
+				strings.TrimSpace(*resolution.Username),
+				attestErr,
+			)
+		} else {
+			if _, appErr := s.waitForTxConfirmation(ctx, txHash); appErr != nil {
+				log.Printf(
+					"[identity] username attestation confirmation pending address=%s username=%s tx=%s err=%v",
+					user.InitiaAddress,
+					strings.TrimSpace(*resolution.Username),
+					txHash,
+					appErr,
+				)
+			} else {
+				_ = s.pushActivity(ctx, user.InitiaAddress, activityItem{
+					ID:        createID("activity"),
+					Kind:      "identity",
+					Label:     "Identity attested",
+					Detail:    fmt.Sprintf("%s was verified on Initia L1 and attested into the LendPay rollup.", strings.TrimSpace(*resolution.Username)),
+					Timestamp: isoTime(time.Now().UTC()),
+				})
+				refreshedResolution, refreshedErr := s.usernames.ResolveNameWithSource(ctx, user.InitiaAddress, s.cfg)
+				if refreshedErr == nil {
+					resolution = refreshedResolution
+				}
+			}
+		}
+	}
+
+	return s.syncUsernameWithResolution(ctx, user, resolution)
 }
 
 func (s *Server) findUserByAddress(ctx context.Context, address string) (userRow, error) {

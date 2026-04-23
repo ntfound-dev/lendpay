@@ -110,10 +110,10 @@ export function ProfilePage({
   const identityActionHint = usernameSource === 'preview'
     ? 'This clears preview identity data and re-checks both the live Initia L1 username module and the LendPay rollup reputation state for the connected wallet.'
     : hasL1Identity && !hasRollupIdentity
-      ? 'This re-checks whether the live .init already found on Initia L1 is now attested inside the LendPay rollup. It does not create a new attestation.'
+      ? 'This re-checks whether the live .init already found on Initia L1 is now attested inside the LendPay rollup. On live backends, LendPay also tries to write the missing attestation automatically.'
       : hasRollupIdentity && !hasL1Identity
         ? 'This re-checks whether the username already attested inside the LendPay rollup can also be resolved from the live Initia L1 username module.'
-        : 'This checks two identity layers for the connected wallet: the live Initia L1 username module and the LendPay rollup reputation state.'
+        : 'This checks two identity layers for the exact connected wallet address: the live Initia L1 username module and the LendPay rollup reputation state.'
   const identitySubline = hasVerifiedIdentity
     ? hasRollupIdentity && hasL1Identity
       ? 'Verified on Initia L1 and attested into the LendPay rollup.'
@@ -132,7 +132,7 @@ export function ProfilePage({
             ? 'Wallet is connected, but no live .init username or rollup attestation was found for this wallet yet.'
             : 'Connect a wallet with a .init username to strengthen identity checks.'
   const identityLayerHint = hasConnectedWallet
-    ? '.init usernames live on Initia L1. LendPay uses the rollup reputation state as a separate attestation layer for borrower checks.'
+    ? '.init usernames live on Initia L1. LendPay checks the exact connected wallet address on L1, then uses the rollup reputation state as a separate attestation layer. If your .init lives on a different L1 account, this wallet will still show Not found yet. When L1 verification is found for this same address, refresh can also promote it into rollup attestation on live backends.'
     : 'Connect a wallet to check Initia L1 username status and LendPay rollup attestation.'
 
   return (
