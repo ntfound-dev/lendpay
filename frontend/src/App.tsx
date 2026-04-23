@@ -102,6 +102,7 @@ import { MobileNav } from './components/layout/MobileNav'
 import { Button } from './components/ui/Button'
 import { Card } from './components/ui/Card'
 import { AgentPanel, type AgentPanelTone } from './components/shared/AgentPanel'
+import { BorrowerLoadingCard } from './components/shared/BorrowerLoadingCard'
 import { EmptyState } from './components/shared/EmptyState'
 import { OverviewPage } from './components/pages/OverviewPage'
 import { ProfilePage, type ScoreBreakdownRow } from './components/pages/ProfilePage'
@@ -5445,13 +5446,7 @@ function App() {
             ) : null}
 
             {isInitialDataLoading ? (
-              <Card eyebrow="Syncing account" title="Loading your live borrower data" className="section-stack">
-                <div className="skeleton-stack" aria-hidden="true">
-                  <div className="skeleton-bar" />
-                  <div className="skeleton-bar" />
-                  <div className="skeleton-bar" />
-                </div>
-              </Card>
+              <BorrowerLoadingCard />
             ) : null}
 
             {hasInitialLoadError ? (
