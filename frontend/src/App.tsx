@@ -2398,29 +2398,38 @@ function App() {
       const liveIdentity = syncedState.profile
       const hasRollupIdentity = liveIdentity.usernameAttestedOnRollup
       const hasL1Identity = liveIdentity.usernameVerifiedOnL1
-      const hasVerifiedIdentity = liveIdentity.usernameVerified
       const hasDetectedUsername = Boolean(liveIdentity.username)
+      let tone: 'success' | 'warning' | 'info' = 'info'
+      let title = 'No L1 username or rollup attestation'
+      let message =
+        'LendPay checked both Initia L1 and the rollup reputation state but could not find a live identity for this wallet yet.'
+
+      if (hasRollupIdentity && hasL1Identity) {
+        tone = 'success'
+        title = '.init verified on L1 + rollup'
+        message =
+          'LendPay confirmed this username on Initia L1 and in the rollup reputation state.'
+      } else if (hasL1Identity) {
+        tone = 'success'
+        title = '.init found on Initia L1'
+        message =
+          'LendPay found a live .init username on Initia L1 for this wallet, but the rollup reputation state does not show an attestation yet.'
+      } else if (hasRollupIdentity) {
+        tone = 'success'
+        title = 'Identity attested on rollup'
+        message =
+          'LendPay found a username attestation in the rollup reputation state, but no live .init username was resolved on Initia L1 for this wallet.'
+      } else if (hasDetectedUsername) {
+        tone = 'warning'
+        title = 'Username detected, not live yet'
+        message =
+          'A username is visible locally for this wallet, but no live Initia L1 verification or rollup attestation was found yet.'
+      }
 
       showToast({
-        tone: hasVerifiedIdentity ? 'success' : hasDetectedUsername ? 'warning' : 'info',
-        title: hasVerifiedIdentity
-          ? hasRollupIdentity && hasL1Identity
-            ? '.init verified on L1 + rollup'
-            : hasRollupIdentity
-              ? 'Identity attested on rollup'
-              : 'Identity verified'
-          : hasDetectedUsername
-            ? 'Username detected but not verified'
-            : 'No live identity found',
-        message: hasVerifiedIdentity
-          ? hasRollupIdentity && hasL1Identity
-            ? 'LendPay confirmed this username on Initia L1 and in the rollup reputation state.'
-            : hasRollupIdentity
-              ? 'LendPay found this username in the live rollup reputation state.'
-              : 'LendPay confirmed a live identity signal for this wallet.'
-          : hasDetectedUsername
-            ? 'A username is visible for this wallet, but LendPay could not verify or attest it in live protocol state yet.'
-            : 'LendPay could not find a live Initia or rollup identity for this wallet yet.',
+        tone,
+        title,
+        message,
       })
     } catch (error) {
       showToast({
@@ -2428,7 +2437,7 @@ function App() {
         title: 'Identity refresh incomplete',
         message: getErrorMessage(
           error,
-          'LendPay could not re-check live Initia or rollup identity status right now.',
+          'LendPay could not re-check Initia L1 and rollup identity status right now.',
         ),
       })
     } finally {

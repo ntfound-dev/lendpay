@@ -68,7 +68,9 @@ export function ProfilePage({
 }: ProfilePageProps) {
   const hasConnectedWallet = Boolean(initiaAddress)
   const hasDetectedUsername = Boolean(username)
-  const hasVerifiedIdentity = usernameVerified || usernameAttestedOnRollup || usernameVerifiedOnL1
+  const hasL1Identity = usernameVerifiedOnL1 || usernameSource === 'initia_l1'
+  const hasRollupIdentity = usernameAttestedOnRollup
+  const hasVerifiedIdentity = usernameVerified || hasRollupIdentity || hasL1Identity
   const avatarLabel =
     (username || initiaAddress || 'Z2')
       .replace('.init', '')
@@ -87,11 +89,11 @@ export function ProfilePage({
   const identityBadgeTone =
     hasVerifiedIdentity ? 'success' : hasWalletOnlyUsername || hasConnectedWallet ? 'info' : 'warning'
   const identityBadgeLabel = hasVerifiedIdentity
-    ? usernameAttestedOnRollup && usernameVerifiedOnL1
+    ? hasRollupIdentity && hasL1Identity
       ? 'L1 + rollup verified'
-      : usernameAttestedOnRollup
+      : hasRollupIdentity
         ? 'Verified on rollup'
-        : usernameVerifiedOnL1 || usernameSource === 'initia_l1'
+        : hasL1Identity
           ? 'Verified on Initia L1'
           : 'Verified identity'
     : hasWalletOnlyUsername
@@ -104,33 +106,34 @@ export function ProfilePage({
             ? 'Wallet connected'
             : 'Not linked'
   const identityActionLabel =
-    hasWalletOnlyUsername || usernameSource === 'preview' || !hasDetectedUsername
-      ? 'Check live identity'
-      : 'Refresh identity status'
-  const identityActionHint = hasWalletOnlyUsername
-    ? 'This re-checks whether the same wallet has already been verified by Initia or attested on the LendPay rollup.'
-    : hasConnectedWallet && !hasDetectedUsername
-      ? 'This re-checks whether the connected wallet already has a live Initia or rollup identity linked to it.'
-    : usernameSource === 'preview'
-      ? 'This clears preview identity data and re-checks live Initia or rollup identity status for the connected wallet.'
-      : 'Use this to re-check live Initia or rollup identity status for the connected wallet.'
+    hasVerifiedIdentity || hasDetectedUsername ? 'Re-check L1 + rollup' : 'Check L1 + rollup'
+  const identityActionHint = usernameSource === 'preview'
+    ? 'This clears preview identity data and re-checks both the live Initia L1 username module and the LendPay rollup reputation state for the connected wallet.'
+    : hasL1Identity && !hasRollupIdentity
+      ? 'This re-checks whether the live .init already found on Initia L1 is now attested inside the LendPay rollup. It does not create a new attestation.'
+      : hasRollupIdentity && !hasL1Identity
+        ? 'This re-checks whether the username already attested inside the LendPay rollup can also be resolved from the live Initia L1 username module.'
+        : 'This checks two identity layers for the connected wallet: the live Initia L1 username module and the LendPay rollup reputation state.'
   const identitySubline = hasVerifiedIdentity
-    ? usernameAttestedOnRollup && usernameVerifiedOnL1
+    ? hasRollupIdentity && hasL1Identity
       ? 'Verified on Initia L1 and attested into the LendPay rollup.'
-      : usernameAttestedOnRollup
-        ? 'Identity is attested inside the LendPay rollup and ready for app credit.'
-        : usernameVerifiedOnL1 || usernameSource === 'initia_l1'
-          ? 'Identity is verified on Initia L1 and ready for borrower checks.'
+      : hasRollupIdentity
+        ? 'Identity is attested inside the LendPay rollup. A live Initia L1 .init lookup has not been confirmed for this wallet yet.'
+        : hasL1Identity
+          ? 'A live .init username was found on Initia L1, but the LendPay rollup does not show an attestation for this wallet yet.'
           : 'Identity verified and ready for Initia app credit.'
     : hasWalletOnlyUsername
-      ? 'Username detected in the connected wallet, but LendPay has not verified it onchain yet.'
+      ? 'Username detected in the connected wallet, but no live Initia L1 verification or rollup attestation was found yet.'
       : usernameSource === 'preview'
         ? 'This username came from preview mode and is not accepted as live identity.'
         : username
-          ? 'Identity is present, but live verification is still missing.'
+          ? 'Identity is present, but no live Initia L1 verification or rollup attestation was found yet.'
           : hasConnectedWallet
-            ? 'Wallet is connected, but no live .init username has been verified for this address yet.'
-          : 'Connect a wallet with a .init username to strengthen identity checks.'
+            ? 'Wallet is connected, but no live .init username or rollup attestation was found for this wallet yet.'
+            : 'Connect a wallet with a .init username to strengthen identity checks.'
+  const identityLayerHint = hasConnectedWallet
+    ? '.init usernames live on Initia L1. LendPay uses the rollup reputation state as a separate attestation layer for borrower checks.'
+    : 'Connect a wallet to check Initia L1 username status and LendPay rollup attestation.'
 
   return (
     <>
@@ -268,6 +271,27 @@ export function ProfilePage({
                 </span>
               </div>
             ) : null}
+
+            <div className="summary">
+              <div className="summary-row">
+                <span>Initia L1 username</span>
+                <strong>
+                  {hasL1Identity ? 'Live .init found' : hasConnectedWallet ? 'Not found yet' : 'Not checked'}
+                </strong>
+              </div>
+              <div className="summary-row">
+                <span>Rollup attestation</span>
+                <strong>
+                  {hasRollupIdentity
+                    ? 'Attested'
+                    : hasConnectedWallet
+                      ? 'Not attested yet'
+                      : 'Not checked'}
+                </strong>
+              </div>
+            </div>
+
+            <p className="muted-copy">{identityLayerHint}</p>
 
             <div className="profile-identity-card__wallet">
               <span>Wallet address</span>
