@@ -5,6 +5,8 @@ on:
     branches:
       - main
     paths:
+      - "Dockerfile"
+      - "railway.json"
       - "backend-go/**"
       - "deploy/railway/backend/**"
       - "deploy/railway/deploy/**"

@@ -280,6 +280,8 @@ make down
 
 Primary backend deploy files:
 
+- Fallback repo-root Dockerfile: [`/Dockerfile`](../Dockerfile)
+- Fallback repo-root Railway config: [`/railway.json`](../railway.json)
 - Dockerfile: [`backend-go/Dockerfile`](./Dockerfile)
 - Railway config: [`backend-go/railway.json`](./railway.json)
 
@@ -287,6 +289,10 @@ Monorepo deploy note:
 
 - this repository contains multiple app surfaces, so the Railway backend service must point at `backend-go/`
 - if Railway still shows old Node or Prisma startup logs, that service is still deploying the retired backend and not this Go service
+- zero-config fallback from the repo root now works if Railway simply detects the repo-root Dockerfile:
+  Root Directory: leave empty
+  Dockerfile Path: `Dockerfile`
+  Config-as-code: `/railway.json`
 - preferred Railway setup without relying on Root Directory:
   Root Directory: leave empty
   Builder: `Dockerfile`

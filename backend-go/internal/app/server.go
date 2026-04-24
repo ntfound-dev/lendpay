@@ -654,7 +654,7 @@ func (s *Server) handleClaimFaucet(w http.ResponseWriter, r *http.Request) {
 		"faucet_claim",
 		"wallet",
 		user.InitiaAddress,
-		fmt.Sprintf("Preview faucet claim for %s %s", formatTokenAmount(s.cfg.FaucetClaimAmount, s.cfg.RollupNativeDecimals), s.cfg.RollupNativeSymbol),
+		fmt.Sprintf("Preview faucet claim for %d %s", s.cfg.FaucetClaimAmount, s.cfg.RollupNativeSymbol),
 		txHash,
 		"preview",
 		now,

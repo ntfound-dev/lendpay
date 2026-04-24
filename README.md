@@ -206,11 +206,18 @@ The frontend already includes [frontend/vercel.json](./frontend/vercel.json).
 
 The backend now ships from:
 
+- [Dockerfile](./Dockerfile)
+- [railway.json](./railway.json)
 - [backend-go/Dockerfile](./backend-go/Dockerfile)
 - [backend-go/railway.json](./backend-go/railway.json)
 
 Railway monorepo note:
 
+- zero-config fallback from the repo root now works:
+  Root Directory: leave empty
+  Builder: `Dockerfile`
+  Dockerfile Path: `Dockerfile`
+  Config-as-code: `/railway.json`
 - preferred Railway UI values for the backend service:
   Root Directory: leave empty
   Builder: `Dockerfile`
