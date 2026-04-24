@@ -498,6 +498,25 @@ func ternaryString(condition bool, whenTrue, whenFalse string) string {
 	return whenFalse
 }
 
+// formatTokenAmount converts an integer micro-unit amount to a human-readable
+// decimal string using the given number of decimal places.
+// For example, formatTokenAmount(1500000, 6) returns "1.500000".
+func formatTokenAmount(amount int, decimals int) string {
+	if decimals <= 0 {
+		return fmt.Sprintf("%d", amount)
+	}
+	divisor := 1
+	for i := 0; i < decimals; i++ {
+		divisor *= 10
+	}
+	whole := amount / divisor
+	frac := amount % divisor
+	if frac < 0 {
+		frac = -frac
+	}
+	return fmt.Sprintf("%d.%0*d", whole, decimals, frac)
+}
+
 func deriveTier(points int) string {
 	switch {
 	case points >= 10000:
