@@ -1795,12 +1795,7 @@ function App() {
     route: LendLiquidityRouteState
   }) => {
     markInterwovenDrawerExpected()
-    openBridge({
-      srcDenom: route.assetDenom,
-      dstChainId: route.destinationChainId,
-      dstDenom: route.destinationDenom || route.assetDenom,
-      recipient,
-    })
+    openBridge({ recipient })
 
     const bridgeStepLabel = route.liquidityVenue
       ? `Continue in Interwoven Bridge, then move to ${route.liquidityVenue}${route.poolReference ? ` (${route.poolReference})` : ''} for the sell step.`
