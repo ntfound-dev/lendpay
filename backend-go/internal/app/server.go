@@ -1110,7 +1110,7 @@ func (s *Server) handleGetLendLiquidityRoute(w http.ResponseWriter, r *http.Requ
 	erc20Address := s.minievm.GetContractByDenom(r.Context(), lookupDenom)
 	routeMode := "preview"
 	routeStatus := "mapping_required"
-	if erc20Address != nil {
+	if erc20Address != nil || s.cfg.BridgeForceLive {
 		routeMode = "live"
 		routeStatus = "mapped"
 	}

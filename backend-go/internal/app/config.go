@@ -31,6 +31,7 @@ type Config struct {
 	MinitiadBin                  string
 	MinievmChainID               string
 	MinievmChainName             string
+	BridgeForceLive              bool
 	MinievmLookupDenom           string
 	MinievmRestURL               string
 	OllamaBaseURL                string
@@ -96,6 +97,7 @@ func LoadConfig() Config {
 		LendpayPackageAddress:    getEnv("LENDPAY_PACKAGE_ADDRESS", ""),
 		LoanModuleName:           getEnv("LOAN_MODULE_NAME", "loan_book"),
 		MinitiadBin:              getEnv("MINITIAD_BIN", "minitiad"),
+		BridgeForceLive:          getEnvBool("BRIDGE_FORCE_LIVE", false),
 		MinievmChainID:           getEnv("MINIEVM_CHAIN_ID", "evm-1"),
 		MinievmChainName:         getEnv("MINIEVM_CHAIN_NAME", "Initia MiniEVM"),
 		MinievmLookupDenom:       getEnv("MINIEVM_LOOKUP_DENOM", ""),
