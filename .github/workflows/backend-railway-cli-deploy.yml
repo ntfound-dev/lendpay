@@ -58,6 +58,7 @@ jobs:
           cp -R backend-go "$deploy_root/"
           cp -R deploy/railway/backend "$deploy_root/deploy/railway/"
           cp -R deploy/railway/deploy "$deploy_root/deploy/railway/"
+          cp deploy/railway/backend/railway.json "$deploy_root/railway.json"
 
           echo "DEPLOY_ROOT=$deploy_root" >> "$GITHUB_ENV"
 
