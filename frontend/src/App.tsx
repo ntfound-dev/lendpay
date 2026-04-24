@@ -1796,7 +1796,6 @@ function App() {
   }) => {
     markInterwovenDrawerExpected()
     openBridge({
-      srcChainId: route.sourceChainId,
       srcDenom: route.assetDenom,
       dstChainId: route.destinationChainId,
       dstDenom: route.destinationDenom || route.assetDenom,
