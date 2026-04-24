@@ -57,6 +57,8 @@ Archive URL notes:
 - do not paste a local filesystem path such as `/mnt/...`
 - do not wrap the URL in quotes
 - do not use a GitHub HTML page, Drive share page, or any non-direct download page
+- if you use a presigned S3-compatible URL, remember that `X-Amz-Expires=604800` means the link expires 7 days after `X-Amz-Date`
+- when a signed URL expires, re-upload the archive and update the Railway variable before redeploying
 
 Useful checks after deploy:
 

@@ -90,6 +90,7 @@ Railway deploy runtime staged.
 Important:
 - The staged home contains validator and node keys. Keep deploy/railway/deploy/runtime out of git.
 - For GitHub-based Railway builds, upload the archives somewhere private and set MINITIAD_ARCHIVE_URL and ROLLUP_HOME_SEED_ARCHIVE_URL in Railway.
+- If your storage provider returns signed URLs, refresh them before they expire. For example, X-Amz-Expires=604800 is only 7 days.
 - On Railway, attach a volume to /data and keep ROLLUP_HOME=/data/rollup-home.
 - Use the Dockerfile at deploy/railway/deploy/Dockerfile for the rollup service.
 EOF

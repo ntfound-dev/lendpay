@@ -40,6 +40,80 @@ is_valid_archive_url() {
   [[ "$url" =~ ^https?://[^[:space:]\'\"]+$ ]]
 }
 
+url_decode() {
+  local value="${1//+/ }"
+  printf '%b' "${value//%/\\x}"
+}
+
+query_param() {
+  local url="$1"
+  local key="$2"
+  local query pair name value
+  local -a pairs
+
+  query="${url#*\?}"
+  if [[ "$query" == "$url" ]]; then
+    return 1
+  fi
+
+  IFS='&' read -r -a pairs <<< "$query"
+  for pair in "${pairs[@]}"; do
+    name="${pair%%=*}"
+    value="${pair#*=}"
+    if [[ "$name" == "$key" ]]; then
+      url_decode "$value"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+presigned_url_expiry_epoch() {
+  local url="$1"
+  local amz_date expires issued_epoch
+
+  amz_date="$(query_param "$url" "X-Amz-Date" 2>/dev/null || true)"
+  expires="$(query_param "$url" "X-Amz-Expires" 2>/dev/null || true)"
+
+  if [[ ! "$amz_date" =~ ^[0-9]{8}T[0-9]{6}Z$ || ! "$expires" =~ ^[0-9]+$ ]]; then
+    return 1
+  fi
+
+  issued_epoch="$(date -u -d \
+    "${amz_date:0:4}-${amz_date:4:2}-${amz_date:6:2} ${amz_date:9:2}:${amz_date:11:2}:${amz_date:13:2} UTC" \
+    +%s 2>/dev/null || true)"
+
+  if [[ -z "$issued_epoch" ]]; then
+    return 1
+  fi
+
+  printf '%s\n' "$((issued_epoch + expires))"
+}
+
+print_signed_url_hint() {
+  local url="$1"
+  local expires_at now_epoch expires_utc
+
+  expires_at="$(presigned_url_expiry_epoch "$url" 2>/dev/null || true)"
+  if [[ -z "$expires_at" ]]; then
+    return
+  fi
+
+  expires_utc="$(date -u -d "@$expires_at" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || true)"
+  if [[ -z "$expires_utc" ]]; then
+    return
+  fi
+
+  now_epoch="$(date -u +%s)"
+  if (( now_epoch >= expires_at )); then
+    echo "The signed archive URL expired at $expires_utc." >&2
+    echo "Re-upload the archive and update the Railway variable with a fresh URL before redeploying." >&2
+  else
+    echo "The signed archive URL is valid until $expires_utc." >&2
+  fi
+}
+
 download_archive() {
   local url="$1"
   local destination="$2"
@@ -62,6 +136,7 @@ download_archive() {
 
   if ! curl -fsSL "$url" -o "$archive_tmp"; then
     echo "Failed to download $label from $url" >&2
+    print_signed_url_hint "$url"
     exit 1
   fi
 
