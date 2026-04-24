@@ -228,6 +228,9 @@ Railway monorepo note:
 - alternative if the service Root Directory is `backend-go`:
   Dockerfile Path: `Dockerfile`
   Config-as-code: `/backend-go/railway.json`
+- if you deploy `balanced-peace` via `.github/workflows/backend-railway-cli-deploy.yml`,
+  disable Railway's GitHub autodeploy for that same service to avoid duplicate snapshot
+  attempts against the monorepo
 - do not use `backend/Dockerfile`
 - if Railway logs show Prisma or `prisma.user.findUnique()`, you are still deploying the retired backend instead of the Go backend
 

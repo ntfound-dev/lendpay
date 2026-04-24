@@ -308,6 +308,10 @@ Monorepo deploy note:
   Root Directory: `backend-go`
   Dockerfile Path: `Dockerfile`
   Config-as-code: `/backend-go/railway.json`
+- if you deploy `balanced-peace` with the GitHub Actions workflow at
+  `.github/workflows/backend-railway-cli-deploy.yml`, turn off Railway's GitHub
+  autodeploy for that service so Railway does not create a second snapshot from the
+  monorepo on every push
 - do not use `backend/Dockerfile`
 - do not leave Root Directory empty while pointing at `backend-go/Dockerfile`, because that Dockerfile expects the build context to already be `backend-go/`
 - expected healthy Go startup logs include:

@@ -46,7 +46,7 @@ jobs:
 
       - name: Install Railway CLI
         if: ${{ env.RAILWAY_TOKEN != '' }}
-        run: npm install -g @railway/cli@4.38.0
+        run: npm install -g @railway/cli@4.42.0
 
       - name: Prepare backend deploy root
         if: ${{ env.RAILWAY_TOKEN != '' }}
@@ -60,15 +60,21 @@ jobs:
           cp -R deploy/railway/deploy "$deploy_root/deploy/railway/"
           cp deploy/railway/backend/railway.json "$deploy_root/railway.json"
 
+          echo "Prepared backend deploy root:"
+          find "$deploy_root" -maxdepth 4 -type f | sort
+
           echo "DEPLOY_ROOT=$deploy_root" >> "$GITHUB_ENV"
 
       - name: Deploy backend to Railway
         if: ${{ env.RAILWAY_TOKEN != '' }}
-        working-directory: ${{ env.DEPLOY_ROOT }}
+        working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
 
           railway up \
+            "$DEPLOY_ROOT" \
+            --path-as-root \
+            --verbose \
             -s "$RAILWAY_SERVICE" \
             -e "$RAILWAY_ENVIRONMENT" \
             -p "$RAILWAY_PROJECT_ID" \
