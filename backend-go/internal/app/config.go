@@ -51,6 +51,7 @@ type Config struct {
 	RollupHome               string
 	RollupKeyName            string
 	RollupKeyringBackend     string
+	RollupNativeDecimals     int
 	RollupNativeDenom        string
 	RollupNativeSymbol       string
 	RollupOperatorMnemonic   string
@@ -113,6 +114,7 @@ func LoadConfig() Config {
 		RollupHome:               getEnv("ROLLUP_HOME", ""),
 		RollupKeyName:            getEnv("ROLLUP_KEY_NAME", ""),
 		RollupKeyringBackend:     getEnv("ROLLUP_KEYRING_BACKEND", "test"),
+		RollupNativeDecimals:     getEnvInt("ROLLUP_NATIVE_DECIMALS", 6),
 		RollupNativeDenom:        getEnv("ROLLUP_NATIVE_DENOM", "ulend"),
 		RollupNativeSymbol:       getEnv("ROLLUP_NATIVE_SYMBOL", "LEND"),
 		RollupOperatorMnemonic:   getEnv("ROLLUP_OPERATOR_MNEMONIC", ""),
