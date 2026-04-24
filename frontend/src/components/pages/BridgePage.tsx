@@ -82,16 +82,15 @@ export function BridgePage({
               </div>
 
               <div className="bridge-route__connector" aria-hidden="true">
-                <div className="bridge-route__flow">
-                  <span className="bridge-route__flow-dot" />
-                  <span className="bridge-route__flow-dot" />
-                  <span className="bridge-route__flow-dot" />
-                </div>
                 <span className="bridge-route__connector-pill">Interwoven Bridge</span>
-                <div className="bridge-route__flow bridge-route__flow--bottom">
-                  <span className="bridge-route__flow-dot" />
-                  <span className="bridge-route__flow-dot" />
-                  <span className="bridge-route__flow-dot" />
+                <div className="bridge-route__line">
+                  <div className="bridge-route__particle" />
+                  <div className="bridge-route__particle bridge-route__particle--b" />
+                </div>
+                <div className="bridge-route__chevrons">
+                  <span className="bridge-route__chevron" />
+                  <span className="bridge-route__chevron" />
+                  <span className="bridge-route__chevron" />
                 </div>
               </div>
 
