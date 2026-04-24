@@ -2482,7 +2482,7 @@ function App() {
     if (!referral?.referralCode) return
 
     const inviteUrl = buildReferralInviteUrl(referral.referralCode)
-    const text = `I'm using LendPay — AI credit on Initia. Use my invite link to join with my referral code pre-filled: ${inviteUrl}`
+    const text = `I'm using LendPay — pay-later credit on Initia. Use my invite link to join with my referral code pre-filled: ${inviteUrl}`
 
     try {
       if (navigator.share) {
@@ -5294,7 +5294,7 @@ function App() {
                 <section className="lendpay-hero">
                   <div className="lendpay-hero__badge lendpay-hero__reveal lendpay-hero__reveal--1">
                     <span className="lendpay-hero__badge-dot" aria-hidden="true" />
-                    Built on Initia · MiniMove Rollup · AI-Powered
+                    DeFi · Built on Initia · MiniMove Rollup
                   </div>
                   <div
                     className="lendpay-hero__orbit-wrap lendpay-hero__reveal lendpay-hero__reveal--2"
@@ -5316,32 +5316,33 @@ function App() {
                   </div>
                   <h1 className="lendpay-hero__title">
                     <span className="lendpay-hero__title-line lendpay-hero__reveal lendpay-hero__reveal--3">
-                      Pay later across
+                      Pay later for
                     </span>
                     <span className="lendpay-hero__title-accent lendpay-hero__reveal lendpay-hero__reveal--4">
-                      every Initia app
+                      real Initia app usage
                     </span>
                   </h1>
                   <p className="lendpay-hero__subtitle lendpay-hero__reveal lendpay-hero__reveal--5">
-                    LendPay gives you a credit line based on your on-chain reputation. Use it at NFT drops,
-                    games, and DeFi vaults across the Initia ecosystem with smaller purchases unlocked first.
+                    LendPay turns wallet reputation, `.init` identity, and repayment history into reusable
+                    app credit across the Initia ecosystem, with a live on-chain credit flow and a
+                    reference demo app integration for spend usage.
                   </p>
                   <div className="lendpay-hero__stats lendpay-hero__reveal lendpay-hero__reveal--6">
                     <div className="hero-stat">
+                      <strong>lendpay-4</strong>
+                      <span>Live rollup</span>
+                    </div>
+                    <div className="hero-stat">
                       <strong>4</strong>
-                      <span>Live apps</span>
-                    </div>
-                    <div className="hero-stat">
-                      <strong>AI</strong>
-                      <span>Credit scoring</span>
-                    </div>
-                    <div className="hero-stat">
-                      <strong>0</strong>
-                      <span>Collateral needed</span>
+                      <span>App routes</span>
                     </div>
                     <div className="hero-stat">
                       <strong>.init</strong>
                       <span>Identity layer</span>
+                    </div>
+                    <div className="hero-stat">
+                      <strong>Auto-sign</strong>
+                      <span>Session UX</span>
                     </div>
                   </div>
                   <div className="hero-social-links lendpay-hero__reveal lendpay-hero__reveal--7">
@@ -5375,28 +5376,28 @@ function App() {
                       <span className="hero-feature__icon hero-feature__icon--blue">◆</span>
                       <div>
                         <strong>Reputation-based credit</strong>
-                        <p>Your wallet history becomes your credit score</p>
+                        <p>Your wallet history becomes checkout power</p>
                       </div>
                     </div>
                     <div className="hero-feature">
                       <span className="hero-feature__icon hero-feature__icon--teal">⊞</span>
                       <div>
-                        <strong>Cross-app spending</strong>
-                        <p>Use credit at NFT, gaming, and DeFi apps</p>
+                        <strong>App-native spending</strong>
+                        <p>Use funded balance inside live Initia app rails</p>
                       </div>
                     </div>
                     <div className="hero-feature">
                       <span className="hero-feature__icon hero-feature__icon--purple">↺</span>
                       <div>
-                        <strong>Installment repayment</strong>
-                        <p>Pay back in 1, 3, or 6 monthly installments</p>
+                        <strong>Onchain proof</strong>
+                        <p>Requests, receipts, and repayment stay on the rollup</p>
                       </div>
                     </div>
                     <div className="hero-feature">
                       <span className="hero-feature__icon hero-feature__icon--amber">⚡</span>
                       <div>
-                        <strong>Auto-signing ready</strong>
-                        <p>Payments can run automatically via Initia wallet</p>
+                        <strong>Session-ready UX</strong>
+                        <p>Repeat supported actions can use Initia auto-sign</p>
                       </div>
                     </div>
                   </div>
@@ -5411,16 +5412,16 @@ function App() {
                       Connect wallet to start
                     </button>
                     <span className="hero-cta-note">
-                      Free · <span>No collateral required</span> for starter credit
+                      Starter credit can be unsecured · larger limits can lock <span>LEND</span> collateral
                     </span>
                   </div>
                 </section>
 
                 <div className="wallet-gate lendpay-hero__reveal lendpay-hero__reveal--10">
-                  <Card eyebrow="Wallet required" title="Connect your wallet to get started" className="wallet-gate__card">
+                  <Card eyebrow="Wallet required" title="Connect your wallet to see your live borrower account" className="wallet-gate__card">
                     <p className="wallet-gate__body">
-                      LendPay starts working after it can read your wallet and rewards. Connect once,
-                      then you can see your limit, live apps, and upcoming payments.
+                      LendPay reads wallet identity, score, rewards, and live app routes after sign-in.
+                      Connect once to inspect your limit, request credit, and trace repayment on the rollup.
                     </p>
                     <div className="wallet-gate__steps">
                       <div className="wallet-gate__step">
@@ -5430,13 +5431,13 @@ function App() {
                       </div>
                       <div className="wallet-gate__step">
                         <span>2</span>
-                        <strong>Refresh profile</strong>
-                        <small>See your limit, pricing, and rewards in one place.</small>
+                        <strong>Refresh borrower profile</strong>
+                        <small>See your limit, pricing, identity, and rewards in one place.</small>
                       </div>
                       <div className="wallet-gate__step">
                         <span>3</span>
-                        <strong>Use credit</strong>
-                        <small>Pick an Initia app, use credit, and repay over time.</small>
+                        <strong>Request and use credit</strong>
+                        <small>Pick an Initia app, use funded balance, and repay over time.</small>
                       </div>
                     </div>
                     <div className="wallet-gate__cta">

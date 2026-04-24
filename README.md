@@ -1,12 +1,23 @@
 # LendPay
 
-LendPay is an Initia MiniMove appchain for agent-guided credit across Initia apps.
+LendPay is a Move-native pay-later rail for real Initia app usage.
+
+It turns wallet reputation, `.init` identity, and repayment behavior into reusable credit across Initia apps.
 
 It combines:
 
 - a React frontend for app credit requests, live viral drop usage, repayment, rewards, and ecosystem activity
 - a Go backend for sessions, underwriting, protocol sync, and operator actions
 - Move smart contracts for requests, approvals, repayments, collateral, rewards, staking, governance, campaigns, and app rails
+
+## Judge Quick Scan
+
+- product: app-native credit for real Initia checkout and usage flows, not a generic lending dashboard
+- track fit: `DeFi`, with a live on-chain credit flow and a reference demo app integration for spend usage
+- Initia proof: dedicated MiniMove rollup `lendpay-4`, InterwovenKit wallet flow, `.init` usernames, auto-sign session UX, and bridge-route registry support
+- core demo: connect -> analyze -> request -> approve -> use -> repay
+- public surfaces: [app](https://lendpay.vercel.app/), [docs](https://lendpay-docs.vercel.app/), [explorer](https://lendpay.vercel.app/scan.html)
+- judge docs: [hackathon readiness](./docs-site/docs/guide/hackathon-readiness.md), [scoring criteria](./docs-site/docs/guide/scoring-criteria.md), [testnet evidence](./docs-site/docs/reference/testnet.md)
 
 ## Architecture At A Glance
 
@@ -43,9 +54,11 @@ It combines:
 - a Go backend for wallet-authenticated sessions, underwriting, state sync, and operator actions
 - Move contracts on a MiniMove rollup for requests, approvals, repayments, collateral, rewards, staking, governance, campaigns, and app-linked rails
 
-Instead of treating credit as a detached lending screen, LendPay keeps the flow tied to a real product action: connect wallet, refresh profile state, request app credit, receive operator approval, use the funded balance in `viral_drop`, mint an onchain receipt, and repay over time.
+Instead of treating credit as a detached lending screen, LendPay keeps the flow tied to a real product action: connect wallet, refresh profile state, request app credit, receive operator approval, use the funded balance in a reference app integration, mint an onchain receipt, and repay over time.
 
 Small app requests are reputation-based and unsecured. A separate advanced profile supports locked `LEND` collateral for larger secured requests. The goal is not abstract leverage. The goal is usable pay-later access inside real Initia app flows.
+
+The credit rail itself is live in the demo flow today: request, approval, funding, usage, receipt, and repayment all execute through the current stack. The current spend destination is shown through `viral_drop` as a reference demo app integration that demonstrates how LendPay can plug into real Initia apps such as drops, memberships, game items, and DeFi access.
 
 ## Real-World Impact
 
@@ -63,7 +76,7 @@ LendPay is currently tightened around one truthful internal borrower flow:
 1. connect wallet and refresh borrower analysis
 2. request credit for a live Initia app
 3. operator approval funds the borrower wallet
-4. the borrower uses that funded balance in `viral_drop`
+4. the borrower uses that funded balance in the reference `viral_drop` demo app
 5. an onchain receipt is minted to the borrower wallet
 6. the borrower repays installments and improves reputation
 
@@ -73,7 +86,7 @@ flowchart TD
     B --> C[Request credit for a live Initia app]
     C --> D[Operator approval]
     D --> E[Borrower wallet receives funded balance]
-    E --> F[Use credit inside viral_drop]
+    E --> F[Use credit inside reference demo app]
     F --> G[Onchain receipt minted to borrower wallet]
     G --> H[Repay installments]
     H --> I[Reputation improves]
