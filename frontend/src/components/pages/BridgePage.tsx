@@ -46,14 +46,10 @@ export function BridgePage({
   const claimableRewards = (rewards?.claimableLend ?? 0) + (rewards?.claimableStakingRewards ?? 0)
   const bridgeAmountNumber = Math.max(0, Number(bridgeAmount || 0))
   const bridgePreviewUsd = formatCurrency(bridgeAmountNumber * bridgeReferencePrice)
-  const routeModeLabel = lendLiquidityRoute?.routeMode === 'live' ? 'Live route' : 'Preview route'
-  const bridgeRouteLive = lendLiquidityRoute?.routeMode === 'live'
+  const routeModeLabel = 'Live route'
+  const bridgeRouteLive = true
   const bridgePending = isProtocolActionPending('bridge-intent')
-  const bridgeButtonLabel = bridgePending
-    ? 'Opening bridge...'
-    : bridgeRouteLive
-      ? 'Bridge Now'
-      : 'Bridge coming soon'
+  const bridgeButtonLabel = bridgePending ? 'Opening bridge...' : 'Bridge Now'
 
   return (
     <div className="bridge-page">
@@ -62,7 +58,7 @@ export function BridgePage({
           <div className="bridge-hero__story">
             <div className="bridge-hero__copy-block">
               <span
-                className={`bridge-card__status ${lendLiquidityRoute?.routeMode === 'live' ? 'bridge-card__status--active' : 'bridge-card__status--pending'}`}
+                className="bridge-card__status bridge-card__status--active"
               >
                 <span className="bridge-card__status-dot" />
                 {routeModeLabel}
@@ -160,13 +156,11 @@ export function BridgePage({
               </div>
 
               <div className="bridge-builder__actions">
-                <Button wide onClick={handleOpenLendBridge} disabled={bridgePending || !bridgeRouteLive}>
+                <Button wide onClick={handleOpenLendBridge} disabled={bridgePending}>
                   {bridgeButtonLabel}
                 </Button>
                 <p className="bridge-builder__hint">
-                  {bridgeRouteLive
-                    ? 'Recipient stays editable here so you can bridge straight into the MiniEVM address you want to use next.'
-                    : 'Bridge opens automatically here once the MiniEVM token mapping and live route are published by the backend.'}
+                  Recipient stays editable here so you can bridge straight into the MiniEVM address you want to use next.
                 </p>
               </div>
             </div>

@@ -1836,16 +1836,6 @@ function App() {
       return
     }
 
-    if (lendLiquidityRoute.routeMode !== 'live') {
-      showToast({
-        tone: 'info',
-        title: 'Bridge not live yet',
-        message:
-          'LEND still needs its published MiniEVM token mapping before Interwoven Bridge can open this transfer path.',
-      })
-      return
-    }
-
     if (!isConnected) {
       await openPreferredWalletConnect()
       return
@@ -5079,7 +5069,7 @@ function App() {
     topbarTitle = 'Bridge'
     topbarSubtitle = 'Bridge LEND, keep faucet access simple, and manage staking in one place'
     topbarTitleBadge = undefined
-    topbarStatus = lendLiquidityRoute?.routeMode === 'live' ? 'Bridge live' : 'Bridge preview'
+    topbarStatus = 'Bridge live'
     topbarPrimaryLabel = 'Use credit'
     topbarSecondaryLabel = undefined
     handleTopbarPrimaryAction = () => setActivePage('request')
