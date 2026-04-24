@@ -57,9 +57,7 @@ export function BridgePage({
         <div className="bridge-hero">
           <div className="bridge-hero__story">
             <div className="bridge-hero__copy-block">
-              <span
-                className="bridge-card__status bridge-card__status--active"
-              >
+              <span className="bridge-card__status bridge-card__status--active">
                 <span className="bridge-card__status-dot" />
                 {routeModeLabel}
               </span>
@@ -72,21 +70,41 @@ export function BridgePage({
 
             <div className="bridge-route">
               <div className="bridge-route__node">
-                <span className="bridge-route__node-label">Source</span>
+                <div className="bridge-route__node-chain">
+                  <span className="bridge-route__chain-badge bridge-route__chain-badge--src">L2</span>
+                  <span className="bridge-route__node-label">Source</span>
+                </div>
                 <strong>LendPay Move Rollup</strong>
-                <small>LEND leaves your rollup balance from here.</small>
+                <div className="bridge-route__token">
+                  <span className="bridge-route__token-dot bridge-route__token-dot--lend" />
+                  LEND · lendpay-4
+                </div>
               </div>
 
               <div className="bridge-route__connector" aria-hidden="true">
-                <span className="bridge-route__connector-line" />
+                <div className="bridge-route__flow">
+                  <span className="bridge-route__flow-dot" />
+                  <span className="bridge-route__flow-dot" />
+                  <span className="bridge-route__flow-dot" />
+                </div>
                 <span className="bridge-route__connector-pill">Interwoven Bridge</span>
-                <span className="bridge-route__connector-arrow">→</span>
+                <div className="bridge-route__flow bridge-route__flow--bottom">
+                  <span className="bridge-route__flow-dot" />
+                  <span className="bridge-route__flow-dot" />
+                  <span className="bridge-route__flow-dot" />
+                </div>
               </div>
 
               <div className="bridge-route__node bridge-route__node--destination">
-                <span className="bridge-route__node-label">Destination</span>
+                <div className="bridge-route__node-chain">
+                  <span className="bridge-route__chain-badge bridge-route__chain-badge--dst">EVM</span>
+                  <span className="bridge-route__node-label">Destination</span>
+                </div>
                 <strong>Initia MiniEVM</strong>
-                <small>{destinationSymbol} settlement is confirmed in the bridge flow.</small>
+                <div className="bridge-route__token">
+                  <span className="bridge-route__token-dot bridge-route__token-dot--init" />
+                  {destinationSymbol} · evm-1
+                </div>
               </div>
             </div>
 
@@ -118,7 +136,7 @@ export function BridgePage({
               <div className="bridge-builder__fields">
                 <label className="bridge-card__field">
                   <span className="bridge-card__label">Amount (LEND)</span>
-                  <div className="bridge-card__input-shell">
+                  <div className="bridge-card__input-shell bridge-card__input-shell--token">
                     <input
                       className="bridge-card__input bridge-card__input--mono"
                       type="number"
@@ -127,6 +145,7 @@ export function BridgePage({
                       value={bridgeAmount}
                       onChange={(event) => setBridgeAmount(event.target.value)}
                     />
+                    <span className="bridge-card__token-badge">LEND</span>
                   </div>
                 </label>
                 <label className="bridge-card__field">
@@ -143,20 +162,27 @@ export function BridgePage({
               </div>
 
               <div className="bridge-builder__preview">
-                <div>
-                  <span className="bridge-builder__preview-label">Destination preview</span>
-                  <strong>{destinationSymbol} quote opens in bridge</strong>
-                  <small>
-                    Final destination amount is confirmed by Interwoven after you open the route.
-                  </small>
+                <div className="bridge-builder__conversion">
+                  <div className="bridge-builder__conversion-from">
+                    <span className="bridge-route__token-dot bridge-route__token-dot--lend" />
+                    <span>{bridgeAmountNumber > 0 ? formatNumber(bridgeAmountNumber) : '—'} LEND</span>
+                  </div>
+                  <span className="bridge-builder__conversion-arrow">→</span>
+                  <div className="bridge-builder__conversion-to">
+                    <span className="bridge-route__token-dot bridge-route__token-dot--init" />
+                    <span>{destinationSymbol} via bridge</span>
+                  </div>
                 </div>
-                <span className="bridge-builder__preview-value">
-                  {bridgeAmountNumber > 0 ? bridgePreviewUsd : '≈ $0.00'}
-                </span>
+                <div className="bridge-builder__preview-footer">
+                  <small>Final amount confirmed in Interwoven Bridge after route opens.</small>
+                  <span className="bridge-builder__preview-value">
+                    {bridgeAmountNumber > 0 ? bridgePreviewUsd : '≈ $0.00'}
+                  </span>
+                </div>
               </div>
 
               <div className="bridge-builder__actions">
-                <Button wide onClick={handleOpenLendBridge} disabled={bridgePending}>
+                <Button wide onClick={handleOpenLendBridge} disabled={bridgePending} className="bridge-btn--glow">
                   {bridgeButtonLabel}
                 </Button>
                 <p className="bridge-builder__hint">
