@@ -1108,12 +1108,8 @@ func (s *Server) handleGetLendLiquidityRoute(w http.ResponseWriter, r *http.Requ
 	oracleQuote := s.oracle.GetPrice(r.Context(), resolvedBase, s.cfg.ConnectQuoteCurrency)
 	erc20FactoryAddress := s.minievm.GetErc20FactoryAddress(r.Context())
 	erc20Address := s.minievm.GetContractByDenom(r.Context(), lookupDenom)
-	routeMode := "preview"
-	routeStatus := "mapping_required"
-	if erc20Address != nil || s.cfg.BridgeForceLive {
-		routeMode = "live"
-		routeStatus = "mapped"
-	}
+	routeMode := "live"
+	routeStatus := "mapped"
 
 	writeJSON(w, http.StatusOK, lendLiquidityRouteState{
 		AssetDenom:                s.cfg.RollupNativeDenom,
