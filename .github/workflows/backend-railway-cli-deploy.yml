@@ -19,27 +19,37 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ secrets.RAILWAY_TOKEN != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       RAILWAY_PROJECT_ID: 7050bf95-66d8-41d7-a92e-02982de02c14
       RAILWAY_ENVIRONMENT: backend
       RAILWAY_SERVICE: balanced-peace
     steps:
+      - name: Validate Railway token
+        if: ${{ env.RAILWAY_TOKEN == '' }}
+        run: |
+          echo "GitHub secret RAILWAY_TOKEN is missing."
+          exit 1
+
       - name: Checkout repository
+        if: ${{ env.RAILWAY_TOKEN != '' }}
         uses: actions/checkout@v4
 
       - name: Setup Node.js
+        if: ${{ env.RAILWAY_TOKEN != '' }}
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
       - name: Install Railway CLI
+        if: ${{ env.RAILWAY_TOKEN != '' }}
         run: npm install -g @railway/cli@4.38.0
 
       - name: Prepare backend deploy root
+        if: ${{ env.RAILWAY_TOKEN != '' }}
         run: |
           set -euo pipefail
 
@@ -52,9 +62,8 @@ jobs:
           echo "DEPLOY_ROOT=$deploy_root" >> "$GITHUB_ENV"
 
       - name: Deploy backend to Railway
+        if: ${{ env.RAILWAY_TOKEN != '' }}
         working-directory: ${{ env.DEPLOY_ROOT }}
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -64,12 +73,3 @@ jobs:
             -p "$RAILWAY_PROJECT_ID" \
             -c \
             -m "github actions backend deploy ${GITHUB_SHA::7}"
-
-  missing-token:
-    if: ${{ secrets.RAILWAY_TOKEN == '' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Explain missing secret
-        run: |
-          echo "GitHub secret RAILWAY_TOKEN is missing."
-          echo "Add it in repo settings to enable automatic Railway CLI deploys on push."
