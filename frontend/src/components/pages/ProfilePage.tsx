@@ -251,50 +251,76 @@ export function ProfilePage({
                 </div>
                 <div className="profile-identity-card__badges">
                   <Badge tone={identityBadgeTone}>{identityBadgeLabel}</Badge>
-                  {usernameVerifiedOnL1 ? <Badge tone="info">Initia L1</Badge> : null}
-                  {usernameAttestedOnRollup ? <Badge tone="success">Rollup attested</Badge> : null}
                   {rewards?.tier ? <Badge tone={tierBadgeTone}>{rewards.tier}</Badge> : null}
-                </div>
-                <div className="profile-identity-card__subline">
-                  {identitySubline}
                 </div>
               </div>
             </div>
 
-            {shouldOfferIdentityRefresh ? (
-              <div className="card-action-row">
-                <Button onClick={handleRefreshUsernameVerification} disabled={isRefreshingUsername}>
-                  {isRefreshingUsername ? 'Checking live identity...' : identityActionLabel}
-                </Button>
-                <span className="muted-copy">
-                  {identityActionHint}
-                </span>
+            <div className="identity-steps">
+              <div className={`identity-step${hasL1Identity ? ' identity-step--done' : ' identity-step--pending'}`}>
+                <div className="identity-step__icon">{hasL1Identity ? '✓' : '1'}</div>
+                <div className="identity-step__body">
+                  <div className="identity-step__label">Initia L1 username</div>
+                  {hasL1Identity ? (
+                    <div className="identity-step__value">
+                      {score?.signals?.username ?? username ?? 'Found'}
+                    </div>
+                  ) : hasConnectedWallet ? (
+                    <>
+                      <div className="identity-step__value">No .init name on this address yet</div>
+                      <a
+                        className="identity-step__link"
+                        href="https://app.testnet.initia.xyz"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Register at app.testnet.initia.xyz ↗
+                      </a>
+                    </>
+                  ) : (
+                    <div className="identity-step__value">Connect a wallet first</div>
+                  )}
+                </div>
+              </div>
+
+              <div className={`identity-step${hasRollupIdentity ? ' identity-step--done' : hasL1Identity ? ' identity-step--pending' : ' identity-step--locked'}`}>
+                <div className="identity-step__icon">{hasRollupIdentity ? '✓' : '2'}</div>
+                <div className="identity-step__body">
+                  <div className="identity-step__label">LendPay rollup attestation</div>
+                  <div className="identity-step__value">
+                    {hasRollupIdentity
+                      ? 'Attested'
+                      : hasL1Identity
+                        ? 'Click Re-check to verify'
+                        : 'Automatic after step 1'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {!hasVerifiedIdentity && hasConnectedWallet ? (
+              <div className="identity-bonus-callout">
+                <span className="identity-bonus-callout__pts">+25 pts</span>
+                <span>added to your credit score once identity is verified</span>
               </div>
             ) : null}
 
-            <div className="summary">
-              <div className="summary-row">
-                <span>Initia L1 username</span>
-                <strong>
-                  {hasL1Identity ? 'Live .init found' : hasConnectedWallet ? 'Not found yet' : 'Not checked'}
-                </strong>
-              </div>
-              <div className="summary-row">
-                <span>Rollup attestation</span>
-                <strong>
-                  {hasRollupIdentity
-                    ? 'Attested'
-                    : hasConnectedWallet
-                      ? 'Not attested yet'
-                      : 'Not checked'}
-                </strong>
-              </div>
-            </div>
-
-            <p className="muted-copy">{identityLayerHint}</p>
+            {shouldOfferIdentityRefresh ? (
+              <Button
+                variant="secondary"
+                onClick={handleRefreshUsernameVerification}
+                disabled={isRefreshingUsername}
+              >
+                {isRefreshingUsername
+                  ? 'Checking...'
+                  : hasL1Identity
+                    ? 'Re-check rollup attestation'
+                    : 'Re-check L1 + rollup'}
+              </Button>
+            ) : null}
 
             <div className="profile-identity-card__wallet">
-              <span>Wallet address</span>
+              <span>Connected wallet</span>
               <strong>{initiaAddress ? shortenAddress(initiaAddress) : 'Not connected'}</strong>
             </div>
           </Card>
