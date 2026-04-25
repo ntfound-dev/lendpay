@@ -43,6 +43,16 @@ type MerchantDraft = {
   partnerFeeBps: string
 }
 
+type FeaturedApp = {
+  id: string
+  name: string
+  description: string
+  partnerFeeBps: number
+  emoji: string
+  bannerClass: string
+  partnerKey: string
+}
+
 type StaticDrop = {
   id: string
   artClass: string
@@ -184,10 +194,13 @@ export function EcosystemPage({
   viralDropItems,
 }: EcosystemPageProps) {
   const [selectedDrop, setSelectedDrop] = useState<DisplayDrop | null>(null)
+  const [selectedApp, setSelectedApp] = useState<FeaturedApp | null>(null)
   const [quantity, setQuantity] = useState(1)
 
+  const isModalOpen = selectedDrop != null || selectedApp != null
+
   useEffect(() => {
-    if (!selectedDrop) {
+    if (!isModalOpen) {
       document.body.style.overflow = ''
       return
     }
@@ -196,6 +209,7 @@ export function EcosystemPage({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setSelectedDrop(null)
+        setSelectedApp(null)
       }
     }
 
@@ -204,9 +218,9 @@ export function EcosystemPage({
       document.body.style.overflow = ''
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [selectedDrop])
+  }, [isModalOpen])
 
-  const featuredApps = useMemo(() => {
+  const featuredApps = useMemo((): FeaturedApp[] => {
     const curatedApps = [
       {
         key: 'initia atelier',
@@ -214,6 +228,8 @@ export function EcosystemPage({
         fallbackDescription:
           'Curated collectible partner with exclusive atelier drop access through LendPay credit.',
         fallbackFeeBps: 250,
+        emoji: '🎨',
+        bannerClass: 'ecosystem-app-banner--atelier',
       },
       {
         key: 'arcade mile',
@@ -221,6 +237,8 @@ export function EcosystemPage({
         fallbackDescription:
           'Arcade-native passes and partner exclusives that can be checked out directly with LendPay.',
         fallbackFeeBps: 200,
+        emoji: '🎮',
+        bannerClass: 'ecosystem-app-banner--arcade',
       },
     ]
 
@@ -234,6 +252,9 @@ export function EcosystemPage({
         name: match?.name ?? app.fallbackName,
         description: match?.description ?? app.fallbackDescription,
         partnerFeeBps: match?.partnerFeeBps ?? app.fallbackFeeBps,
+        emoji: app.emoji,
+        bannerClass: app.bannerClass,
+        partnerKey: app.key,
       }
     })
   }, [uniqueApps])
@@ -364,13 +385,23 @@ export function EcosystemPage({
             <>
               <div className="ecosystem-live-apps">
                 {featuredApps.map((app) => (
-                  <div key={app.id} className="ecosystem-live-app-card">
-                    <h3>{app.name}</h3>
-                    <p>{app.description}</p>
-                    <div className="ecosystem-live-app-card__fee">
-                      Partner fee: {formatPartnerFee(app.partnerFeeBps)}
+                  <button
+                    key={app.id}
+                    type="button"
+                    className="ecosystem-live-app-card"
+                    onClick={() => setSelectedApp(app)}
+                  >
+                    <div className={['ecosystem-app-banner', app.bannerClass].join(' ')}>
+                      <span className="ecosystem-app-banner__emoji">{app.emoji}</span>
                     </div>
-                  </div>
+                    <div className="ecosystem-live-app-card__body">
+                      <h3>{app.name}</h3>
+                      <p>{app.description}</p>
+                      <div className="ecosystem-live-app-card__fee">
+                        Partner fee: {formatPartnerFee(app.partnerFeeBps)}
+                      </div>
+                    </div>
+                  </button>
                 ))}
               </div>
 
@@ -469,6 +500,93 @@ export function EcosystemPage({
           )}
         </section>
       </div>
+
+      {selectedApp ? (
+        <div
+          className="ecosystem-modal-backdrop"
+          onClick={() => setSelectedApp(null)}
+          role="presentation"
+        >
+          <div
+            className="ecosystem-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ecosystemAppTitle"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={['ecosystem-app-modal-banner', selectedApp.bannerClass].join(' ')}>
+              <span className="ecosystem-app-modal-banner__emoji">{selectedApp.emoji}</span>
+              <button
+                type="button"
+                className="ecosystem-modal__close ecosystem-modal__close--banner"
+                onClick={() => setSelectedApp(null)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="ecosystem-modal__header">
+              <div>
+                <h3 className="ecosystem-modal__title" id="ecosystemAppTitle">
+                  {selectedApp.name}
+                </h3>
+                <p className="ecosystem-modal__partner">{selectedApp.description}</p>
+              </div>
+            </div>
+
+            <div className="ecosystem-modal__info-grid">
+              <div className="ecosystem-modal__info-card">
+                <span>Partner fee</span>
+                <strong>{formatPartnerFee(selectedApp.partnerFeeBps)}</strong>
+              </div>
+              <div className="ecosystem-modal__info-card">
+                <span>Status</span>
+                <strong className="ecosystem-status-card__value--blue">Live</strong>
+              </div>
+            </div>
+
+            {(() => {
+              const appDrops = displayDrops.filter((drop) =>
+                drop.partnerLabel.toLowerCase().includes(selectedApp.partnerKey.split(' ')[0]) ||
+                drop.partnerLabel.toLowerCase().includes(selectedApp.name.toLowerCase().split(' ')[0])
+              )
+              if (appDrops.length === 0) return null
+              return (
+                <div className="ecosystem-app-modal-drops">
+                  <div className="ecosystem-app-modal-drops__label">Available drops</div>
+                  <div className="ecosystem-app-modal-drops__grid">
+                    {appDrops.map((drop) => (
+                      <button
+                        key={drop.id}
+                        type="button"
+                        className="ecosystem-app-modal-drop"
+                        onClick={() => {
+                          setSelectedApp(null)
+                          setQuantity(1)
+                          setSelectedDrop(drop)
+                        }}
+                      >
+                        <div className={['ecosystem-app-modal-drop__art', drop.artClass].join(' ')}>
+                          <span>{drop.emoji}</span>
+                        </div>
+                        <div className="ecosystem-app-modal-drop__info">
+                          <strong>{drop.name}</strong>
+                          <span>{formatLendAmount(drop.price)}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
+            <p className="ecosystem-modal__note">
+              Tap a drop to check out with your LendPay credit.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {selectedDrop ? (
         <div

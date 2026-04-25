@@ -2884,10 +2884,136 @@
 
 .ecosystem-status-card,
 .ecosystem-live-app-card {
-  padding: 16px;
+  padding: 0;
   border: 1px solid rgba(226, 232, 240, 0.92);
   border-radius: 12px;
   background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: box-shadow 120ms ease, transform 120ms ease;
+}
+
+.ecosystem-live-app-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.ecosystem-live-app-card__body {
+  padding: 14px 16px 16px;
+}
+
+.ecosystem-app-banner {
+  width: 100%;
+  height: 96px;
+  display: grid;
+  place-items: center;
+}
+
+.ecosystem-app-banner--atelier {
+  background: linear-gradient(135deg, #ede9fe, #fce7f3);
+}
+
+.ecosystem-app-banner--arcade {
+  background: linear-gradient(135deg, #fef3c7, #dbeafe);
+}
+
+.ecosystem-app-banner__emoji {
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.ecosystem-app-modal-banner {
+  width: 100%;
+  height: 140px;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.ecosystem-app-modal-banner--atelier {
+  background: linear-gradient(135deg, #ede9fe, #fce7f3);
+}
+
+.ecosystem-app-modal-banner--arcade {
+  background: linear-gradient(135deg, #fef3c7, #dbeafe);
+}
+
+.ecosystem-app-modal-banner__emoji {
+  font-size: 3.5rem;
+  line-height: 1;
+}
+
+.ecosystem-modal__close--banner {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+}
+
+.ecosystem-app-modal-drops {
+  display: grid;
+  gap: 10px;
+}
+
+.ecosystem-app-modal-drops__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ecosystem-app-modal-drops__grid {
+  display: grid;
+  gap: 8px;
+}
+
+.ecosystem-app-modal-drop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 0.5px solid var(--border);
+  border-radius: 10px;
+  background: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+  transition: background 100ms ease;
+  width: 100%;
+}
+
+.ecosystem-app-modal-drop:hover {
+  background: #f1f5f9;
+}
+
+.ecosystem-app-modal-drop__art {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.ecosystem-app-modal-drop__info {
+  display: grid;
+  gap: 2px;
+}
+
+.ecosystem-app-modal-drop__info strong {
+  font-size: 0.88rem;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.ecosystem-app-modal-drop__info span {
+  font-size: 0.8rem;
+  color: #64748b;
 }
 
 .ecosystem-status-card {
