@@ -2836,6 +2836,20 @@
   background: #fef3c7;
 }
 
+.ecosystem-drop-card__art--teal {
+  background: #ccfbf1;
+}
+
+.ecosystem-drop-card__art--blue {
+  background: #dbeafe;
+}
+
+.ecosystem-drop-card__buying {
+  font-size: 0.78rem;
+  color: #1a6cf5;
+  font-weight: 500;
+}
+
 .ecosystem-drop-card__body {
   display: grid;
   gap: 8px;
@@ -4048,6 +4062,14 @@
 
 .ecosystem-drop-card__art--amber {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.28), rgba(180, 83, 9, 0.12));
+}
+
+.ecosystem-drop-card__art--teal {
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.28), rgba(13, 148, 136, 0.12));
+}
+
+.ecosystem-drop-card__art--blue {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.28), rgba(37, 99, 235, 0.12));
 }
 
 .ecosystem-drop-card__partner,

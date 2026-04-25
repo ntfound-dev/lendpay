@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import { isChainWriteReady } from '../../config/env'
-import { formatCurrency, formatNumber } from '../../lib/format'
+import { formatCurrency, formatDate, formatNumber } from '../../lib/format'
 import type {
   CampaignState,
   GovernanceProposalState,
+  InstallmentState,
   MerchantState,
+  ViralDropItemState,
 } from '../../types/domain'
-import { EmptyState } from '../shared/EmptyState'
 import { Button } from '../ui/Button'
 
 type EcosystemFamilyStat = {
@@ -42,7 +43,7 @@ type MerchantDraft = {
   partnerFeeBps: string
 }
 
-type PartnerDrop = {
+type StaticDrop = {
   id: string
   artClass: string
   emoji: string
@@ -52,9 +53,14 @@ type PartnerDrop = {
   price: number
 }
 
-type PurchaseToast = {
-  id: number
-  message: string
+type DisplayDrop = {
+  id: string
+  artClass: string
+  emoji: string
+  name: string
+  partnerLabel: string
+  price: number
+  viralItem: ViralDropItemState | null
 }
 
 export type ProtocolUpdateItem = {
@@ -70,12 +76,15 @@ export type ProtocolUpdateItem = {
 
 type EcosystemPageProps = {
   allocationDraft: AllocationDraft
+  buyingDropItemId: string | null
   campaignDraft: CampaignDraft
   campaigns: CampaignState[]
+  creditLimitUsd: number | null
   ecosystemFamilyStats: EcosystemFamilyStat[]
   governance: GovernanceProposalState[]
   governanceDraft: GovernanceDraft
   handleAllocateCampaign: () => void | Promise<void>
+  handleBuyViralDrop: (item: ViralDropItemState) => void | Promise<void>
   handleClaimCampaign: (campaignId: string) => void | Promise<void>
   handleCreateCampaign: () => void | Promise<void>
   handleDismissWalletRecovery: () => void | Promise<void>
@@ -88,6 +97,7 @@ type EcosystemPageProps = {
   handleVoteGovernance: (proposalId: string, support: boolean) => void | Promise<void>
   isProtocolActionPending: (key: string) => boolean
   merchantDraft: MerchantDraft
+  nextDueItem: InstallmentState | null
   openCampaignCount: number
   operatorModeEnabled: boolean
   protocolUpdates: ProtocolUpdateItem[]
@@ -101,9 +111,10 @@ type EcosystemPageProps = {
   technicalModeEnabled: boolean
   uniqueApps: MerchantState[]
   username?: string
+  viralDropItems: ViralDropItemState[]
 }
 
-const partnerDrops: PartnerDrop[] = [
+const staticDrops: StaticDrop[] = [
   {
     id: 'initia-genesis-01',
     artClass: 'ecosystem-drop-card__art--purple',
@@ -133,6 +144,16 @@ const partnerDrops: PartnerDrop[] = [
   },
 ]
 
+const dropArtClasses = [
+  'ecosystem-drop-card__art--purple',
+  'ecosystem-drop-card__art--pink',
+  'ecosystem-drop-card__art--amber',
+  'ecosystem-drop-card__art--teal',
+  'ecosystem-drop-card__art--blue',
+]
+
+const dropEmojis = ['🎨', '🌸', '⚡', '🎮', '🔮']
+
 const usdPerLend = 100
 const maxQuantity = 5
 
@@ -149,18 +170,21 @@ const formatPartnerFee = (bps: number) =>
   })}%`
 
 export function EcosystemPage({
+  buyingDropItemId,
   campaigns,
+  creditLimitUsd,
   governance,
+  handleBuyViralDrop,
   handleRetryLoad,
   isProtocolActionPending,
+  nextDueItem,
   openCampaignCount,
   sectionErrors,
   uniqueApps,
+  viralDropItems,
 }: EcosystemPageProps) {
-  const [selectedDrop, setSelectedDrop] = useState<PartnerDrop | null>(null)
+  const [selectedDrop, setSelectedDrop] = useState<DisplayDrop | null>(null)
   const [quantity, setQuantity] = useState(1)
-  const [availableCredit, setAvailableCredit] = useState(3250)
-  const [toasts, setToasts] = useState<PurchaseToast[]>([])
 
   useEffect(() => {
     if (!selectedDrop) {
@@ -214,20 +238,36 @@ export function EcosystemPage({
     })
   }, [uniqueApps])
 
+  const displayDrops = useMemo((): DisplayDrop[] => {
+    const activeItems = viralDropItems.filter((item) => item.active)
+    if (activeItems.length > 0) {
+      return activeItems.map((item, i) => ({
+        id: item.id,
+        artClass: dropArtClasses[i % dropArtClasses.length],
+        emoji: dropEmojis[i % dropEmojis.length],
+        name: item.name,
+        partnerLabel: `by ${item.appLabel}`,
+        price: item.price,
+        viralItem: item,
+      }))
+    }
+
+    return staticDrops.map((drop) => ({ ...drop, viralItem: null }))
+  }, [viralDropItems])
+
   const appsLive = sectionErrors.merchants ? null : uniqueApps.filter((app) => app.active).length || featuredApps.length
   const activeCampaigns = sectionErrors.campaigns ? null : openCampaignCount
   const proposalCount = sectionErrors.governance ? null : governance.length
 
-  const totalLend = selectedDrop ? selectedDrop.price * quantity : 0
-  const estimatedMonthlyInstallment = (totalLend * usdPerLend) / 3
-  const pushToast = (message: string) => {
-    const toastId = Date.now()
-    setToasts((current) => [...current, { id: toastId, message }])
+  // Credit limit in LEND equivalent (for modal display)
+  const availableCreditLend = creditLimitUsd !== null ? creditLimitUsd / usdPerLend : null
 
-    window.setTimeout(() => {
-      setToasts((current) => current.filter((toast) => toast.id !== toastId))
-    }, 3000)
-  }
+  const totalLend = selectedDrop ? selectedDrop.price * quantity : 0
+  const totalUsd = totalLend * usdPerLend
+  const estimatedMonthlyInstallment = totalUsd / 3
+
+  const isRealDrop = selectedDrop?.viralItem != null
+  const isBuying = selectedDrop != null && buyingDropItemId === selectedDrop.id
 
   const handleQuantityChange = (nextValue: string) => {
     const numericValue = Number(nextValue)
@@ -235,18 +275,20 @@ export function EcosystemPage({
       setQuantity(1)
       return
     }
-
     setQuantity(Math.max(1, Math.min(maxQuantity, Math.floor(numericValue))))
   }
 
   const handleConfirmPurchase = () => {
     if (!selectedDrop) return
 
-    const monthlyInstallment = (selectedDrop.price * quantity * usdPerLend) / 3
-    setAvailableCredit((current) => Math.max(0, current - selectedDrop.price * quantity))
-    pushToast(
-      `✅ Purchase confirmed! ${selectedDrop.name} added to your wallet. Installment of ${formatCurrency(monthlyInstallment)}/month added to your repayment schedule.`,
-    )
+    if (selectedDrop.viralItem) {
+      handleBuyViralDrop(selectedDrop.viralItem)
+      setSelectedDrop(null)
+      setQuantity(1)
+      return
+    }
+
+    // Static fallback — mock checkout (no real transaction)
     setSelectedDrop(null)
     setQuantity(1)
   }
@@ -254,10 +296,14 @@ export function EcosystemPage({
   return (
     <>
       <div className="ecosystem-redesign">
-        <div className="ecosystem-alert-bar">
-          <span className="ecosystem-alert-bar__dot" aria-hidden="true" />
-          <span>Repayment watch — Next installment $75 is due by Jul 12.</span>
-        </div>
+        {nextDueItem ? (
+          <div className="ecosystem-alert-bar">
+            <span className="ecosystem-alert-bar__dot" aria-hidden="true" />
+            <span>
+              Payment due — {formatCurrency(nextDueItem.amount)} due by {formatDate(nextDueItem.dueAt)}
+            </span>
+          </div>
+        ) : null}
 
         <section className="ecosystem-panel">
           <div className="ecosystem-panel__header">
@@ -331,20 +377,25 @@ export function EcosystemPage({
               <div className="ecosystem-live-apps__drops">
                 <div className="ecosystem-live-apps__drops-header">
                   <div>
-                    <span className="ecosystem-pill ecosystem-pill--slate">NFT Drop · Partner Exclusive</span>
+                    <span className="ecosystem-pill ecosystem-pill--slate">
+                      {viralDropItems.length > 0 ? 'NFT Drop · Live' : 'NFT Drop · Partner Exclusive'}
+                    </span>
                     <h3 className="ecosystem-live-apps__drops-title">Viral NFT Collections</h3>
                     <p className="ecosystem-panel__subtitle">
-                      Curated drops from external partners. Buy with LendPay credit directly.
+                      {viralDropItems.length > 0
+                        ? 'Live drops from the protocol. Buy with LendPay credit directly.'
+                        : 'Curated drops from external partners. Buy with LendPay credit directly.'}
                     </p>
                   </div>
                 </div>
 
                 <div className="ecosystem-drop-grid">
-                  {partnerDrops.map((drop) => (
+                  {displayDrops.map((drop) => (
                     <button
                       key={drop.id}
                       type="button"
                       className="ecosystem-drop-card"
+                      disabled={buyingDropItemId === drop.id}
                       onClick={() => {
                         setQuantity(1)
                         setSelectedDrop(drop)
@@ -357,6 +408,9 @@ export function EcosystemPage({
                         <h3 className="ecosystem-drop-card__name">{drop.name}</h3>
                         <div className="ecosystem-drop-card__price mono">{formatLendAmount(drop.price)}</div>
                         <div className="ecosystem-drop-card__partner">{drop.partnerLabel}</div>
+                        {buyingDropItemId === drop.id ? (
+                          <div className="ecosystem-drop-card__buying">Purchasing…</div>
+                        ) : null}
                       </div>
                     </button>
                   ))}
@@ -452,37 +506,45 @@ export function EcosystemPage({
                 <strong className="mono">{formatLendAmount(selectedDrop.price)}</strong>
               </div>
               <div className="ecosystem-modal__info-card">
-                <span>Available credit</span>
-                <strong className="mono">{formatLendAmount(availableCredit)}</strong>
+                <span>Credit limit</span>
+                <strong className="mono">
+                  {availableCreditLend !== null ? formatLendAmount(availableCreditLend) : '—'}
+                </strong>
               </div>
             </div>
 
-            <label className="ecosystem-modal__field">
-              <span>Quantity</span>
-              <input
-                type="number"
-                min="1"
-                max={maxQuantity}
-                step="1"
-                value={quantity}
-                onChange={(event) => handleQuantityChange(event.target.value)}
-                className="ecosystem-modal__input mono"
-              />
-            </label>
+            {!isRealDrop ? (
+              <label className="ecosystem-modal__field">
+                <span>Quantity</span>
+                <input
+                  type="number"
+                  min="1"
+                  max={maxQuantity}
+                  step="1"
+                  value={quantity}
+                  onChange={(event) => handleQuantityChange(event.target.value)}
+                  className="ecosystem-modal__input mono"
+                />
+              </label>
+            ) : null}
 
             <div className="ecosystem-modal__total">
               <div>
-                <span>Live total</span>
-                <strong className="mono">{formatLendAmount(totalLend)}</strong>
+                <span>Total</span>
+                <strong className="mono">{formatLendAmount(isRealDrop ? selectedDrop.price : totalLend)}</strong>
               </div>
               <div>
-                <span>Estimated installment</span>
-                <strong className="mono">{formatCurrency(estimatedMonthlyInstallment)}/month</strong>
+                <span>Est. monthly installment</span>
+                <strong className="mono">
+                  {formatCurrency(isRealDrop ? (selectedDrop.price * usdPerLend) / 3 : estimatedMonthlyInstallment)}/month
+                </strong>
               </div>
             </div>
 
             <p className="ecosystem-modal__note">
-              This purchase will be added to your LendPay installment plan.
+              {isRealDrop
+                ? 'This will submit a live transaction to the LendPay rollup. A wallet approval prompt will follow.'
+                : 'This purchase will be added to your LendPay installment plan.'}
             </p>
 
             <div className="ecosystem-modal__actions">
@@ -490,6 +552,7 @@ export function EcosystemPage({
                 type="button"
                 className="ecosystem-button ecosystem-button--ghost"
                 onClick={() => setSelectedDrop(null)}
+                disabled={isBuying}
               >
                 Cancel
               </button>
@@ -497,21 +560,14 @@ export function EcosystemPage({
                 type="button"
                 className="ecosystem-button ecosystem-button--primary"
                 onClick={handleConfirmPurchase}
+                disabled={isBuying}
               >
-                Buy with Credit
+                {isBuying ? 'Submitting…' : 'Buy with Credit'}
               </button>
             </div>
           </div>
         </div>
       ) : null}
-
-      <div className="ecosystem-toast-stack" aria-live="polite">
-        {toasts.map((toast) => (
-          <div key={toast.id} className="ecosystem-toast">
-            {toast.message}
-          </div>
-        ))}
-      </div>
     </>
   )
 }

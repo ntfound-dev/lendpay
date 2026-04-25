@@ -5736,12 +5736,15 @@ function App() {
             {canRenderConnectedPages && activePage === 'ecosystem' ? (
               <EcosystemPage
                 allocationDraft={allocationDraft}
+                buyingDropItemId={buyingDropItemId}
                 campaignDraft={campaignDraft}
                 campaigns={campaigns}
+                creditLimitUsd={score?.limitUsd ?? null}
                 ecosystemFamilyStats={ecosystemFamilyStats}
                 governance={governance}
                 governanceDraft={governanceDraft}
                 handleAllocateCampaign={handleAllocateCampaign}
+                handleBuyViralDrop={handleBuyViralDrop}
                 handleClaimCampaign={handleClaimCampaign}
                 handleCreateCampaign={handleCreateCampaign}
                 handleDismissWalletRecovery={handleDismissWalletRecovery}
@@ -5754,6 +5757,7 @@ function App() {
                 handleVoteGovernance={handleVoteGovernance}
                 isProtocolActionPending={isProtocolActionPending}
                 merchantDraft={merchantDraft}
+                nextDueItem={nextDueItem}
                 openCampaignCount={openCampaignCount}
                 operatorModeEnabled={operatorModeEnabled}
                 protocolUpdates={protocolUpdates}
@@ -5769,6 +5773,7 @@ function App() {
                 technicalModeEnabled={technicalModeEnabled}
                 uniqueApps={uniqueApps}
                 username={username}
+                viralDropItems={viralDropItems}
               />
             ) : null}
 
