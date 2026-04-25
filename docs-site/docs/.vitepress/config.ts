@@ -32,8 +32,6 @@ export default defineConfig({
           { text: 'Hackathon Readiness', link: '/guide/hackathon-readiness' },
           { text: 'Agentic System', link: '/guide/agentic-system' },
           { text: 'Scoring Criteria', link: '/guide/scoring-criteria' },
-          { text: 'Demo Video Script', link: '/guide/demo-video-script' },
-          { text: 'Pitch Deck', link: '/guide/pitch-deck' },
           { text: 'Architecture', link: '/guide/architecture' },
           { text: 'Terminology', link: '/guide/terminology' },
           { text: 'Business Model', link: '/guide/business-model' },
