@@ -36,6 +36,61 @@ Core modules:
 - [`staking.move`](./sources/tokenomics/staking.move): staking and staking reward state
 - [`governance.move`](./sources/tokenomics/governance.move): proposal, voting, and finalize flow
 
+```mermaid
+graph TD
+    Bootstrap[bootstrap.move] -->|init| Config[config.move]
+    Bootstrap -->|init| Treasury[treasury.move]
+    Bootstrap -->|init| LendToken[lend_token.move]
+    Bootstrap -->|init| Rewards[rewards.move]
+    LoanBook[loan_book.move] -->|disburse + repay| Treasury
+    LoanBook -->|qualify + quote| Profiles[profiles.move]
+    LoanBook -->|validate merchant| MerchantRegistry[merchant_registry.move]
+    LoanBook -->|update| Reputation[reputation.move]
+    LoanBook -->|settle fees| FeeEngine[fee_engine.move]
+    LoanBook -->|fund purchase| ViralDrop[viral_drop.move]
+    LendToken -->|stake + rewards| Staking[staking.move]
+    LendToken -->|propose + vote| Governance[governance.move]
+    Rewards -->|campaign| Campaigns[campaigns.move]
+    Rewards -->|referral| Referral[referral.move]
+    Bridge[bridge.move] -.->|route registry| MerchantRegistry
+```
+
+## Project Structure
+
+```
+smarcontract/
+├── sources/
+│   ├── bootstrap/
+│   │   └── bootstrap.move              # protocol initialization
+│   ├── credit/
+│   │   ├── config.move                 # admin policy and pause state
+│   │   ├── loan_book.move              # borrower lifecycle: request → approve → repay → default
+│   │   ├── treasury.move               # native asset custody and disbursement
+│   │   ├── profiles.move               # product profiles and collateral quoting
+│   │   ├── merchant_registry.move      # app rail registry
+│   │   ├── bridge.move                 # cross-VM route registry and bridge intents
+│   │   ├── reputation.move             # borrower identity and repayment reputation
+│   │   ├── viral_drop.move             # reference app: funded purchase + receipt mint
+│   │   ├── mock_cabal.move             # mock app route #2
+│   │   ├── mock_yominet.move           # mock app route #3
+│   │   └── mock_intergaze.move         # mock app route #4
+│   ├── rewards/
+│   │   ├── rewards.move                # points, LEND claims, perks
+│   │   ├── campaigns.move              # campaign allocations and claims
+│   │   └── referral.move               # referral tracking
+│   ├── tokenomics/
+│   │   ├── lend_token.move             # native LEND ledger and supply control
+│   │   ├── fee_engine.move             # origination and late fee settlement
+│   │   ├── staking.move                # staking lifecycle and rewards
+│   │   ├── governance.move             # proposal, voting, finalize
+│   │   └── tokenomics.move             # quote helpers: tiers, discounts, splits
+│   └── shared/
+│       ├── errors.move                 # common error codes
+│       └── assets.move                 # fungible asset helpers
+└── artifacts/
+    └── testnet/lendpay-4/              # deploy, bootstrap, and flow evidence
+```
+
 ## Module Responsibility Map
 
 Key entry and view functions by module:
@@ -124,7 +179,7 @@ The local test suite exercises:
 
 ## Current Testnet Rollup
 
-The active local testnet runtime after the native-asset migration is:
+The active local testnet runtime is:
 
 - chain id: `lendpay-4`
 - RPC: `http://127.0.0.1:26657`
@@ -157,7 +212,7 @@ Current published bridge route on `lendpay-4`:
 - liquidity status: `coming_soon`
 - swap enabled: `false`
 
-This route is now provable onchain, but the final user sell path still remains preview until the official MiniEVM mapping is live.
+This route is provable onchain. The final user sell path stays preview until the official MiniEVM mapping is live.
 
 ## Testnet App Route Proofs
 
@@ -296,7 +351,6 @@ Then run the full borrower lifecycle:
 The demo uses the existing local `Validator` key as borrower by default, then executes:
 
 1. fund borrower with native `LEND`
-1. fund borrower with native `LEND`
 2. attest `.init`-style username bytes onchain
 3. request a profiled micro-loan
 4. approve the loan as operator
@@ -329,6 +383,6 @@ artifacts/rollup/demo/summary.json
   points to a local MiniMove binary directory that contains `libmovevm.x86_64.so`.
 - `loan_asset_metadata` must be the metadata object address of the asset used for principal and repayment.
 - `LEND` is initialized by the package itself during `bootstrap::initialize_protocol`.
-- Loan disbursement and repayment now move real assets instead of updating accounting only.
-- Rewards, fee collection, burns, and staking now move real `LEND`.
+- Loan disbursement and repayment move real assets, not just accounting entries.
+- Rewards, fee collection, burns, and staking move real `LEND`.
 - App semantics are enforced at the application layer by pairing request metadata with registry state and borrower UX, while loan execution remains protocol-native onchain.

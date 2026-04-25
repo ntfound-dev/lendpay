@@ -1,13 +1,11 @@
 # LendPay
 
-LendPay is a Move-native pay-later rail for real Initia app usage.
+LendPay is a Move-native pay-later rail for Initia app usage.
 
-It turns wallet reputation, `.init` identity, and repayment behavior into reusable credit across Initia apps.
+It turns wallet reputation, `.init` identity, and repayment history into reusable credit across Initia apps — built as:
 
-It combines:
-
-- a React frontend for app credit requests, live viral drop usage, repayment, rewards, and ecosystem activity
-- a Go backend for sessions, underwriting, protocol sync, and operator actions
+- a React frontend for credit requests, viral drop usage, repayment, rewards, and ecosystem activity
+- a Go backend for wallet auth, underwriting, protocol sync, and operator actions
 - Move smart contracts for requests, approvals, repayments, collateral, rewards, staking, governance, campaigns, and app rails
 
 ## Judge Quick Scan
@@ -25,6 +23,19 @@ It combines:
 2. The backend authenticates the borrower, computes score output, mirrors product state, and performs operator actions.
 3. The MiniMove rollup executes the protocol logic onchain.
 
+```mermaid
+graph LR
+    W([Wallet]) -->|connect + sign| FE[React Frontend]
+    FE -->|REST + JWT| BE[Go Backend]
+    FE -->|MsgExecute| RC[lendpay-4 Rollup]
+    BE -->|pgx| DB[(PostgreSQL)]
+    BE -->|RPC + REST reads| RC
+    BE --> Oracle[Connect Oracle]
+    BE --> L1[Initia L1]
+    BE --> MiniEVM[MiniEVM]
+    RC --> SC[Move Contracts]
+```
+
 Docs by layer:
 
 - frontend technical docs: [frontend/README.md](./frontend/README.md)
@@ -32,33 +43,191 @@ Docs by layer:
 - smart contract technical docs: [smarcontract/README.md](./smarcontract/README.md)
 - standalone docs site: [docs-site](./docs-site)
 
+## Project Structure
+
+```
+lendpay/
+├── frontend/                          # React + Vite borrower app (Vercel)
+│   ├── src/
+│   │   ├── main.tsx                   # app entry, providers, QueryClient, Wagmi
+│   │   ├── App.tsx                    # orchestration, state, tx dispatch
+│   │   ├── components/
+│   │   │   ├── pages/                 # Overview, Profile, Request, Repay, Loyalty, Ecosystem
+│   │   │   ├── shared/                # TxPreviewModal, ProofModal, ErrorBoundary
+│   │   │   ├── layout/                # shell and nav layout
+│   │   │   ├── loans/                 # loan-specific UI
+│   │   │   ├── score/                 # score display UI
+│   │   │   └── ui/                    # base UI primitives
+│   │   ├── hooks/
+│   │   │   ├── useBackendSession.ts   # JWT session creation and reuse
+│   │   │   ├── useAutoSignPermission.ts
+│   │   │   └── useTxPreview.ts        # pre-wallet modal state
+│   │   ├── lib/
+│   │   │   ├── api.ts                 # backend API client
+│   │   │   ├── move.ts                # MsgExecute builders
+│   │   │   ├── auth.ts                # wallet signing helpers for login
+│   │   │   ├── tx.ts                  # tx hash extraction
+│   │   │   ├── appHelpers.ts          # labels, grouping, formatting
+│   │   │   └── nav.ts                 # shared navigation model
+│   │   ├── config/
+│   │   │   ├── chain.ts               # custom chain for InterwovenKit
+│   │   │   └── env.ts                 # Vite env mapping
+│   │   ├── types/domain.ts
+│   │   └── styles/                    # CSS layers: foundation, tokens, pages, shell
+│   ├── public/
+│   │   ├── brand/                     # LendPay logo assets
+│   │   ├── drops/                     # viral drop item SVGs
+│   │   ├── cabal/                     # mock Cabal item SVGs
+│   │   ├── yominet/                   # mock Yominet item SVGs
+│   │   ├── intergaze/                 # mock Intergaze item SVGs
+│   │   └── scan.html                  # standalone chain explorer
+│   ├── index.html
+│   ├── vite.config.ts
+│   ├── tsconfig.json
+│   ├── vercel.json
+│   ├── .env.example
+│   └── .env.production.example
+├── backend-go/                        # Go API server (Railway)
+│   ├── cmd/
+│   │   └── server/
+│   │       └── main.go                # entry point, HTTP server startup
+│   ├── internal/
+│   │   └── app/
+│   │       ├── server.go              # router, handlers, borrower workflows
+│   │       ├── config.go              # env loading and normalization
+│   │       ├── db.go                  # pgx pool, schema bootstrap, SQL helpers
+│   │       ├── bootstrap.sql          # embedded schema for first-run
+│   │       ├── auth.go                # challenge, session token, personal_sign verify
+│   │       ├── amino.go               # Amino signature fallback
+│   │       ├── models.go              # response shapes and row models
+│   │       ├── errors.go              # API error helpers
+│   │       ├── formatting.go          # response formatters
+│   │       ├── rate_limit.go          # in-memory throttling
+│   │       ├── oracle_client.go       # Connect oracle feed
+│   │       ├── rollup_client.go       # rollup RPC/REST reads
+│   │       ├── move_view_codec.go     # Move view decode helpers
+│   │       ├── minievm_client.go      # MiniEVM metadata lookups
+│   │       ├── usernames_client.go    # Initia username integration
+│   │       ├── ollama_client.go       # AI provider status
+│   │       └── agent.go               # agent autonomy helpers
+│   ├── go.mod
+│   ├── go.sum
+│   ├── Dockerfile
+│   ├── railway.json
+│   └── .env.example
+├── smarcontract/                      # Move smart contracts
+│   ├── sources/
+│   │   ├── bootstrap/
+│   │   │   └── bootstrap.move             # protocol initialization
+│   │   ├── credit/
+│   │   │   ├── config.move                # admin policy and pause state
+│   │   │   ├── loan_book.move             # request → approve → repay → default
+│   │   │   ├── treasury.move              # native asset custody and disbursement
+│   │   │   ├── profiles.move              # product profiles and collateral quoting
+│   │   │   ├── merchant_registry.move     # app rail registry
+│   │   │   ├── bridge.move                # cross-VM route registry and bridge intents
+│   │   │   ├── reputation.move            # borrower identity and repayment reputation
+│   │   │   ├── viral_drop.move            # reference app: funded purchase + receipt mint
+│   │   │   ├── mock_cabal.move            # mock app route #2
+│   │   │   ├── mock_yominet.move          # mock app route #3
+│   │   │   └── mock_intergaze.move        # mock app route #4
+│   │   ├── rewards/
+│   │   │   ├── rewards.move               # points, LEND claims, perks
+│   │   │   ├── campaigns.move             # campaign allocations and claims
+│   │   │   └── referral.move              # referral tracking
+│   │   ├── tokenomics/
+│   │   │   ├── lend_token.move            # native LEND ledger and supply control
+│   │   │   ├── fee_engine.move            # origination and late fee settlement
+│   │   │   ├── staking.move               # staking lifecycle and rewards
+│   │   │   ├── governance.move            # proposal, voting, finalize
+│   │   │   └── tokenomics.move            # quote helpers: tiers, discounts, splits
+│   │   └── shared/
+│   │       ├── errors.move                # common error codes
+│   │       └── assets.move                # fungible asset helpers
+│   ├── tests/
+│   │   ├── credit/
+│   │   │   ├── flow_tests.move            # request, approve, repay, viral drop flows
+│   │   │   └── bridge_tests.move          # bridge route and intent flows
+│   │   ├── rewards/
+│   │   │   └── rewards_tests.move         # points, claims, campaign tests
+│   │   ├── tokenomics/
+│   │   │   └── tokenomics_tests.move      # fees, staking, governance tests
+│   │   └── shared/
+│   │       └── test_support.move          # shared test helpers
+│   ├── scripts/rollup/
+│   │   ├── deploy.sh                      # publish Move package
+│   │   ├── bootstrap.sh                   # initialize protocol onchain
+│   │   ├── fund-liquidity.sh              # fund loan vault
+│   │   ├── mint-lend-reserve.sh           # mint LEND into protocol reserve
+│   │   ├── viral-drop-flow.sh             # full borrower demo flow
+│   │   ├── build.sh
+│   │   ├── test.sh
+│   │   ├── common.sh
+│   │   └── .env.example
+│   ├── artifacts/
+│   │   ├── testnet/
+│   │   │   ├── lendpay-4/                 # active testnet deploy evidence
+│   │   │   │   ├── deploy.json
+│   │   │   │   ├── bootstrap.json
+│   │   │   │   ├── fund-liquidity.json
+│   │   │   │   ├── mint-lend-reserve.json
+│   │   │   │   ├── register-*.json        # merchant registration txs
+│   │   │   │   ├── app-route-proof/       # per-merchant buy + receipt proofs
+│   │   │   │   ├── core-flow-verification/# full borrower flow step txs
+│   │   │   │   └── viral-drop-flow-delivery/
+│   │   │   └── lendpay-3/                 # previous testnet archive
+│   │   └── rollup/                        # local rollup deploy and demo artifacts
+│   │       ├── deploy.json
+│   │       ├── bootstrap.json
+│   │       └── demo/                      # step-by-step demo flow txs
+│   └── Move.toml
+├── sources/                           # top-level Move sources (package root)
+├── docs-site/                         # Docusaurus reference site (Vercel)
+├── deploy/
+│   └── railway/
+│       ├── backend/                   # preferred Railway backend Dockerfile + config
+│       ├── rollup/                    # rollup Railway config
+│       └── deploy/                    # rollup deploy tooling
+├── scripts/
+│   ├── local-stack-up.sh
+│   ├── local-stack-down.sh
+│   ├── local-stack-status.sh
+│   ├── go-bin.sh
+│   └── railway-deploy-prepare.sh
+├── .github/
+│   └── workflows/
+│       └── backend-railway-cli-deploy.yml
+├── .initia/
+│   └── submission.json                # hackathon submission metadata
+├── Dockerfile                         # repo-root Railway fallback build
+├── railway.json                       # repo-root Railway fallback config
+├── Makefile                           # make up / down / status / restart / logs
+├── Move.toml                          # Move package manifest
+├── docker-compose.local-stack.yml
+└── lendpay-scan-chain.json
+```
+
 ## Problem
 
-Onchain finance is already good at moving assets, but it is still bad at financing real app usage.
+Onchain finance moves assets well. It does not finance app usage.
 
-Users can bridge, trade, and swap, yet they still cannot easily pay over time for the experiences they actually want inside apps: drops, passes, collectibles, memberships, and other consumer actions.
+Users can bridge, trade, and swap. They still cannot pay over time for the experiences they want inside apps — drops, passes, collectibles, memberships, consumer actions.
 
-The result is a real ecosystem gap:
+The gap is structural:
 
-- borrowers may have visible onchain reputation, but no usable installment credit
+- borrowers carry visible onchain reputation, but have no usable installment credit
 - partner apps have demand at checkout, but no reusable credit rail built for Initia-native flows
-- repayment behavior can happen onchain, but it still rarely compounds into stronger future access
+- repayment behavior happens onchain, but rarely compounds into stronger future access
 
 ## Solution
 
 LendPay turns wallet activity, `.init` identity, and repayment history into an app-native credit rail for Initia.
 
-It combines:
+Instead of a detached lending screen, LendPay ties credit to a concrete product action: connect wallet, refresh profile, request app credit, receive operator approval, use the funded balance in a reference app, mint an onchain receipt, and repay over time.
 
-- a borrower-facing frontend for request, usage, repayment, rewards, and ecosystem actions
-- a Go backend for wallet-authenticated sessions, underwriting, state sync, and operator actions
-- Move contracts on a MiniMove rollup for requests, approvals, repayments, collateral, rewards, staking, governance, campaigns, and app-linked rails
+Small requests are reputation-based and unsecured. A separate advanced profile accepts locked `LEND` collateral for larger secured requests. The goal is pay-later access inside real Initia app flows, not abstract leverage.
 
-Instead of treating credit as a detached lending screen, LendPay keeps the flow tied to a real product action: connect wallet, refresh profile state, request app credit, receive operator approval, use the funded balance in a reference app integration, mint an onchain receipt, and repay over time.
-
-Small app requests are reputation-based and unsecured. A separate advanced profile supports locked `LEND` collateral for larger secured requests. The goal is not abstract leverage. The goal is usable pay-later access inside real Initia app flows.
-
-The credit rail itself is live in the demo flow today: request, approval, funding, usage, receipt, and repayment all execute through the current stack. The current spend destination is shown through `viral_drop` as a reference demo app integration that demonstrates how LendPay can plug into real Initia apps such as drops, memberships, game items, and DeFi access.
+The credit rail is live today: request, approval, funding, usage, receipt, and repayment all run through the current stack. `viral_drop` is the reference demo app integration — it shows how LendPay plugs into real Initia apps such as drops, memberships, game items, and DeFi access.
 
 ## Real-World Impact
 
@@ -71,7 +240,7 @@ If LendPay works as intended, it pushes wallet reputation out of dashboards and 
 
 ## Core Flow
 
-LendPay is currently tightened around one truthful internal borrower flow:
+LendPay demonstrates one complete internal borrower flow:
 
 1. connect wallet and refresh borrower analysis
 2. request credit for a live Initia app

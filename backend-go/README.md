@@ -2,7 +2,7 @@
 
 Go backend for the LendPay Move rollup.
 
-This service sits between the frontend and the rollup. It handles wallet auth, borrower hydration, normalized product reads, score generation, Postgres-backed mirrors, and operator-gated preview actions.
+This service sits between the frontend and the rollup. It handles wallet auth, borrower hydration, normalized product reads, score generation, Postgres mirrors, and operator-gated write paths.
 
 ## What It Does
 
@@ -13,17 +13,63 @@ This service sits between the frontend and the rollup. It handles wallet auth, b
 - exposes protocol, liquidity, and admin preview routes used by the frontend
 - normalizes pooled vs direct Postgres connections for providers such as PgCat-style poolers
 
+## Architecture
+
+```mermaid
+graph TD
+    FE[Frontend] -->|HTTP + JWT| Router[HTTP Router\nserver.go]
+    Router --> Auth[auth.go\nchallenge · verify · session]
+    Router --> Borrower[Borrower API\nme · score · loans]
+    Router --> Protocol[Protocol API\nmerchants · campaigns · governance]
+    Router --> Admin[Admin Preview\nvip · dex]
+    Auth --> DB[(PostgreSQL)]
+    Borrower --> DB
+    Borrower --> Rollup[rollup_client.go\nRPC + REST]
+    Borrower --> Oracle[oracle_client.go\nConnect feed]
+    Borrower --> Usernames[usernames_client.go\nInitia usernames]
+    Protocol --> MiniEVM[minievm_client.go]
+    Protocol --> DB
+```
+
+## Project Structure
+
+```
+backend-go/
+├── cmd/
+│   └── server/
+│       └── main.go              # entry point, HTTP server startup
+├── internal/
+│   └── app/
+│       ├── server.go            # router, handlers, borrower workflows
+│       ├── config.go            # env loading and normalization
+│       ├── db.go                # pgx pool, schema bootstrap, SQL helpers
+│       ├── bootstrap.sql        # embedded schema for first-run
+│       ├── auth.go              # challenge, session token, personal_sign verify
+│       ├── amino.go             # Amino signature fallback
+│       ├── models.go            # response shapes and row models
+│       ├── errors.go            # API error helpers
+│       ├── rate_limit.go        # in-memory throttling
+│       ├── oracle_client.go     # Connect oracle feed normalization
+│       ├── rollup_client.go     # rollup RPC/REST reads
+│       ├── minievm_client.go    # MiniEVM metadata lookups
+│       ├── usernames_client.go  # Initia username integration
+│       └── ollama_client.go     # AI provider status
+├── Dockerfile
+├── railway.json
+└── .env.example
+```
+
 ## Current Runtime Shape
 
-The backend is intentionally split into:
+The backend is split into two tiers:
 
-- live-ish borrower and product APIs backed by Postgres
-- preview protocol/admin flows for actions that are not yet wired to a real chain writer
+- active borrower and product APIs backed by Postgres
+- preview protocol and admin flows pending live chain writer wiring
 
-Practical meaning:
+In practice:
 
-- borrower auth, reads, request creation, review-demo approval, repayment mirrors, and score paths are active in Go
-- several operator and protocol write routes still return preview responses rather than broadcasting onchain writes
+- borrower auth, reads, request creation, review-demo approval, repayment mirrors, and score paths are fully active
+- several operator and protocol write routes return preview responses until onchain write paths are wired
 
 ## Code Layout
 
@@ -184,7 +230,7 @@ Database behavior:
 
 ## Rate Limiting
 
-Rate limiting is in-memory and enabled by default.
+Rate limiting runs in-memory and is on by default.
 
 Buckets:
 
@@ -320,12 +366,12 @@ Monorepo deploy note:
 
 ## Compatibility Notes
 
-- `backend-go/` is the single active backend implementation
-- local scripts and docs now treat `backend-go` as the canonical backend
+- `backend-go/` is the sole active backend
+- all local scripts and docs treat `backend-go` as the canonical backend path
 
 ## Known Limits
 
-- several protocol and admin mutations still return preview responses
-- faucet claim remains preview-only
-- AI integration is currently used for provider/status behavior, while scoring remains policy-bounded and deterministic
-- the main application logic still lives in `internal/app/server.go` and can be split further as the codebase grows
+- several protocol and admin mutations return preview responses pending live write wiring
+- faucet claim is preview-only
+- AI integration handles provider and status behavior; scoring is policy-bounded and deterministic
+- core application logic lives in `internal/app/server.go` and can be split further as the codebase grows

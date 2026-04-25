@@ -2,7 +2,7 @@
 
 React + Vite borrower console for the LendPay Move rollup.
 
-This app is the user-facing product shell. It connects the wallet with InterwovenKit, authenticates against the backend, loads mirrored borrower state, and opens wallet approvals for Move actions such as request, repay, claim, stake, and campaign flows.
+The app is the user-facing product shell. It connects the wallet through InterwovenKit, authenticates against the backend, loads mirrored borrower state, and opens wallet approvals for Move actions — request, repay, claim, stake, and campaign flows.
 
 ## What It Does
 
@@ -10,8 +10,60 @@ This app is the user-facing product shell. It connects the wallet with Interwove
 - signs backend login challenges and persists the backend session per wallet address
 - renders the borrower dashboard, request flow, repay flow, loyalty surfaces, ecosystem reads, and proof explorer
 - builds Move `MsgExecute` payloads for rollup actions
-- tries to enable Interwoven auto-sign for supported Move actions
+- requests Interwoven auto-sign permission for supported Move actions
 - shows a human-readable tx preview before the wallet signer opens
+
+## Architecture
+
+```mermaid
+graph TD
+    Wallet[InterwovenKit Wallet] -->|connect + sign| App[App.tsx]
+    App -->|challenge + verify| Backend[Go Backend]
+    Backend -->|JWT session + borrower state| App
+    App --> useBackendSession
+    App --> useAutoSignPermission
+    App --> useTxPreview
+    useTxPreview --> TxPreviewModal
+    TxPreviewModal -->|confirmed| Move[lib/move.ts]
+    Move -->|MsgExecute| Rollup[lendpay-4 Rollup]
+    Rollup -->|tx receipt| App
+    App -->|resync| Backend
+```
+
+## Project Structure
+
+```
+frontend/
+├── src/
+│   ├── main.tsx                 # app entry, providers, QueryClient, Wagmi
+│   ├── App.tsx                  # orchestration, state, tx dispatch, toasts
+│   ├── components/
+│   │   ├── pages/               # Overview, Profile, Request, Repay, Loyalty, Ecosystem
+│   │   ├── shared/              # TxPreviewModal, ProofModal, ErrorBoundary
+│   │   ├── layout/              # shell and nav layout
+│   │   ├── loans/               # loan-specific UI
+│   │   ├── score/               # score display UI
+│   │   └── ui/                  # base UI primitives
+│   ├── hooks/
+│   │   ├── useBackendSession.ts # JWT session creation, persistence, reuse
+│   │   ├── useAutoSignPermission.ts
+│   │   └── useTxPreview.ts      # pre-wallet modal state and confirmation
+│   ├── lib/
+│   │   ├── api.ts               # backend API client (timeout + retry)
+│   │   ├── move.ts              # MsgExecute builders
+│   │   ├── auth.ts              # wallet signing helpers for login
+│   │   ├── tx.ts                # tx hash extraction
+│   │   ├── appHelpers.ts        # labels, grouping, formatting
+│   │   └── nav.ts               # shared navigation model
+│   ├── config/
+│   │   ├── chain.ts             # custom chain config for InterwovenKit
+│   │   └── env.ts               # Vite env mapping
+│   ├── types/
+│   │   └── domain.ts            # shared domain types
+│   └── styles/                  # CSS layers (foundation, tokens, pages, shell)
+├── .env.example
+└── vercel.json
+```
 
 ## Stack
 
@@ -91,18 +143,18 @@ Shared UI:
 Important current behavior:
 
 - the Wagmi connector is restricted to `initiaPrivyWalletConnector`
-- `reconnectOnMount` is enabled, so refresh should reconnect instead of feeling like a logout
+- `reconnectOnMount` is enabled, so a refresh reconnects rather than logs out
 - the app clears stale non-Initia Wagmi connector state on boot
-- some wallet UI still belongs to the wallet extension itself, so raw JSON sign docs can still appear after the in-app preview
+- some wallet UI is owned by the extension, so raw JSON sign docs can still appear after the in-app preview
 
 ## Modes
 
-Technical mode is still available:
+Technical mode is available:
 
 - `?technical=1`
 - `#technical`
 
-Public operator mode is currently disabled in the client. Admin buttons remain visible only where the product needs to explain the flow, but public actions return disabled messaging until server-side operator auth is reintroduced safely.
+Public operator mode is disabled in the client. Admin buttons remain visible only where the flow requires explanation, but public actions return disabled messaging until server-side operator auth is re-enabled safely.
 
 ## Environment
 
