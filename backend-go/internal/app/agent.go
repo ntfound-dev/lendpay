@@ -58,7 +58,7 @@ type agentGuideContext struct {
 
 func normalizeAgentSurface(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "analyze", "request", "loan", "rewards", "admin":
+	case "analyze", "request", "loan", "rewards", "ecosystem":
 		return strings.ToLower(strings.TrimSpace(value))
 	default:
 		return "overview"
@@ -614,7 +614,7 @@ func (s *Server) buildAgentGuidanceWithContext(
 		guide.ActionLabel = agentAction("Use credit")
 		guide.ActionKey = agentAction("open_request")
 		guide.Confidence = agentConfidence(78)
-	case "admin":
+	case "ecosystem":
 		guide.AssistantLabel = "Watching ecosystem activity"
 		guide.AssistantDetail = "The agent is observing apps, campaigns, and protocol surfaces around the borrower journey."
 		guide.PanelTitle = "Ecosystem awareness stays tied to borrower safety"

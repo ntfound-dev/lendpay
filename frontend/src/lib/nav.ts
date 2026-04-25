@@ -6,7 +6,7 @@ export const NAV_ITEMS: Array<{ key: NavKey; label: string; index: string; mobil
   { key: 'request', label: 'Request', index: '03' },
   { key: 'loan', label: 'Repay', index: '04' },
   { key: 'rewards', label: 'Loyalty Hub', index: '05', mobileLabel: 'Loyalty' },
-  { key: 'admin', label: 'Ecosystem', index: '06' },
+  { key: 'ecosystem', label: 'Ecosystem', index: '06' },
   { key: 'bridge', label: 'Bridge', index: '07' },
 ]
 

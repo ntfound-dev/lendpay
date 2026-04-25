@@ -5050,7 +5050,7 @@ function App() {
     agentPanelStatusLabel = canClaimAvailableRewards ? 'Rewards ready' : 'Benefits compounding'
     agentPanelActionLabel = canClaimAvailableRewards ? `Claim ${formatNumber(claimableRewardsTotal)} LEND` : 'Use credit'
     handleAgentPanelAction = canClaimAvailableRewards ? handleClaimAvailableRewards : () => setActivePage('request')
-  } else if (activePage === 'admin') {
+  } else if (activePage === 'ecosystem') {
     topbarTitle = 'Ecosystem'
     topbarSubtitle = 'Apps, campaigns, and network activity around LendPay'
     topbarTitleBadge = undefined
@@ -5204,7 +5204,7 @@ function App() {
           ? 'Repayment watch'
           : activePage === 'rewards'
             ? 'Loyalty status'
-            : activePage === 'admin'
+            : activePage === 'ecosystem'
               ? 'Watching ecosystem activity'
               : activePage === 'bridge'
                 ? 'Bridge and staking'
@@ -5217,7 +5217,7 @@ function App() {
       ? repaymentWatchDetail
     : visibleAgentGuide
       ? visibleAgentGuide.assistantDetail
-    : activePage === 'admin'
+    : activePage === 'ecosystem'
       ? 'Track which apps, campaigns, and proposals are live around LendPay.'
     : activePage === 'bridge'
       ? 'Move LEND toward MiniEVM, keep faucet access ready, and manage staking from one panel.'
@@ -5465,7 +5465,7 @@ function App() {
             ) : null}
 
             {canRenderConnectedPages &&
-            activePage !== 'admin' &&
+            activePage !== 'ecosystem' &&
             activePage !== 'overview' &&
             activePage !== 'bridge' ? (
               <AgentPanel
@@ -5733,7 +5733,7 @@ function App() {
               />
             ) : null}
 
-            {canRenderConnectedPages && activePage === 'admin' ? (
+            {canRenderConnectedPages && activePage === 'ecosystem' ? (
               <EcosystemPage
                 allocationDraft={allocationDraft}
                 campaignDraft={campaignDraft}
