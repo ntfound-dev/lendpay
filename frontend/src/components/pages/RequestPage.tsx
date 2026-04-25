@@ -7,6 +7,7 @@ import {
   formatAppLabel,
   formatProfileLabel,
   getDropItemArtwork,
+  getMerchantBanner,
   getMerchantShowcaseHint,
   getMerchantShowcaseItems,
   parseNumericId,
@@ -147,6 +148,7 @@ export function RequestPage({
   const lastSelectedMerchantIdRef = useRef<string | null>(null)
   const merchantShowcaseItems = getMerchantShowcaseItems(selectedMerchant)
   const merchantShowcaseHint = getMerchantShowcaseHint(selectedMerchant, selectedAppMeta.family)
+  const merchantBanner = getMerchantBanner(selectedMerchant)
   const hasDraftAmount = Number(draft.amount || 0) > 0
   const showQuickAppCards = requestQuickApps.length > 0 && requestQuickApps.length <= 6
   const tenorCapMessage =
@@ -307,8 +309,17 @@ export function RequestPage({
 
         {checkoutMerchantReady ? (
           <>
-            <Card className="checkout-card">
+            <Card className="checkout-card checkout-card--no-pad">
               <div className="app-purpose-card">
+                <div
+                  className="app-purpose-card__banner"
+                  style={{
+                    background: `linear-gradient(135deg, ${merchantBanner.gradientFrom}, ${merchantBanner.gradientTo})`,
+                  }}
+                >
+                  <span className="app-purpose-card__banner-emoji">{merchantBanner.emoji}</span>
+                </div>
+                <div className="app-purpose-card__content">
                 <div className="app-purpose-card__head">
                   <div>
                     <div className="checkout-section__label">Selected app demo</div>
@@ -337,6 +348,7 @@ export function RequestPage({
                 <div className="app-purpose-card__next">
                   <span>What happens next</span>
                   <strong>{selectedRouteOutcomeCopy}</strong>
+                </div>
                 </div>
               </div>
             </Card>

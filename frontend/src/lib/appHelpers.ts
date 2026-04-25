@@ -223,9 +223,89 @@ export const getAppPostApprovalCopy = (category?: string) => {
   return 'Pick a live item there to finish the purchase onchain.'
 }
 
+export type MerchantBanner = {
+  emoji: string
+  gradientFrom: string
+  gradientTo: string
+}
+
+export const getMerchantBanner = (merchant?: MerchantState | null): MerchantBanner => {
+  const name = merchant?.name?.trim().toLowerCase() ?? ''
+  const category = merchant?.category?.trim().toLowerCase() ?? ''
+
+  if (name.includes('atelier') || category.includes('apparel') || category.includes('fashion')) {
+    return { emoji: '🎨', gradientFrom: '#ede9fe', gradientTo: '#fce7f3' }
+  }
+  if (name.includes('arcade') || category.includes('arcade')) {
+    return { emoji: '🎮', gradientFrom: '#fef3c7', gradientTo: '#dbeafe' }
+  }
+  if (name.includes('intergaze')) {
+    return { emoji: '🔮', gradientFrom: '#ede9fe', gradientTo: '#dbeafe' }
+  }
+  if (name.includes('yominet') || category.includes('gaming') || category.includes('game')) {
+    return { emoji: '⚔️', gradientFrom: '#fef9c3', gradientTo: '#d1fae5' }
+  }
+  if (name.includes('cabal') || category.includes('defi')) {
+    return { emoji: '📈', gradientFrom: '#dbeafe', gradientTo: '#d1fae5' }
+  }
+  return { emoji: '🛍️', gradientFrom: '#f1f5f9', gradientTo: '#e2e8f0' }
+}
+
 export const getMerchantShowcaseItems = (merchant?: MerchantState | null): MerchantShowcaseItem[] => {
   const name = merchant?.name?.trim().toLowerCase() ?? ''
   const category = merchant?.category?.trim().toLowerCase() ?? ''
+
+  if (name.includes('atelier') || category.includes('apparel') || category.includes('fashion')) {
+    return [
+      {
+        id: 'atelier-og-pass',
+        name: 'Initia OG Pass',
+        artwork: '/drops/initia-og-pass.svg',
+        price: 80,
+        detail: 'Early-access pass for Atelier drops, limited editions, and creator collabs.',
+      },
+      {
+        id: 'atelier-alpha-badge',
+        name: 'Alpha Circle Badge',
+        artwork: '/drops/alpha-circle-badge.svg',
+        price: 160,
+        detail: 'Collector badge granting priority access to new Atelier season releases.',
+      },
+      {
+        id: 'atelier-meme-capsule',
+        name: 'Meme Capsule',
+        artwork: '/drops/meme-capsule.svg',
+        price: 240,
+        detail: 'Limited capsule drop blending creator culture with collectible apparel.',
+      },
+    ]
+  }
+
+  if (name.includes('arcade') || category.includes('arcade')) {
+    return [
+      {
+        id: 'arcade-kamigotchi',
+        name: 'Kamigotchi Egg',
+        artwork: '/yominet/kamigotchi-egg.svg',
+        price: 50,
+        detail: 'Starter creature for Arcade Mile mini-games with hatch-ready cosmetics.',
+      },
+      {
+        id: 'arcade-starter-pack',
+        name: 'Arena Starter Pack',
+        artwork: '/yominet/arena-starter-pack.svg',
+        price: 120,
+        detail: 'Battle-ready loadout with consumables and ranked queue access.',
+      },
+      {
+        id: 'arcade-pass',
+        name: 'Guild Access Pass',
+        artwork: '/yominet/guild-access-pass.svg',
+        price: 200,
+        detail: 'Full arcade pass unlocking premium game modes and exclusive events.',
+      },
+    ]
+  }
 
   if (name.includes('intergaze')) {
     return [

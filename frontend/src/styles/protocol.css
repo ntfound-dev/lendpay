@@ -402,7 +402,31 @@
 
 .app-purpose-card {
   display: grid;
+  gap: 0;
+}
+
+.app-purpose-card__banner {
+  width: 100%;
+  height: 120px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px 12px 0 0;
+}
+
+.app-purpose-card__banner-emoji {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.app-purpose-card__content {
+  display: grid;
   gap: 12px;
+  padding: 18px 20px 20px;
+}
+
+.checkout-card--no-pad {
+  padding: 0 !important;
+  overflow: hidden;
 }
 
 .app-purpose-card__head {
