@@ -89,6 +89,7 @@ import type {
   NavKey,
   ReferralState,
   RewardsState,
+  SeasonState,
   TierVoucherState,
   ToastState,
   TxExplorerState,
@@ -131,6 +132,7 @@ type DataSection =
   | 'merchants'
   | 'profiles'
   | 'referral'
+  | 'season'
   | 'viralDrop'
 
 const defaultDraft: RequestDraft = {
@@ -357,6 +359,7 @@ function App() {
   const [referral, setReferral] = useState<ReferralState | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardState | null>(null)
   const [faucet, setFaucet] = useState<FaucetState | null>(null)
+  const [seasonData, setSeasonData] = useState<SeasonState | null>(null)
   const [lendLiquidityRoute, setLendLiquidityRoute] = useState<LendLiquidityRouteState | null>(null)
   const [viralDropItems, setViralDropItems] = useState<ViralDropItemState[]>([])
   const [viralDropPurchases, setViralDropPurchases] = useState<ViralDropPurchaseState[]>([])
@@ -1389,6 +1392,7 @@ function App() {
       nextLeaderboard,
       nextLiquidityRoute,
       nextViralDrop,
+      nextSeason,
     ] =
       await Promise.all([
         profileOverride ? Promise.resolve(profileOverride) : lendpayApi.getMe(token, signal),
@@ -1466,6 +1470,7 @@ function App() {
           { items: [], purchases: [] },
           'Viral drop activity could not be loaded.',
         ),
+        loadOptionalSection('season', () => lendpayApi.getSeason(signal), null, 'Season data could not be loaded.'),
       ])
     throwIfAborted(signal)
     const nextActiveLoan = nextLoans.find((loan) => loan.status === 'active') ?? null
@@ -1503,6 +1508,7 @@ function App() {
     setLendLiquidityRoute(nextLiquidityRoute)
     setViralDropItems(nextViralDrop.items)
     setViralDropPurchases(nextViralDrop.purchases)
+    setSeasonData(nextSeason)
     setActivities(nextActivities)
     setSectionErrors(nextErrors)
     setLoadError(null)
@@ -5713,6 +5719,7 @@ function App() {
                 referralCodeInput={referralCodeInput}
                 referralInviteUrl={referralInviteUrl}
                 rewards={rewards}
+                seasonData={seasonData}
                 sectionErrors={sectionErrors}
                 showWalletRecovery={showWalletRecovery && walletRecoveryActionKey === 'claim-all'}
                 setInterestDiscountPercent={setInterestDiscountPercent}

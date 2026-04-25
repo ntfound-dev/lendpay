@@ -19,6 +19,7 @@ import type {
   LeaderboardState,
   RewardsState,
   ReferralState,
+  SeasonState,
   TxExplorerState,
   UserProfile,
   ViralDropItemState,
@@ -238,6 +239,10 @@ export const lendpayApi = {
       token,
       body: { code },
     })
+  },
+
+  getSeason(signal?: AbortSignal) {
+    return request<SeasonState>('/api/v1/season', { signal })
   },
 
   getLeaderboard(token: string, signal?: AbortSignal) {

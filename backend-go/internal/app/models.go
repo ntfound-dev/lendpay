@@ -59,6 +59,14 @@ type activityItem struct {
 	Timestamp string `json:"timestamp"`
 }
 
+type seasonState struct {
+	PointsToLendRate     float64 `json:"pointsToLendRate"`
+	SeasonEndAt          *string `json:"seasonEndAt,omitempty"`
+	SeasonID             int     `json:"seasonId"`
+	SeasonLendAllocation int     `json:"seasonLendAllocation"`
+	TotalPlatformPoints  int     `json:"totalPlatformPoints"`
+}
+
 type faucetState struct {
 	CanClaim      bool    `json:"canClaim"`
 	ClaimAmount   int     `json:"claimAmount"`

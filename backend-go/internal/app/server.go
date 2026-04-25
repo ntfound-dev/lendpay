@@ -291,6 +291,7 @@ func (s *Server) Handler() http.Handler {
 	router.Get("/api/v1/me/referral", s.handleGetReferral)
 	router.Post("/api/v1/me/referral/apply", s.handleApplyReferral)
 
+	router.Get("/api/v1/season", s.handleGetSeason)
 	router.Get("/api/v1/leaderboard", s.handleGetLeaderboard)
 	router.Get("/api/v1/score", s.handleGetScore)
 	router.Post("/api/v1/score/analyze", s.handleAnalyzeScore)
@@ -545,6 +546,39 @@ func (s *Server) handleGetPoints(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, mapUserProfile(user).Rewards)
+}
+
+func (s *Server) handleGetSeason(w http.ResponseWriter, r *http.Request) {
+	total := 0
+	row := s.db.pool.QueryRow(r.Context(), fmt.Sprintf(`SELECT COALESCE(SUM("points"), 0) FROM %s`, s.db.table("User")))
+	if err := row.Scan(&total); err != nil {
+		writeAppError(w, &appError{
+			Code:       "SEASON_LOAD_ERROR",
+			Message:    "Season data could not be loaded.",
+			StatusCode: http.StatusInternalServerError,
+		})
+		return
+	}
+
+	allocation := s.cfg.SeasonLendAllocation
+	rate := 0.0
+	if total > 0 {
+		rate = float64(allocation) / float64(total)
+	}
+
+	var seasonEndAt *string
+	if s.cfg.SeasonEndAt != "" {
+		v := s.cfg.SeasonEndAt
+		seasonEndAt = &v
+	}
+
+	writeJSON(w, http.StatusOK, seasonState{
+		PointsToLendRate:     rate,
+		SeasonEndAt:          seasonEndAt,
+		SeasonID:             s.cfg.SeasonID,
+		SeasonLendAllocation: allocation,
+		TotalPlatformPoints:  total,
+	})
 }
 
 func (s *Server) handleSyncRewards(w http.ResponseWriter, r *http.Request) {

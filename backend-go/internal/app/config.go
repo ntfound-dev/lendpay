@@ -60,6 +60,9 @@ type Config struct {
 	PublicRollupRPCURL           string
 	RollupRESTURL                string
 	RollupRPCURL                 string
+	SeasonEndAt                  string
+	SeasonID                     int
+	SeasonLendAllocation         int
 }
 
 func LoadConfig() Config {
@@ -127,6 +130,9 @@ func LoadConfig() Config {
 		PublicRollupRPCURL:       resolvePublicServiceURL(getEnv("PUBLIC_ROLLUP_RPC_URL", ""), rollupRPCURL),
 		RollupRESTURL:            rollupRESTURL,
 		RollupRPCURL:             rollupRPCURL,
+		SeasonEndAt:              getEnv("SEASON_END_AT", ""),
+		SeasonID:                 getEnvInt("SEASON_ID", 1),
+		SeasonLendAllocation:     getEnvInt("SEASON_LEND_ALLOCATION", 100000),
 	}
 }
 

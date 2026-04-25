@@ -18,6 +18,7 @@ import type {
   LeaderboardEntry,
   ReferralState,
   RewardsState,
+  SeasonState,
   TierVoucherState,
 } from '../../types/domain'
 import { EmptyState } from '../shared/EmptyState'
@@ -67,6 +68,7 @@ type LoyaltyHubPageProps = {
   referralCodeInput: string
   referralInviteUrl: string | null
   rewards: RewardsState | null
+  seasonData: SeasonState | null
   sectionErrors: Partial<Record<string, string>>
   showWalletRecovery: boolean
   setInterestDiscountPercent: Dispatch<SetStateAction<string>>
@@ -124,6 +126,7 @@ export function LoyaltyHubPage({
   referralCodeInput,
   referralInviteUrl,
   rewards,
+  seasonData,
   sectionErrors,
   showWalletRecovery,
   setInterestDiscountPercent,
@@ -570,6 +573,40 @@ export function LoyaltyHubPage({
           <Card eyebrow="Advanced point actions" title="Convert and spend points" className="story-card">
             {hasPointInventory ? (
               <>
+                {seasonData && seasonData.totalPlatformPoints > 0 && (
+                  <div className="season-allocation-banner">
+                    <div className="season-allocation-banner__head">
+                      <span className="season-allocation-banner__label">
+                        Season {seasonData.seasonId} Airdrop
+                      </span>
+                      <span className="season-allocation-banner__allocation">
+                        {formatNumber(seasonData.seasonLendAllocation)} LEND allocated
+                      </span>
+                    </div>
+                    <div className="season-allocation-banner__bar-row">
+                      <div className="season-allocation-banner__bar">
+                        <div
+                          className="season-allocation-banner__bar-fill"
+                          style={{
+                            width: `${Math.min(100, ((rewards?.points ?? 0) / seasonData.totalPlatformPoints) * 100).toFixed(2)}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="season-allocation-banner__pct">
+                        {(((rewards?.points ?? 0) / seasonData.totalPlatformPoints) * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="season-allocation-banner__estimate">
+                      <span>Estimated airdrop</span>
+                      <strong>
+                        ~{formatNumber(Math.floor(((rewards?.points ?? 0) / seasonData.totalPlatformPoints) * seasonData.seasonLendAllocation))} LEND
+                      </strong>
+                    </div>
+                    <p className="season-allocation-banner__note">
+                      Based on {formatPoints(rewards?.points ?? 0)} of {formatNumber(seasonData.totalPlatformPoints)} total platform points
+                    </p>
+                  </div>
+                )}
                 <div className="summary">
                   <div className="summary-row">
                     <span>Conversion rule</span>

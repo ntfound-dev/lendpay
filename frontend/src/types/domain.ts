@@ -244,6 +244,14 @@ export interface ActivityItem {
   timestamp: string
 }
 
+export interface SeasonState {
+  seasonId: number
+  seasonLendAllocation: number
+  totalPlatformPoints: number
+  pointsToLendRate: number
+  seasonEndAt?: string | null
+}
+
 export interface RewardsState {
   points: number
   tier: 'Bronze' | 'Silver' | 'Gold' | 'Diamond'
