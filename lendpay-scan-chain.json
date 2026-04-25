@@ -1,0 +1,54 @@
+{
+  "$schema": "../../chain.schema.json",
+  "chain_name": "lendpay",
+  "pretty_name": "LendPay",
+  "chain_id": "lendpay-4",
+  "bech32_prefix": "init",
+  "network_type": "testnet",
+  "key_algos": ["secp256k1"],
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "ulend",
+        "fixed_min_gas_price": 0.015,
+        "low_gas_price": 0.015,
+        "average_gas_price": 0.015,
+        "high_gas_price": 0.04
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [{ "denom": "ulend" }]
+  },
+  "apis": {
+    "rpc": [{ "address": "https://rollup-runtime-backend.up.railway.app" }],
+    "rest": [{ "address": "https://rollup-runtime-backend.up.railway.app" }],
+    "indexer": [{ "address": "https://balanced-peace-backend.up.railway.app" }]
+  },
+  "explorers": [
+    {
+      "kind": "initia scan",
+      "url": "https://scan.testnet.initia.xyz/lendpay-4",
+      "tx_page": "https://scan.testnet.initia.xyz/lendpay-4/txs/${txHash}",
+      "account_page": "https://scan.testnet.initia.xyz/lendpay-4/accounts/${accountAddress}"
+    }
+  ],
+  "images": [
+    {
+      "png": "https://registry.testnet.initia.xyz/images/minimove.png"
+    }
+  ],
+  "logo_URIs": {
+    "png": "https://registry.testnet.initia.xyz/images/minimove.png"
+  },
+  "metadata": {
+    "op_bridge_id": "0",
+    "op_denoms": ["uinit"],
+    "ibc_channels": [],
+    "minitia": {
+      "type": "minimove",
+      "version": "v1.1.11"
+    }
+  }
+}

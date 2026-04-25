@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /mnt/c/Users/frend/lendpay log --oneline --follow backend-go/internal/app/server.go)",
+      "Bash(git -C /mnt/c/Users/frend/lendpay show 379851f --stat)",
+      "Bash(git -C /mnt/c/Users/frend/lendpay show 0e21194 --stat)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
+    ]
+  }
+}

@@ -15,7 +15,7 @@ The agent trust layer and the money movement layer stay related but are not the 
 
 ## Why Initia Fits
 
-LendPay already leans on `Move` execution for request, approval, repayment, and default state; app-linked routes instead of open-ended cash-loan behavior; and InterwovenKit auto-sign for narrow, borrower-approved wallet autonomy. If credit is tied to a real app flow, the protocol can keep it inside a bounded path instead of treating it like unrestricted cash.
+LendPay already leans on `Move` execution for request, approval, repayment, and default state, and app-linked routes instead of open-ended cash-loan behavior. If credit is tied to a real app flow, the protocol can keep it inside a bounded path instead of treating it like unrestricted cash.
 
 ## Four Layers
 
@@ -52,7 +52,6 @@ This distinction matters because `ERC-8004` is still draft-stage. It is better r
 ## What LendPay Already Has
 
 - A deterministic planner layer
-- Narrow borrower-approved autonomy
 - Onchain borrower reputation updates
 - Merchant-linked and app-linked purchase rails
 
@@ -74,8 +73,7 @@ This distinction matters because `ERC-8004` is still draft-stage. It is better r
 
 ## Suggested Build Order
 
-1. Keep current borrower-approved autonomy narrow
-2. Improve live identity reads and wallet-to-username verification
+1. Improve live identity reads and wallet-to-username verification
 3. Formalize route validation and app acceptance proofs
 4. Add agent-specific reputation inputs and trust downgrade rules
 5. Only then test bounded agentic paylater with small limits
