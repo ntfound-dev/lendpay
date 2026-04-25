@@ -1,13 +1,13 @@
 # Architecture
 
-LendPay is split into four practical layers.
+LendPay is split into four layers.
 
 ## Visual Overview
 
 <figure class="docs-diagram">
   <ArchitectureStackMermaid />
   <figcaption>
-    The stack has one user-facing layer, one normalization and policy layer, one runtime layer, and one protocol-logic layer.
+    One user-facing layer, one normalization and policy layer, one chain runtime layer, one protocol-logic layer.
   </figcaption>
 </figure>
 
@@ -16,76 +16,70 @@ LendPay is split into four practical layers.
 <figure class="docs-diagram">
   <BorrowerFlowMermaid />
   <figcaption>
-    The product should stay legible as one clean borrower path first: connect, authenticate, refresh profile, request credit, use it in an app, then repay and earn stronger access.
+    Connect → authenticate → refresh profile → request credit → use in an app → repay → earn stronger access.
   </figcaption>
 </figure>
 
 ## Frontend
 
-The frontend is a React + Vite borrower console.
+React + Vite borrower console.
 
-It handles:
-
-- wallet connection through InterwovenKit
-- signed backend session creation
-- borrower state loading
+Handles:
+- wallet connection via InterwovenKit
+- signed backend session
+- borrower state loading and display
 - Move transaction submission
-- product flows like request, repay, rewards, loyalty, ecosystem views, and the bridge-status surface
+- product flows: request, repay, rewards, loyalty hub, ecosystem, bridge status
 
-See [Frontend](/app/frontend) for details.
+See [Frontend](/app/frontend).
 
 ## Backend
 
-The backend is a Go service built around the `backend-go/` runtime.
+Go service in `backend-go/`.
 
-It handles:
-
+Handles:
 - challenge-response wallet auth
-- borrower profile reads
-- AI-assisted underwriting
-- mirrored request and loan state
-- protocol reads
-- bridge-route, liquidity, and MiniEVM mapping normalization
-- operator-signed write flows
+- borrower profile hydration
+- AI-assisted underwriting (policy-bounded)
+- mirrored request and loan state in PostgreSQL
+- protocol and bridge-route state normalization
+- operator write flows
+- season allocation data (`GET /api/v1/season`)
 
-See [Backend](/app/backend) for details.
+See [Backend](/app/backend).
 
 ## Rollup
 
-The rollup is the running MiniMove chain environment.
+Running MiniMove chain environment (`lendpay-4`).
 
-It handles:
-
-- onchain execution of the published package
+Handles:
+- onchain execution of the deployed package
 - RPC and REST endpoints
-- persistent chain state
+- persistent chain state (loans, rewards, treasury, merchant routes)
 - block production and event history
-- built-in oracle state on the rollup side
-- onchain bridge-route and bridge-intent registry state
+- built-in oracle state
+- onchain bridge-route registry
 
-See [Rollup](/app/rollup) for details.
+See [Rollup](/app/rollup).
 
 ## Move Contract
 
-The Move contract executes the actual credit protocol logic inside the rollup runtime.
+Protocol logic inside the rollup runtime.
 
-It handles:
+Handles:
+- requests, approvals, repayments, fee settlement
+- rewards, campaigns, staking, governance
+- app-linked purchase rails (viral drop)
+- bridge route metadata and user bridge intents
 
-- requests and approvals
-- repayments and fee settlement
-- rewards and campaigns
-- staking and governance
-- app-linked purchase rails
-- bridge metadata and user bridge intents for `LEND` exit routing
-
-See [Move Contract](/app/smartcontract) and [Onchain Modules](/protocol/move-package) for details.
+See [Move Contract](/app/smartcontract) and [Onchain Modules](/protocol/move-package).
 
 ## Runtime Flow
 
-1. The frontend connects the wallet and authenticates against the backend.
-2. The backend loads mirrored and onchain borrower state.
-3. The frontend signs and submits Move transactions.
-4. The rollup executes the Move contract and updates chain state.
-5. The backend resyncs the borrower state after chain updates.
-6. The backend also merges onchain bridge-route metadata with MiniEVM lookup state and oracle references.
-7. The UI reflects chain-backed product state instead of frontend-only guesses.
+1. Frontend connects the wallet and authenticates against the backend.
+2. Backend loads mirrored and onchain borrower state.
+3. Frontend signs and submits Move transactions.
+4. Rollup executes the Move contract and updates chain state.
+5. Backend resyncs borrower state after the transaction confirms.
+6. Backend merges onchain bridge-route metadata with MiniEVM and oracle state.
+7. UI reflects chain-backed product state.
