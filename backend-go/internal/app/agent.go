@@ -701,6 +701,13 @@ func (s *Server) buildAgentGuidanceWithContext(
 		return finalize(guide)
 	}
 
+	// The generic "explore your cap" block is overview-specific.
+	// Other surfaces (analyze, request, rewards, admin) already set their
+	// content in the switch above and should return now.
+	if normalizedSurface != "overview" {
+		return finalize(guide)
+	}
+
 	guide.PanelTitle = ternaryGuideLabel(
 		liveProfileCap,
 		ternaryGuideLabel(scorePreview, fmt.Sprintf("You can conservatively explore up to the live %s cap today", usdLabel(float64(liveProfileCapAmount))), fmt.Sprintf("You can safely explore up to the live %s cap today", usdLabel(float64(liveProfileCapAmount)))),
