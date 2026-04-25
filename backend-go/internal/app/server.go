@@ -1820,7 +1820,7 @@ func computeScore(user userRow) creditScoreState {
 	if fallback := user.LiquidLend + user.StakedLend + user.ClaimableLend; fallback > effectiveHoldings {
 		effectiveHoldings = fallback
 	}
-	holdingsBonus := minInt(60, effectiveHoldings/250)
+	holdingsBonus := minInt(60, effectiveHoldings/5)
 	scoreValue := minInt(850, 620+identityBonus+pointsBonus+referralBonus+streakBonus+holdingsBonus)
 
 	risk := "High"
