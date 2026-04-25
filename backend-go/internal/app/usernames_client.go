@@ -115,7 +115,11 @@ func (c *UsernamesClient) resolveNameFromInitiaL1(
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode == http.StatusNotFound || response.StatusCode < 200 || response.StatusCode >= 300 {
+	if response.StatusCode == http.StatusNotFound {
+		// Address has no registered username — valid, not an error
+		return usernameResolution{Source: "initia_l1"}, nil
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return usernameResolution{Source: "initia_l1"}, errRollupViewUnavailable
 	}
 

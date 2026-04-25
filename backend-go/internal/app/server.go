@@ -1815,7 +1815,12 @@ func computeScore(user userRow) creditScoreState {
 	pointsBonus := minInt(120, user.Points/40)
 	referralBonus := minInt(40, user.ReferralPointsEarned/10)
 	streakBonus := minInt(20, user.Streak*2)
-	holdingsBonus := minInt(60, user.HeldLend/250)
+	// Fall back to liquid+staked+claimable if HeldLend hasn't been synced (rollup was unreachable)
+	effectiveHoldings := user.HeldLend
+	if fallback := user.LiquidLend + user.StakedLend + user.ClaimableLend; fallback > effectiveHoldings {
+		effectiveHoldings = fallback
+	}
+	holdingsBonus := minInt(60, effectiveHoldings/250)
 	scoreValue := minInt(850, 620+identityBonus+pointsBonus+referralBonus+streakBonus+holdingsBonus)
 
 	risk := "High"
