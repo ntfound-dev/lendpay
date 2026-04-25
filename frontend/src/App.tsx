@@ -5235,8 +5235,9 @@ function App() {
   const footerLinks = {
     github: 'https://github.com/ntfound-dev/lendpay',
     docs: 'https://lendpay-docs.vercel.app',
-    discord: 'https://discord.gg/initia',
-    x: 'https://x.com/InitiaFDN',
+    discord: 'https://discord.gg/qhbTQEqA',
+    telegram: 'https://t.me/lenpay12',
+    x: 'https://x.com/lendpay1',
     explorer: '/scan.html',
   }
 
@@ -5827,8 +5828,9 @@ function App() {
               <a className="footer-link" href={footerLinks.discord} target="_blank" rel="noopener noreferrer">
                 Discord
               </a>
-              <span className="footer-link footer-link--disabled">Telegram</span>
-              <span className="footer-link footer-link--disabled">Instagram</span>
+              <a className="footer-link" href={footerLinks.telegram} target="_blank" rel="noopener noreferrer">
+                Telegram
+              </a>
               <a className="footer-link" href={footerLinks.x} target="_blank" rel="noopener noreferrer">
                 X (Twitter)
               </a>
