@@ -4,37 +4,44 @@
 
 <script setup lang="ts">
 const chart = String.raw`flowchart TB
-  user["Borrower + Wallet\nconnect, sign, approve, repay"]
-  frontend["Frontend\nReact + Vite\nInterwovenKit wallet flow\nsigned backend session"]
-  backend["Backend\nGo API + PostgreSQL\nborrower sync and underwriting\noperator actions and mirrored state"]
-  rollup["Rollup\nMiniMove runtime\nRPC, REST, blocks, state, execution"]
-  move["Move Contract\nloan book, treasury, rewards,\nstaking, governance"]
-  postgres["Postgres\nbackend mirror data"]
-  connect["Connect\nprice reference"]
-  l1["Initia L1\nidentity and usernames"]
+  subgraph SU["  🧑  Borrower  "]
+    user["Wallet\nconnect · sign · approve · repay"]
+  end
+
+  subgraph SA["  ⚡  Application Layer  "]
+    frontend["Frontend\nReact + Vite · InterwovenKit\nborrower console · tx signing"]
+    backend["Backend\nGo + PostgreSQL\nauth · scoring · state sync"]
+  end
+
+  subgraph SC["  ⛓  Chain Layer  ·  lendpay-4  "]
+    rollup["MiniMove Rollup\nRPC · REST · block production"]
+    move["Move Contract\nloan_book · treasury · rewards\nstaking · governance · bridge"]
+  end
+
+  subgraph SE["  🔌  External  "]
+    db[("PostgreSQL\nmirrored state")]
+    l1["Initia L1\n.init usernames"]
+    oracle["Connect Oracle\nprice feeds"]
+  end
 
   user --> frontend
-  frontend -->|session + borrower APIs| backend
-  frontend -->|signed Move tx| rollup
-  backend -->|sync + operator writes| rollup
+  frontend <-->|"session + borrower APIs"| backend
+  frontend -->|"signed Move tx"| rollup
+  backend <-->|"sync + operator writes"| rollup
   rollup --> move
-  backend -.-> postgres
-  backend -.-> connect
-  rollup -.-> l1
+  backend --- db
+  rollup -. "username reads" .-> l1
+  backend -. "price feeds" .-> oracle
 
-  classDef app fill:#eef4ff,stroke:#93c5fd,color:#1d4ed8,stroke-width:2px;
-  classDef policy fill:#f6f3ff,stroke:#c4b5fd,color:#6d28d9,stroke-width:2px;
-  classDef chain fill:#effcf6,stroke:#86efac,color:#166534,stroke-width:2px;
-  classDef userfill fill:#ecfeff,stroke:#5eead4,color:#115e59,stroke-width:2px;
-  classDef ext fill:#fff7ed,stroke:#fdba74,color:#9a3412,stroke-width:2px;
-  classDef ext2 fill:#fefce8,stroke:#facc15,color:#854d0e,stroke-width:2px;
-  classDef ext3 fill:#eff6ff,stroke:#93c5fd,color:#1d4ed8,stroke-width:2px;
+  classDef su fill:#ecfeff,stroke:#22d3ee,color:#164e63,stroke-width:2px
+  classDef fe fill:#eef4ff,stroke:#818cf8,color:#3730a3,stroke-width:2px
+  classDef be fill:#f5f3ff,stroke:#a78bfa,color:#4c1d95,stroke-width:2px
+  classDef ch fill:#effcf6,stroke:#34d399,color:#064e3b,stroke-width:2px
+  classDef ex fill:#fff7ed,stroke:#fb923c,color:#7c2d12,stroke-width:2px
 
-  class user userfill;
-  class frontend app;
-  class backend policy;
-  class rollup,move chain;
-  class postgres ext;
-  class connect ext2;
-  class l1 ext3;`
+  class user su
+  class frontend fe
+  class backend be
+  class rollup,move ch
+  class db,l1,oracle ex`
 </script>

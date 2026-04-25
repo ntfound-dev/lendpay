@@ -3,34 +3,38 @@
 </template>
 
 <script setup lang="ts">
-const chart = String.raw`flowchart LR
-  a["1. Connect Wallet"] --> b["2. Sign Login"]
-  b --> c["3. Refresh Profile"]
-  c --> d["4. Request Credit"]
-  d --> e["5. Approval"]
-  e --> f["6. Use In App"]
-  f --> g["7. Repay Over Time"]
-  g --> h["8. Stronger Access"]
-  h -. better next cycle .-> c
-  x["Optional UX: temporary auto-sign session\nfor supported Move actions"] -. supports repeat actions .-> g
+const chart = String.raw`flowchart TD
+  s1["① Connect Wallet\nInterwovenKit"]
+  s2["② Sign Login\nchallenge · session token"]
+  s3["③ Refresh Profile\nscore · limit · rewards"]
+  s4["④ Request Credit\nselect app · amount · tenor"]
+  s5["⑤ Operator Approval\nonchain Move execution"]
+  s6["⑥ Use In App\nfunded balance → partner route"]
+  s7["⑦ Repay Installments\nMove tx · rewards earned"]
+  s8["⑧ Stronger Access\nhigher limit · lower APR"]
+  auto["🔄 auto-sign session\noptional · borrower-approved\nfor supported Move actions"]
 
-  classDef primary fill:#eef4ff,stroke:#93c5fd,color:#1d4ed8,stroke-width:2px;
-  classDef auth fill:#f6f3ff,stroke:#c4b5fd,color:#6d28d9,stroke-width:2px;
-  classDef score fill:#fefce8,stroke:#facc15,color:#854d0e,stroke-width:2px;
-  classDef request fill:#effcf6,stroke:#86efac,color:#166534,stroke-width:2px;
-  classDef approve fill:#fff7ed,stroke:#fdba74,color:#9a3412,stroke-width:2px;
-  classDef use fill:#fdf2f8,stroke:#f9a8d4,color:#9d174d,stroke-width:2px;
-  classDef repay fill:#eefcf8,stroke:#5eead4,color:#0f766e,stroke-width:2px;
-  classDef gain fill:#f0fdf4,stroke:#4ade80,color:#166534,stroke-width:2px;
-  classDef helper fill:#f8fafc,stroke:#cbd5e1,color:#475569,stroke-width:2px;
+  s1 --> s2 --> s3 --> s4 --> s5 --> s6 --> s7 --> s8
+  s8 -. "better next cycle" .-> s3
+  auto -. "supports step ⑦" .-> s7
 
-  class a primary;
-  class b auth;
-  class c score;
-  class d request;
-  class e approve;
-  class f use;
-  class g repay;
-  class h gain;
-  class x helper;`
+  classDef step1 fill:#ecfeff,stroke:#22d3ee,color:#164e63,stroke-width:2px
+  classDef step2 fill:#eef4ff,stroke:#818cf8,color:#3730a3,stroke-width:2px
+  classDef step3 fill:#fefce8,stroke:#eab308,color:#713f12,stroke-width:2px
+  classDef step4 fill:#fdf4ff,stroke:#e879f9,color:#701a75,stroke-width:2px
+  classDef step5 fill:#fff7ed,stroke:#fb923c,color:#7c2d12,stroke-width:2px
+  classDef step6 fill:#fdf2f8,stroke:#f472b6,color:#831843,stroke-width:2px
+  classDef step7 fill:#effcf6,stroke:#34d399,color:#064e3b,stroke-width:2px
+  classDef step8 fill:#f0fdf4,stroke:#4ade80,color:#14532d,stroke-width:2px
+  classDef helper fill:#f8fafc,stroke:#94a3b8,color:#475569,stroke-width:1.5px,stroke-dasharray:4
+
+  class s1 step1
+  class s2 step2
+  class s3 step3
+  class s4 step4
+  class s5 step5
+  class s6 step6
+  class s7 step7
+  class s8 step8
+  class auto helper`
 </script>
