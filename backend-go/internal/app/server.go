@@ -2192,7 +2192,11 @@ func (s *Server) syncUserOnchainState(ctx context.Context, user userRow) (userRo
 		hasOnchainData = true
 	}
 	if referralStats, err := s.rollup.GetReferralStats(ctx, user.InitiaAddress); err == nil && referralStats != nil {
-		synced.ReferralPointsEarned = referralStats.PointsEarned
+		// Keep the higher of onchain and DB values — preview loans accumulate referral
+		// points in the DB off-chain; the rollup returns 0 until live mode is active.
+		if referralStats.PointsEarned > synced.ReferralPointsEarned {
+			synced.ReferralPointsEarned = referralStats.PointsEarned
+		}
 		hasOnchainData = true
 	}
 
